@@ -1,0 +1,18 @@
+﻿import rateLimit from "express-rate-limit";
+import { RATE_LIMIT_WINDOW, RATE_LIMIT_MAX } from "../config";
+
+export const rateLimiter = rateLimit({
+  windowMs: RATE_LIMIT_WINDOW,
+  max: RATE_LIMIT_MAX,
+  message: { error: "Too many requests, please try again later", code: "RATE_LIMIT_EXCEEDED" },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+export const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many login attempts, please try again later", code: "AUTH_RATE_LIMIT_EXCEEDED" },
+  standardHeaders: true,
+  legacyHeaders: false
+});
