@@ -539,3 +539,58 @@ As the product grows:
 - create shared form sections
 
 Do not abstract every `<div>` into a component. Abstract repeated behavior, not every HTML element.
+
+---
+
+## Documentation Lifecycle & Design Governance
+
+This design document is a **living UI/UX source of truth**. It must evolve with the actual product interface while preserving consistency.
+
+### Status Metadata
+
+- **Document version:** 1.1.0
+- **Lifecycle status:** Living / actively maintained
+- **Baseline verified:** 11 August 2026
+- **Current implementation state:** Functional admin-oriented interface under active development
+- **Next mandatory review:** After major screen/module additions, navigation changes, design-system changes, or responsive/accessibility changes
+
+### Current vs Target Design
+
+Clearly distinguish:
+- **CURRENT:** verified UI behavior/styles/components already present
+- **TARGET:** approved design that has not yet been implemented
+- **DEPRECATED:** old pattern that should not be extended
+
+Do not describe target screens or components as if users can already access them.
+
+### Update Triggers
+
+Update this document when:
+- a new major screen/workflow is added
+- navigation, role-specific dashboards, or information architecture changes
+- design tokens/components change
+- responsive behavior changes
+- accessibility requirements are discovered
+- forms, tables, dialogs, notifications, or destructive-action patterns change
+
+### UI Verification Rule
+
+A design requirement is considered implemented only after the corresponding UI exists and has been manually or automatically verified at the relevant viewport/role.
+
+### AI Rule
+
+AI agents must reuse the established component and interaction patterns before introducing new ones. If a new pattern is genuinely required, document the decision here and implement it consistently.
+
+### Versioning
+
+- **MAJOR:** fundamental visual language or information-architecture change
+- **MINOR:** new screen/workflow/component family or meaningful UX rule
+- **PATCH:** copy, spacing, documentation, or clarification correction
+
+### Changelog
+
+| Version | Date | Change | Verified By |
+|---|---|---|---|
+| 1.1.0 | 2026-08-11 | Added living design lifecycle, CURRENT/TARGET states, verification, and versioning. | AI-assisted repository review |
+| 1.0.0 | 2026-08-11 | Initial design-system documentation. | AI-assisted repository review |
+

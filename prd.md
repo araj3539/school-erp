@@ -468,3 +468,53 @@ A release is considered production-ready only when:
 8. **Do not break existing schools when introducing new academic years or versions.**
 9. **Never silently destroy historical data.**
 10. **All future AI agents must read this PRD, architecture, rules and memory before changing core behavior.**
+
+---
+
+## Documentation Lifecycle & Versioning
+
+This PRD is a **living document**. It must remain synchronized with the real product and codebase throughout development.
+
+### Status Metadata
+
+- **Document version:** 1.1.0
+- **Lifecycle status:** Living / actively maintained
+- **Baseline verified:** 11 August 2026
+- **Current implementation state:** In development; not production-ready
+- **Verification source:** Repository working tree and implemented modules
+- **Next mandatory review:** At the completion of every development phase and after any material product-scope change
+
+### What Must Be Updated
+
+Update this PRD whenever any of the following occurs:
+- a feature is implemented, removed, deferred, or materially changed
+- a user role or workflow changes
+- a business rule changes
+- pricing, messaging, deployment, or operational assumptions change
+- a planned feature is discovered to be technically infeasible or requires redesign
+- production feedback changes a requirement
+
+### Completion Rule
+
+A feature is **not considered complete merely because it is listed here**. Completion requires the corresponding implementation, validation/tests, security checks, and phase acceptance criteria. After completion, update the feature status here from planned/in-progress to implemented/verified only after checking the actual codebase.
+
+### Versioning
+
+Use semantic document versions:
+- **MAJOR:** product scope, core users, business model, or fundamental requirements change
+- **MINOR:** meaningful feature/workflow additions or removals
+- **PATCH:** wording corrections, clarification, or status/date corrections without changing requirements
+
+Every version change must add an entry to the changelog at the end of this document.
+
+### AI Synchronization Rule
+
+AI agents must read this document before making product-level decisions. After a material product change, the agent must determine whether this PRD needs an update and make the update in the same task whenever practical. If the implementation and PRD disagree, **the code is the implementation truth** and the PRD must be corrected to reflect the verified state; the intended product decision should then be recorded explicitly.
+
+### Changelog
+
+| Version | Date | Change | Verified By |
+|---|---|---|---|
+| 1.1.0 | 2026-08-11 | Added living-document lifecycle, verification, and semantic versioning rules. | AI-assisted repository review |
+| 1.0.0 | 2026-08-11 | Initial repository-based PRD. | AI-assisted repository review |
+

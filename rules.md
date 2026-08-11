@@ -609,3 +609,96 @@ It is done when:
 - tests exist for critical behavior
 - documentation is updated
 - no secrets are introduced
+
+---
+
+## 15. Documentation Lifecycle Is Mandatory
+
+The six project context files are **living engineering artifacts**, not static setup documents:
+
+- `prd.md` — product requirements and scope
+- `architecture.md` — technical architecture and system boundaries
+- `rules.md` — engineering/security/business rules
+- `phases.md` — delivery roadmap and phase acceptance
+- `design.md` — UI/UX and interaction system
+- `memory.md` — compact operational memory and current implementation state
+
+Whenever a meaningful change is made, the developer/AI must determine which of these files are affected and update them as part of the same development task whenever practical.
+
+### Source-of-Truth Hierarchy
+
+For **actual implementation state**, the repository code, configuration, database schema/migrations, tests, and deployment configuration are authoritative. Documentation must be synchronized to that reality.
+
+For **intended product decisions**, `prd.md` is authoritative.
+For **approved technical structure**, `architecture.md` is authoritative.
+For **non-negotiable engineering constraints**, this file is authoritative.
+For **delivery order/status**, `phases.md` is authoritative.
+For **UI/UX behavior**, `design.md` is authoritative.
+For **compact AI context**, `memory.md` summarizes the verified state and must not override the more authoritative documents.
+
+If a conflict is found:
+1. Verify the repository implementation.
+2. Do not silently rewrite requirements or architecture.
+3. Decide whether the code or documentation is wrong.
+4. Fix the appropriate source deliberately.
+5. Synchronize the remaining documents.
+6. Record important decisions in the relevant changelog/memory.
+
+### Documentation Verification Checklist
+
+At the end of each phase or major feature, verify:
+- feature status in `prd.md`
+- architecture in `architecture.md`
+- rules introduced or changed in `rules.md`
+- phase progress and exit criteria in `phases.md`
+- UI behavior in `design.md`
+- current implementation state and known issues in `memory.md`
+- version/changelog entries where applicable
+
+### Never Claim Planned Work Is Complete
+
+A document entry such as “planned”, “target”, or “should support” is not evidence that the feature exists. An AI agent must inspect the relevant code/tests before changing the status to implemented or verified.
+
+### Keep Documentation Small but Accurate
+
+Do not duplicate entire source files, API implementations, or large code listings inside these documents. Record decisions, contracts, workflows, constraints, current state, and enough context for an AI agent to navigate the repository.
+
+### Versioning
+
+Each living document uses semantic documentation versions:
+- **MAJOR:** fundamental purpose/scope/architecture/rule-system change
+- **MINOR:** meaningful additions, completed phases, new capabilities, or significant decisions
+- **PATCH:** corrections and non-semantic clarifications
+
+Every version change must include a dated changelog entry.
+
+### AI Development Protocol
+
+Before coding:
+1. Read `memory.md`, `phases.md`, and the relevant product/architecture/design/rules sections.
+2. Inspect the actual code related to the task.
+3. Identify documentation that will become stale if the task succeeds.
+
+After coding:
+1. Run appropriate validation/tests.
+2. Inspect the changed implementation.
+3. Update affected living documents.
+4. Update phase status only when acceptance criteria are actually met.
+5. Record important technical decisions and discovered debt in `memory.md`.
+
+---
+
+## Documentation Version Metadata
+
+- **Document version:** 1.1.0
+- **Lifecycle status:** Living / mandatory
+- **Baseline verified:** 11 August 2026
+- **Next mandatory review:** Every phase completion and every material cross-cutting change
+
+### Changelog
+
+| Version | Date | Change | Verified By |
+|---|---|---|---|
+| 1.1.0 | 2026-08-11 | Added mandatory documentation lifecycle, source-of-truth model, AI synchronization protocol, and versioning. | AI-assisted repository review |
+| 1.0.0 | 2026-08-11 | Initial engineering rules. | AI-assisted repository review |
+

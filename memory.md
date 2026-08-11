@@ -715,3 +715,68 @@ When UI conventions change:
 - update `design.md`
 
 These files are living project documentation, not one-time notes.
+
+---
+
+## 12. Living Memory & Synchronization Protocol
+
+This file is intentionally a **compact, continuously refreshed memory** for AI coding agents. It is not a historical transcript. It should describe the latest verified project state and important decisions.
+
+### Status Metadata
+
+- **Document version:** 1.1.0
+- **Lifecycle status:** Living / actively maintained
+- **Baseline verified:** 11 August 2026
+- **Last repository verification:** 11 August 2026
+- **Current state:** Actively developed and incomplete; not production-ready
+- **Next mandatory review:** After every meaningful feature, phase completion, architecture change, security fix, or major debugging discovery
+
+### What Belongs Here
+
+Keep only information that helps a future AI agent work safely and efficiently:
+- current phase and immediate priorities
+- verified implemented capabilities
+- known gaps/bugs/risks
+- important architectural/business decisions
+- external services and operational assumptions
+- constraints that are easy to forget
+- recent changes that affect future work
+
+Do not turn this into a duplicate PRD or source-code dump.
+
+### Synchronization Rule
+
+After a meaningful implementation change, update this memory if the change affects the project's current state. Remove or revise statements that are no longer true.
+
+When an AI agent starts a new task, it should read this file but must verify important claims against the repository before relying on them. Memory is context, not proof.
+
+### Staleness Rule
+
+If a statement cannot be verified or is known to be outdated:
+- mark it `UNKNOWN`, `STALE`, or `NEEDS_VERIFICATION`, or
+- remove it if it no longer has operational value.
+
+Never preserve an old statement just for historical completeness. Important historical decisions belong in architecture/design/rules changelogs.
+
+### Phase Update Checklist
+
+At phase completion, refresh:
+- current phase/status
+- completed capabilities
+- remaining blockers
+- known technical debt
+- security concerns
+- deployment state
+- next recommended work
+
+### AI Handoff Contract
+
+A new AI agent should be able to read `memory.md` and then the relevant sections of `prd.md`, `architecture.md`, `rules.md`, `phases.md`, and `design.md` to understand the project without depending on previous chat history.
+
+### Changelog
+
+| Version | Date | Change | Verified By |
+|---|---|---|---|
+| 1.1.0 | 2026-08-11 | Added living-memory lifecycle, staleness handling, phase refresh protocol, and AI handoff contract. | AI-assisted repository review |
+| 1.0.0 | 2026-08-11 | Initial AI project memory. | AI-assisted repository review |
+

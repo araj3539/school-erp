@@ -856,3 +856,66 @@ Do not:
 - put financial logic in React components
 - put business rules directly in route handlers
 - hardcode school-specific data into PDFs or UI
+
+---
+
+## Documentation Lifecycle & Versioning
+
+This architecture document is a **living technical source of truth**. It describes the architecture that actually exists plus explicitly identified target architecture. It must never silently drift away from the repository.
+
+### Status Metadata
+
+- **Document version:** 1.1.0
+- **Lifecycle status:** Living / actively maintained
+- **Baseline verified:** 11 August 2026
+- **Current implementation state:** Modular monolith under active development
+- **Verification source:** Repository working tree, package manifests, routes, models, services, shared schemas, and infrastructure files
+- **Next mandatory review:** After each phase, database/schema change, API contract change, authentication/authorization change, infrastructure change, or dependency migration
+
+### Architecture Truth Model
+
+Use these labels consistently:
+- **CURRENT:** verified to exist in the codebase today
+- **TARGET:** approved future architecture that is not fully implemented
+- **DEPRECATED:** previously used approach that should not receive new code
+- **RISK:** known mismatch, weakness, or architectural debt
+
+Never describe TARGET architecture as CURRENT until it has been implemented and verified.
+
+### Mandatory Synchronization Events
+
+Update this file when:
+- a new service/module/package is introduced
+- API routes, authentication, authorization, or tenant boundaries change
+- database collections, indexes, relationships, or schemas change
+- deployment topology or external services change
+- caching, queues, storage, observability, or messaging architecture changes
+- a major dependency/framework is added, removed, or replaced
+- a security or scalability decision changes
+
+### Phase Verification
+
+At phase completion, compare the architecture document against the repository and record:
+1. what was implemented
+2. what remains planned
+3. any deviations from the target design
+4. new risks/technical debt
+5. architectural decisions made during the phase
+
+### Versioning
+
+- **MAJOR:** fundamental architecture or system-boundary change
+- **MINOR:** new subsystem, significant data/API/infrastructure capability, or approved architectural decision
+- **PATCH:** corrections, clarifications, diagrams, or status updates without architectural meaning change
+
+### AI Rule
+
+Before implementing a cross-cutting technical change, an AI agent must check this document and `rules.md`. After implementation, it must verify the actual repository and update this document if the architecture changed. Never invent an architecture detail simply because it appears in a plan.
+
+### Changelog
+
+| Version | Date | Change | Verified By |
+|---|---|---|---|
+| 1.1.0 | 2026-08-11 | Added CURRENT/TARGET model, lifecycle, verification, and versioning. | AI-assisted repository review |
+| 1.0.0 | 2026-08-11 | Initial repository-based architecture documentation. | AI-assisted repository review |
+

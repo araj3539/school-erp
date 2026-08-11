@@ -416,3 +416,56 @@ If continuing from the uploaded codebase today:
 ```
 
 Do not start with AI, WhatsApp, GPS or a large mobile app before the core tenant/security/financial foundation is reliable.
+
+---
+
+## Documentation Lifecycle & Phase Governance
+
+This roadmap is a **living delivery record**. Phase status must reflect verified implementation, not intention.
+
+### Status Metadata
+
+- **Document version:** 1.1.0
+- **Lifecycle status:** Living / actively maintained
+- **Baseline verified:** 11 August 2026
+- **Current state:** Early development; phase completion must be earned through exit criteria
+- **Next mandatory review:** At every phase transition, scope change, or major blocker discovery
+
+### Required Phase States
+
+Use only these states:
+- `NOT_STARTED` — no meaningful implementation work completed
+- `IN_PROGRESS` — work is actively being implemented
+- `BLOCKED` — progress depends on a known unresolved blocker
+- `READY_FOR_VERIFICATION` — implementation is believed complete but acceptance checks remain
+- `COMPLETED` — all exit criteria verified
+- `DEFERRED` — intentionally moved out of the current roadmap
+
+Do not mark a phase `COMPLETED` because the code compiles or because most tasks are done. All critical exit criteria must pass.
+
+### Phase Completion Protocol
+
+When a phase is completed:
+1. Verify its exit criteria against the actual repository.
+2. Record completed deliverables and any deviations.
+3. Record tests/validation performed.
+4. Move remaining work into the next appropriate phase.
+5. Update `memory.md` with the new current state.
+6. Update `prd.md`, `architecture.md`, `design.md`, and `rules.md` when the phase changed any of their subject matter.
+7. Add a changelog entry and update the document version if the roadmap materially changed.
+
+### No Retroactive Fiction
+
+If a phase was partially implemented, keep it `IN_PROGRESS` or split the remaining work. Never rewrite history to make the roadmap appear cleaner than the actual development record.
+
+### AI Planning Rule
+
+AI agents should select work from the current active phase unless the user explicitly requests otherwise. Before starting a task, check dependencies and phase exit criteria. If the requested task violates the dependency order, explain the dependency and either address the prerequisite or obtain an explicit decision to defer it.
+
+### Changelog
+
+| Version | Date | Change | Verified By |
+|---|---|---|---|
+| 1.1.0 | 2026-08-11 | Added phase state model, completion protocol, verification, and living-roadmap rules. | AI-assisted repository review |
+| 1.0.0 | 2026-08-11 | Initial development roadmap. | AI-assisted repository review |
+
