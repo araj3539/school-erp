@@ -1,4 +1,4 @@
-﻿import mongoose, { Document, Schema, Types } from "mongoose";
+import mongoose, { Document, Schema, Types } from "mongoose";
 import { PaymentMode } from "@school-erp/shared";
 
 export interface IPayment extends Document {

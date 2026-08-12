@@ -1,4 +1,4 @@
-﻿import mongoose, { Document, Schema, Types } from "mongoose";
+import mongoose, { Document, Schema, Types } from "mongoose";
 import { FeeStatus } from "@school-erp/shared";
 
 export interface IFee extends Document {

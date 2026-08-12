@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { Teacher, ITeacher, Subject, ISubject, Class, IClass } from "../models";
 import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, ObjectIdSchema } from "../validators";
 import { createAuditLog } from "../services/auditLog";

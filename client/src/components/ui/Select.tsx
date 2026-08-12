@@ -1,4 +1,4 @@
-﻿import { forwardRef, SelectHTMLAttributes } from "react";
+import { forwardRef, SelectHTMLAttributes } from "react";
 import { cn } from "../../utils";
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {

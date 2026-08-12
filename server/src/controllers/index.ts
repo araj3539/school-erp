@@ -1,4 +1,4 @@
-﻿export * from "./authController";
+export * from "./authController";
 export * from "./userController";
 export * from "./studentController";
 export * from "./teacherController";

@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware";
 import { getClasses, getClassById, createClass, updateClass, deleteClass, getSections, createSection, updateSection, deleteSection, getSubjects, createSubject, updateSubject, deleteSubject } from "../controllers/classController";
 import { CreateClassSchema, UpdateClassSchema, CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema, PaginationSchema, IdParamSchema } from "../validators";

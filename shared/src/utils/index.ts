@@ -1,4 +1,4 @@
-﻿export function generateAdmissionNumber(): string {
+export function generateAdmissionNumber(): string {
   const year = new Date().getFullYear().toString().slice(-2);
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
   return `STU${year}${random}`;

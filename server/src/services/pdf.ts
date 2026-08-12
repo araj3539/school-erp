@@ -1,4 +1,4 @@
-﻿import PDFDocument from "pdfkit";
+import PDFDocument from "pdfkit";
 import { formatCurrency, formatDate } from "@school-erp/shared";
 
 import type { Student, Fee, Payment, Teacher } from "@school-erp/shared";

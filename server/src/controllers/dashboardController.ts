@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { Student, IStudent, Teacher, ITeacher, Fee, IFee, Payment, IPayment, Attendance, IAttendance, Class, IClass, AcademicYear, IAcademicYear } from "../models";
 import { AppError } from "../utils/errors";
 

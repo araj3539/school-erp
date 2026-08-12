@@ -1,4 +1,4 @@
-﻿export declare function formatCurrency(amount: number, currency?: string): string;
+export declare function formatCurrency(amount: number, currency?: string): string;
 export declare function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string;
 export declare function formatDateTime(date: string | Date): string;
 export declare function generateReceiptNumber(prefix?: string): string;

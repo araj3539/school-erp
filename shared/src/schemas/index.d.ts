@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 import { UserRole, StudentStatus, TeacherStatus, AttendanceStatus, FeeType, FeeStatus, PaymentMode, Gender, BloodGroup, DocumentType } from "../constants";
 export declare const ObjectIdSchema: z.ZodString;
 export declare const PaginationSchema: z.ZodObject<{

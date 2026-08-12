@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware";
 import { getAttendance, markAttendance, getStudentAttendance, getMonthlyAttendanceReport } from "../controllers/attendanceController";
 import { MarkAttendanceSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators";

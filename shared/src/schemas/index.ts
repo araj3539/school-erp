@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 import { UserRole, UserStatus, StudentStatus, TeacherStatus, AttendanceStatus, FeeType, FeeStatus, PaymentMode, Gender, BloodGroup, DocumentType } from "../constants";
 
 export const ObjectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");

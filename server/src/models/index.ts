@@ -1,4 +1,4 @@
-﻿export { User } from "./User";
+export { User } from "./User";
 export type { IUser } from "./User";
 export { School } from "./School";
 export type { ISchool } from "./School";

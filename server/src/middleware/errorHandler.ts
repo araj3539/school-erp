@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { AppError } from "../utils/errors";
 import { isDevelopment } from "../config";

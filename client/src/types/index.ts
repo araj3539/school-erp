@@ -1,2 +1,2 @@
-﻿export * from "@school-erp/shared";
+export * from "@school-erp/shared";
 

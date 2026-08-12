@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { authenticate } from "../middleware";
 import { getDashboardStats, getDashboardCharts, getBirthdays } from "../controllers/dashboardController";
 

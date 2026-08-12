@@ -1,4 +1,4 @@
-﻿import { AuditLog, IAuditLog } from "../models";
+import { AuditLog, IAuditLog } from "../models";
 
 export async function createAuditLog(data: {
   userId: string;

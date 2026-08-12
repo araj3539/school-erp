@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { ROLE_PERMISSIONS, UserRole } from "@school-erp/shared";
 
 export function requirePermission(permission: string) {

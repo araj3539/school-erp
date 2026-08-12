@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware";
 import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, collectPayment, getPayments, getDailyCollectionReport, getMonthlyCollectionReport, getReceiptPDF } from "../controllers/feeController";
 import { CreateFeeStructureSchema, CreatePaymentSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators";

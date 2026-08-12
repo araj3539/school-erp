@@ -1,4 +1,4 @@
-﻿import { RouterProvider } from "react-router-dom";
+import { RouterProvider } from "react-router-dom";
 import { Toaster } from "./components/ui/Toaster";
 import { useUIStore } from "./store/uiStore";
 import { router } from "./routes/routes";

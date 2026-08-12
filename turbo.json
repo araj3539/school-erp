@@ -1,1 +1,1 @@
-﻿{"$schema":"https://turbo.build/schema.json","pipeline":{"build":{"dependsOn":["^build"],"outputs":["dist/**","build/**"]},"dev":{"cache":false,"persistent":true},"test":{"outputs":["coverage/**"]},"test:e2e":{"outputs":["playwright-report/**"]},"lint":{},"format":{}}}
+{"$schema":"https://turbo.build/schema.json","pipeline":{"build":{"dependsOn":["^build"],"outputs":["dist/**","build/**"]},"dev":{"cache":false,"persistent":true},"test":{"outputs":["coverage/**"]},"test:e2e":{"outputs":["playwright-report/**"]},"lint":{},"format":{}}}

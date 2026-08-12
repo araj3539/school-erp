@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware";
 import { upload } from "../middleware/upload";
 import { getStudents, getStudentById, createStudent, updateStudent, deleteStudent, uploadStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController";

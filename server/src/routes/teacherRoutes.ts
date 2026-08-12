@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware";
 import { getTeachers, getTeacherById, createTeacher, updateTeacher, deleteTeacher } from "../controllers/teacherController";
 import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, IdParamSchema } from "../validators";

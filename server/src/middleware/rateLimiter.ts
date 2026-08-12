@@ -1,4 +1,4 @@
-﻿import rateLimit from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 import { RATE_LIMIT_WINDOW, RATE_LIMIT_MAX } from "../config";
 
 export const rateLimiter = rateLimit({

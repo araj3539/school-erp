@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { Student, IStudent, Class, IClass, Section, ISection, User, IUser } from "../models";
 import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, ObjectIdSchema } from "../validators";

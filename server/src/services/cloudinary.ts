@@ -1,4 +1,4 @@
-﻿import { v2 as cloudinary } from "cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 import { isCloudinaryConfigured } from "../config/cloudinary";
 export async function uploadToCloudinary(
   file: Buffer,
