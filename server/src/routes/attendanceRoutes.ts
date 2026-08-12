@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authenticate, requirePermission, validate } from "../middleware";
-import { getAttendance, markAttendance, getStudentAttendance, getMonthlyAttendanceReport } from "../controllers/attendanceController";
-import { MarkAttendanceSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators";
+import { authenticate, requirePermission, validate } from "../middleware/index.js";
+import { getAttendance, markAttendance, getStudentAttendance, getMonthlyAttendanceReport } from "../controllers/attendanceController.js";
+import { MarkAttendanceSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
 

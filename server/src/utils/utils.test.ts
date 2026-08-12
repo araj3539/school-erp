@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { AppError } from "./errors";
-import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken, hashPassword, comparePassword } from "../services/auth";
+import { AppError } from "./errors.js";
+import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken, hashPassword, comparePassword } from "../services/auth.js";
 import { UserRole } from "@school-erp/shared";
 
 describe("Server Utilities", () => {

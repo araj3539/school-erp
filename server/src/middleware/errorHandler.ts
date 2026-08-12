@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import multer from "multer";
-import { AppError } from "../utils/errors";
-import { isDevelopment } from "../config";
+import { AppError } from "../utils/errors.js";
+import { isDevelopment } from "../config/index.js";
 
 export function errorHandler(err: Error, req: Request, res: Response, next: NextFunction): void {
   if (err instanceof AppError) {

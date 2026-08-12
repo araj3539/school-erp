@@ -2,10 +2,10 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import { env, connectDB } from "./config";
-import { rateLimiter, authRateLimiter } from "./middleware";
-import { errorHandler } from "./middleware/errorHandler";
-import routes from "./routes";
+import { env, connectDB } from "./config/index.js";
+import { rateLimiter, authRateLimiter } from "./middleware/index.js";
+import { errorHandler } from "./middleware/errorHandler.js";
+import routes from "./routes/index.js";
 
 const app = express();
 

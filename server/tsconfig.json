@@ -16,7 +16,7 @@
     "declaration": true,
     "declarationMap": true,
     "types": ["node"],
-    "paths": { "@school-erp/shared": ["../shared/dist"] }
+    "customConditions": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

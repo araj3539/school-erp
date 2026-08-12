@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { Attendance, IAttendance, IAttendanceRecord, Student, IStudent, Class, IClass, Section, ISection } from "../models";
-import { MarkAttendanceSchema, AttendanceQuerySchema, DateRangeSchema, ObjectIdSchema } from "../validators";
-import { createAuditLog } from "../services/auditLog";
-import { AppError } from "../utils/errors";
+import { Attendance, IAttendance, IAttendanceRecord, Student, IStudent, Class, IClass, Section, ISection } from "../models/index.js";
+import { MarkAttendanceSchema, AttendanceQuerySchema, DateRangeSchema, ObjectIdSchema } from "../validators/index.js";
+import { createAuditLog } from "../services/auditLog.js";
+import { AppError } from "../utils/errors.js";
 import { AttendanceStatus } from "@school-erp/shared";
 import { Types } from "mongoose";
 

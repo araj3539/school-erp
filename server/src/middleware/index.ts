@@ -1,2 +1,2 @@
-export * from "./auth";export * from "./rbac";export * from "./validation";export * from "./errorHandler";export * from "./rateLimiter";export * from "./upload";
+export * from "./auth.js";export * from "./rbac.js";export * from "./validation.js";export * from "./errorHandler.js";export * from "./rateLimiter.js";export * from "./upload.js";
 

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { authenticate, requirePermission, validate } from "../middleware";
-import { upload } from "../middleware/upload";
-import { getStudents, getStudentById, createStudent, updateStudent, deleteStudent, uploadStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController";
-import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, IdParamSchema } from "../validators";
+import { authenticate, requirePermission, validate } from "../middleware/index.js";
+import { upload } from "../middleware/upload.js";
+import { getStudents, getStudentById, createStudent, updateStudent, deleteStudent, uploadStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController.js";
+import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, IdParamSchema } from "../validators/index.js";
 import { z } from "zod";
 
 const router = Router();

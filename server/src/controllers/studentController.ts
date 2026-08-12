@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import multer from "multer";
-import { Student, IStudent, Class, IClass, Section, ISection, User, IUser } from "../models";
-import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, ObjectIdSchema } from "../validators";
-import { createAuditLog } from "../services/auditLog";
-import { AppError } from "../utils/errors";
+import { Student, IStudent, Class, IClass, Section, ISection, User, IUser } from "../models/index.js";
+import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
+import { createAuditLog } from "../services/auditLog.js";
+import { AppError } from "../utils/errors.js";
 import { generateAdmissionNumber } from "@school-erp/shared";
-import { uploadImage } from "../services/cloudinary";
+import { uploadImage } from "../services/cloudinary.js";
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;

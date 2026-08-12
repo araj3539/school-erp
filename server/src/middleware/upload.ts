@@ -1,5 +1,5 @@
 import multer from "multer";
-import { AppError } from "../utils/errors";
+import { AppError } from "../utils/errors.js";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = [

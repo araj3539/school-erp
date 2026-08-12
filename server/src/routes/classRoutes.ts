@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authenticate, requirePermission, validate } from "../middleware";
-import { getClasses, getClassById, createClass, updateClass, deleteClass, getSections, createSection, updateSection, deleteSection, getSubjects, createSubject, updateSubject, deleteSubject } from "../controllers/classController";
-import { CreateClassSchema, UpdateClassSchema, CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema, PaginationSchema, IdParamSchema } from "../validators";
+import { authenticate, requirePermission, validate } from "../middleware/index.js";
+import { getClasses, getClassById, createClass, updateClass, deleteClass, getSections, createSection, updateSection, deleteSection, getSubjects, createSubject, updateSubject, deleteSubject } from "../controllers/classController.js";
+import { CreateClassSchema, UpdateClassSchema, CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema, PaginationSchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
 

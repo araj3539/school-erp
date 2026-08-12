@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authenticate, requireRole } from "../middleware";
-import { register, login, refresh, logout, me, changePassword } from "../controllers/authController";
-import { getUsers, getUserById, createUser, updateUser, deleteUser } from "../controllers/userController";
+import { authenticate, requireRole } from "../middleware/index.js";
+import { register, login, refresh, logout, me, changePassword } from "../controllers/authController.js";
+import { getUsers, getUserById, createUser, updateUser, deleteUser } from "../controllers/userController.js";
 import { UserRole } from "@school-erp/shared";
 
 const router = Router();

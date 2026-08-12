@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { Class, IClass, Section, ISection, Subject, ISubject, Teacher, ITeacher } from "../models";
-import { CreateClassSchema, UpdateClassSchema, CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema, PaginationSchema, ObjectIdSchema } from "../validators";
-import { createAuditLog } from "../services/auditLog";
-import { AppError } from "../utils/errors";
+import { Class, IClass, Section, ISection, Subject, ISubject, Teacher, ITeacher } from "../models/index.js";
+import { CreateClassSchema, UpdateClassSchema, CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
+import { createAuditLog } from "../services/auditLog.js";
+import { AppError } from "../utils/errors.js";
 
 export async function getClasses(req: Request, res: Response, next: NextFunction) {
   try {

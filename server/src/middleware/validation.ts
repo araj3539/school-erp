@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AnyZodObject, ZodError, ZodRawShape } from "zod";
-import { AppError } from "../utils/errors";
+import { AppError } from "../utils/errors.js";
 
 declare global {
   namespace Express {

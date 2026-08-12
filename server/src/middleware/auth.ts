@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { env } from "../config";
+import { env } from "../config/index.js";
 import { UserRole } from "@school-erp/shared";
 
 export interface AuthPayload {

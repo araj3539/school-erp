@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { User, IUser } from "../models";
-import { CreateUserSchema, LoginSchema, ChangePasswordSchema, RefreshTokenSchema } from "../validators";
-import { generateAccessToken, generateRefreshToken, hashPassword, comparePassword, setAuthCookies, clearAuthCookies, verifyRefreshToken } from "../services/auth";
-import { createAuditLog } from "../services/auditLog";
-import { AppError } from "../utils/errors";
+import { User, IUser } from "../models/index.js";
+import { CreateUserSchema, LoginSchema, ChangePasswordSchema, RefreshTokenSchema } from "../validators/index.js";
+import { generateAccessToken, generateRefreshToken, hashPassword, comparePassword, setAuthCookies, clearAuthCookies, verifyRefreshToken } from "../services/auth.js";
+import { createAuditLog } from "../services/auditLog.js";
+import { AppError } from "../utils/errors.js";
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {

@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authenticate, requirePermission, validate } from "../middleware";
-import { getTeachers, getTeacherById, createTeacher, updateTeacher, deleteTeacher } from "../controllers/teacherController";
-import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, IdParamSchema } from "../validators";
+import { authenticate, requirePermission, validate } from "../middleware/index.js";
+import { getTeachers, getTeacherById, createTeacher, updateTeacher, deleteTeacher } from "../controllers/teacherController.js";
+import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
 

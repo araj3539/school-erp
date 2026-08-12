@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { Fee, IFee, FeeStructure, IFeeStructure, Payment, IPayment, Student, IStudent, Class, IClass, AcademicYear, IAcademicYear } from "../models";
-import { CreateFeeStructureSchema, CreatePaymentSchema, FeeQuerySchema, PaymentQuerySchema, DateRangeSchema, ObjectIdSchema } from "../validators";
-import { createAuditLog } from "../services/auditLog";
-import { AppError } from "../utils/errors";
+import { Fee, IFee, FeeStructure, IFeeStructure, Payment, IPayment, Student, IStudent, Class, IClass, AcademicYear, IAcademicYear } from "../models/index.js";
+import { CreateFeeStructureSchema, CreatePaymentSchema, FeeQuerySchema, PaymentQuerySchema, DateRangeSchema, ObjectIdSchema } from "../validators/index.js";
+import { createAuditLog } from "../services/auditLog.js";
+import { AppError } from "../utils/errors.js";
 import { FeeStatus, FeeType, generateReceiptNumber } from "@school-erp/shared";
-import { generateReceiptPDF } from "../services/pdf";
+import { generateReceiptPDF } from "../services/pdf.js";
 
 export async function getFeeStructures(req: Request, res: Response, next: NextFunction) {
   try {

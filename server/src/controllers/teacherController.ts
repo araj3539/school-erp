@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { Teacher, ITeacher, Subject, ISubject, Class, IClass } from "../models";
-import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, ObjectIdSchema } from "../validators";
-import { createAuditLog } from "../services/auditLog";
-import { AppError } from "../utils/errors";
+import { Teacher, ITeacher, Subject, ISubject, Class, IClass } from "../models/index.js";
+import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
+import { createAuditLog } from "../services/auditLog.js";
+import { AppError } from "../utils/errors.js";
 import { generateEmployeeId } from "@school-erp/shared";
 
 export async function getTeachers(req: Request, res: Response, next: NextFunction) {

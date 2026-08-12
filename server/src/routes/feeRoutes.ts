@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authenticate, requirePermission, validate } from "../middleware";
-import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, collectPayment, getPayments, getDailyCollectionReport, getMonthlyCollectionReport, getReceiptPDF } from "../controllers/feeController";
-import { CreateFeeStructureSchema, CreatePaymentSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators";
+import { authenticate, requirePermission, validate } from "../middleware/index.js";
+import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, collectPayment, getPayments, getDailyCollectionReport, getMonthlyCollectionReport, getReceiptPDF } from "../controllers/feeController.js";
+import { CreateFeeStructureSchema, CreatePaymentSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
 

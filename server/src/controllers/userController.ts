@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { User, IUser } from "../models";
-import { CreateUserSchema, UpdateUserSchema, PaginationSchema, ObjectIdSchema } from "../validators";
-import { createAuditLog } from "../services/auditLog";
-import { AppError } from "../utils/errors";
-import { hashPassword } from "../services/auth";
+import { User, IUser } from "../models/index.js";
+import { CreateUserSchema, UpdateUserSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
+import { createAuditLog } from "../services/auditLog.js";
+import { AppError } from "../utils/errors.js";
+import { hashPassword } from "../services/auth.js";
 
 export async function getUsers(req: Request, res: Response, next: NextFunction) {
   try {

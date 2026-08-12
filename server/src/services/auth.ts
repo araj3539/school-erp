@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { env } from "../config";
+import { env } from "../config/index.js";
 import { UserRole } from "@school-erp/shared";
 import { SignOptions } from "jsonwebtoken";
 
