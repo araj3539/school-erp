@@ -10,7 +10,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
-    "prepare": "husky install"
+    "prepare": "node .husky/install.mjs"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
