@@ -4,7 +4,7 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm run build --prefix shared && npm run build --prefix server
+    buildCommand: npm ci --include=dev && npm run build --prefix shared && npm run build --prefix server
     startCommand: npm start --prefix server
     envVars:
       - key: NODE_ENV
