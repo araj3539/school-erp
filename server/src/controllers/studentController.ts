@@ -4,7 +4,7 @@ import { Student, IStudent, Class, IClass, Section, ISection, User, IUser } from
 import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, ObjectIdSchema } from "../validators";
 import { createAuditLog } from "../services/auditLog";
 import { AppError } from "../utils/errors";
-import { generateAdmissionNumber } from "../shared-types";
+import { generateAdmissionNumber } from "@school-erp/shared";
 import { uploadImage } from "../services/cloudinary";
 
 interface MulterRequest extends Request {
@@ -13,7 +13,7 @@ interface MulterRequest extends Request {
 
 export async function getStudents(req: Request, res: Response, next: NextFunction) {
   try {
-    const query = PaginationSchema.parse(req.query);
+    const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
     const dbQuery: any = {};
     if (filters.classId) dbQuery.classId = filters.classId;
@@ -46,7 +46,7 @@ export async function getStudents(req: Request, res: Response, next: NextFunctio
 
 export async function getStudentById(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const student = await Student.findById(id).populate("classId sectionId userId");
     if (!student) {
       throw AppError.notFound("Student not found");
@@ -83,8 +83,8 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
 
 export async function updateStudent(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const data = UpdateStudentSchema.parse(req.body);
+    const { id } = req.validatedParams as any;
+    const data = req.validatedBody as any;
     const student = await Student.findByIdAndUpdate(id, data, { new: true });
     if (!student) {
       throw AppError.notFound("Student not found");
@@ -104,7 +104,7 @@ export async function updateStudent(req: Request, res: Response, next: NextFunct
 
 export async function deleteStudent(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const student = await Student.findByIdAndUpdate(id, { status: "left" }, { new: true });
     if (!student) {
       throw AppError.notFound("Student not found");
@@ -123,8 +123,8 @@ export async function deleteStudent(req: Request, res: Response, next: NextFunct
 
 export async function uploadStudentDocument(req: MulterRequest, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const { type } = req.body;
+    const { id } = req.validatedParams as any;
+    const { type } = req.validatedBody as any;
     if (!req.file) {
       throw AppError.badRequest("No file uploaded");
     }

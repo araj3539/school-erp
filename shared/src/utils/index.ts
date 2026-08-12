@@ -1,2 +1,50 @@
-﻿export function formatCurrency(amount: number, currency = "INR"): string {  return new Intl.NumberFormat("en-IN", {    style: "currency",    currency,    minimumFractionDigits: 0,    maximumFractionDigits: 2  }).format(amount);}export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {  const d = new Date(date);  return d.toLocaleDateString("en-IN", {    day: "2-digit",    month: "short",    year: "numeric",    ...options  });}export function formatDateTime(date: string | Date): string {  return formatDate(date, { hour: "2-digit", minute: "2-digit" });}export function generateReceiptNumber(prefix = "RCPT"): string {  const timestamp = Date.now().toString(36).toUpperCase();  const random = Math.random().toString(36).substring(2, 6).toUpperCase();  return `${prefix}-${timestamp}-${random}`;}export function generateAdmissionNumber(prefix = "ADM"): string {  const year = new Date().getFullYear().toString().slice(-2);  const timestamp = Date.now().toString(36).toUpperCase();  return `${prefix}${year}${timestamp}`;}export function generateEmployeeId(prefix = "EMP"): string {  const timestamp = Date.now().toString(36).toUpperCase();  return `${prefix}-${timestamp}`;}export function calculateAge(dob: string | Date): number {  const today = new Date();  const birth = new Date(dob);  let age = today.getFullYear() - birth.getFullYear();  const monthDiff = today.getMonth() - birth.getMonth();  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {    age--;  }  return age;}export function getAcademicYearLabel(startYear: number): string {  return `${startYear}-${(startYear + 1).toString().slice(-2)}`;}export function getCurrentAcademicYear(): { startYear: number; label: string } {  const now = new Date();  const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;  return { startYear, label: getAcademicYearLabel(startYear) };}export function slugify(text: string): string {  return text  .toLowerCase()  .trim()  .replace(/[^\w\s-]/g, "")  .replace(/[\s_-]+/g, "-")  .replace(/^-+|-+$/g, "");}export function truncate(text: string, length: number): string {  if (text.length <= length) return text;  return text.slice(0, length).trim() + "...";}export function className(...classes: (string | boolean | undefined | null)[]): string {  return classes.filter(Boolean).join(" ");}
+﻿export function generateAdmissionNumber(): string {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+  return `STU${year}${random}`;
+}
 
+export function generateEmployeeId(): string {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+  return `EMP${year}${random}`;
+}
+
+export function generateReceiptNumber(): string {
+  const date = new Date();
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+  return `RCP${dateStr}${random}`;
+}
+
+export function formatCurrency(amount: number, currency = "INR"): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
+  const d = new Date(date);
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    ...options,
+  });
+}
+
+export function formatDateTime(date: string | Date): string {
+  return formatDate(date, { hour: "2-digit", minute: "2-digit" });
+}
+
+export function truncate(text: string, length: number): string {
+  if (text.length <= length) return text;
+  return text.slice(0, length).trim() + "...";
+}
+
+export function cn(...inputs: (string | boolean | undefined | null)[]): string {
+  return inputs.filter(Boolean).join(" ");
+}

@@ -3,12 +3,12 @@ import { Attendance, IAttendance, IAttendanceRecord, Student, IStudent, Class, I
 import { MarkAttendanceSchema, AttendanceQuerySchema, DateRangeSchema, ObjectIdSchema } from "../validators";
 import { createAuditLog } from "../services/auditLog";
 import { AppError } from "../utils/errors";
-import { AttendanceStatus } from "../shared-types";
+import { AttendanceStatus } from "@school-erp/shared";
 import { Types } from "mongoose";
 
 export async function getAttendance(req: Request, res: Response, next: NextFunction) {
   try {
-    const query = AttendanceQuerySchema.parse(req.query);
+    const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
     const dbQuery: any = {};
     if (filters.classId) dbQuery.classId = filters.classId;
@@ -44,28 +44,34 @@ export async function getAttendance(req: Request, res: Response, next: NextFunct
 export async function markAttendance(req: Request, res: Response, next: NextFunction) {
   try {
     const data = MarkAttendanceSchema.parse(req.body);
+    // Convert studentId strings to ObjectIds
+    const records = data.records.map(r => ({
+      ...r,
+      studentId: new Types.ObjectId(r.studentId)
+    }));
     const existing = await Attendance.findOne({
       date: new Date(data.date),
       classId: data.classId,
       sectionId: data.sectionId
     });
     if (existing) {
-      existing.records = data.records;
-      existing.markedBy = req.user!.userId;
+      existing.records = records;
+      existing.markedBy = new Types.ObjectId(req.user!.userId);
       await existing.save();
       await createAuditLog({
         userId: req.user!.userId,
         action: "UPDATE",
         entity: "Attendance",
         entityId: existing._id.toString(),
-        after: { recordsCount: data.records.length }
+        after: { recordsCount: records.length }
       });
       res.json({ attendance: existing });
     } else {
       const attendance = await Attendance.create({
         ...data,
+        records,
         date: new Date(data.date),
-        markedBy: req.user!.userId
+        markedBy: new Types.ObjectId(req.user!.userId)
       });
       await createAuditLog({
         userId: req.user!.userId,
@@ -83,8 +89,8 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
 
 export async function getStudentAttendance(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const { startDate, endDate } = DateRangeSchema.parse(req.query);
+    const { id } = req.validatedParams as any;
+    const { startDate, endDate } = req.validatedQuery as any;
     const dbQuery: any = { "records.studentId": new Types.ObjectId(id) };
     if (startDate || endDate) {
       dbQuery.date = {};

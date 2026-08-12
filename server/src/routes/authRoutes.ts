@@ -2,7 +2,7 @@
 import { authenticate, requireRole } from "../middleware";
 import { register, login, refresh, logout, me, changePassword } from "../controllers/authController";
 import { getUsers, getUserById, createUser, updateUser, deleteUser } from "../controllers/userController";
-import { UserRole } from "../shared-types";
+import { UserRole } from "@school-erp/shared";
 
 const router = Router();
 

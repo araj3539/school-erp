@@ -3,11 +3,11 @@ import { Teacher, ITeacher, Subject, ISubject, Class, IClass } from "../models";
 import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, ObjectIdSchema } from "../validators";
 import { createAuditLog } from "../services/auditLog";
 import { AppError } from "../utils/errors";
-import { generateEmployeeId } from "../shared-types";
+import { generateEmployeeId } from "@school-erp/shared";
 
 export async function getTeachers(req: Request, res: Response, next: NextFunction) {
   try {
-    const query = PaginationSchema.parse(req.query);
+    const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
     const dbQuery: any = {};
     if (filters.status) dbQuery.status = filters.status;
@@ -38,7 +38,7 @@ export async function getTeachers(req: Request, res: Response, next: NextFunctio
 
 export async function getTeacherById(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const teacher = await Teacher.findById(id).populate("subjects classTeacherOf userId");
     if (!teacher) {
       throw AppError.notFound("Teacher not found");
@@ -79,8 +79,8 @@ export async function createTeacher(req: Request, res: Response, next: NextFunct
 
 export async function updateTeacher(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const data = UpdateTeacherSchema.parse(req.body);
+    const { id } = req.validatedParams as any;
+    const data = req.validatedBody as any;
     const teacher = await Teacher.findByIdAndUpdate(id, data, { new: true });
     if (!teacher) {
       throw AppError.notFound("Teacher not found");
@@ -100,7 +100,7 @@ export async function updateTeacher(req: Request, res: Response, next: NextFunct
 
 export async function deleteTeacher(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const teacher = await Teacher.findByIdAndUpdate(id, { status: "inactive" }, { new: true });
     if (!teacher) {
       throw AppError.notFound("Teacher not found");

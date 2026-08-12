@@ -1,34 +1,62 @@
 ﻿import { z } from "zod";
-import * as sharedSchemas from "../shared-types";
+import {
+  CreateUserSchema,
+  UpdateUserSchema,
+  LoginSchema,
+  ChangePasswordSchema,
+  RefreshTokenSchema,
+  CreateSchoolSchema,
+  UpdateSchoolSchema,
+  CreateStudentSchema,
+  UpdateStudentSchema,
+  CreateTeacherSchema,
+  UpdateTeacherSchema,
+  CreateClassSchema,
+  UpdateClassSchema,
+  CreateSectionSchema,
+  UpdateSectionSchema,
+  CreateSubjectSchema,
+  UpdateSubjectSchema,
+  CreateAttendanceSchema,
+  MarkAttendanceSchema,
+  CreateFeeStructureSchema,
+  CreateFeeSchema,
+  CreatePaymentSchema,
+  PaginationSchema,
+  DateRangeSchema,
+  ObjectIdSchema,
+} from "@school-erp/shared";
 
-export const CreateUserSchema = sharedSchemas.CreateUserSchema;
-export const UpdateUserSchema = sharedSchemas.UpdateUserSchema;
-export const LoginSchema = sharedSchemas.LoginSchema;
-export const ChangePasswordSchema = sharedSchemas.ChangePasswordSchema;
-export const RefreshTokenSchema = sharedSchemas.RefreshTokenSchema;
-export const CreateSchoolSchema = sharedSchemas.CreateSchoolSchema;
-export const UpdateSchoolSchema = sharedSchemas.UpdateSchoolSchema;
-export const CreateStudentSchema = sharedSchemas.CreateStudentSchema;
-export const UpdateStudentSchema = sharedSchemas.UpdateStudentSchema;
-export const CreateTeacherSchema = sharedSchemas.CreateTeacherSchema;
-export const UpdateTeacherSchema = sharedSchemas.UpdateTeacherSchema;
-export const CreateClassSchema = sharedSchemas.CreateClassSchema;
-export const UpdateClassSchema = sharedSchemas.UpdateClassSchema;
-export const CreateSectionSchema = sharedSchemas.CreateSectionSchema;
-export const UpdateSectionSchema = sharedSchemas.UpdateSectionSchema;
-export const CreateSubjectSchema = sharedSchemas.CreateSubjectSchema;
-export const UpdateSubjectSchema = sharedSchemas.UpdateSubjectSchema;
-export const CreateAttendanceSchema = sharedSchemas.CreateAttendanceSchema;
-export const MarkAttendanceSchema = sharedSchemas.MarkAttendanceSchema;
-export const CreateFeeStructureSchema = sharedSchemas.CreateFeeStructureSchema;
-export const CreateFeeSchema = sharedSchemas.CreateFeeSchema;
-export const CreatePaymentSchema = sharedSchemas.CreatePaymentSchema;
-export const PaginationSchema = sharedSchemas.PaginationSchema;
-export const DateRangeSchema = sharedSchemas.DateRangeSchema;
-export const ObjectIdSchema = sharedSchemas.ObjectIdSchema;
+export {
+  CreateUserSchema,
+  UpdateUserSchema,
+  LoginSchema,
+  ChangePasswordSchema,
+  RefreshTokenSchema,
+  CreateSchoolSchema,
+  UpdateSchoolSchema,
+  CreateStudentSchema,
+  UpdateStudentSchema,
+  CreateTeacherSchema,
+  UpdateTeacherSchema,
+  CreateClassSchema,
+  UpdateClassSchema,
+  CreateSectionSchema,
+  UpdateSectionSchema,
+  CreateSubjectSchema,
+  UpdateSubjectSchema,
+  CreateAttendanceSchema,
+  MarkAttendanceSchema,
+  CreateFeeStructureSchema,
+  CreateFeeSchema,
+  CreatePaymentSchema,
+  PaginationSchema,
+  DateRangeSchema,
+  ObjectIdSchema,
+};
 
 // Param validation schemas
-export const IdParamSchema = z.object({ id: sharedSchemas.ObjectIdSchema });
+export const IdParamSchema = z.object({ id: ObjectIdSchema });
 
 // Helper type for parsed params
 export type IdParams = z.infer<typeof IdParamSchema>;

@@ -1,7 +1,7 @@
 ﻿import PDFDocument from "pdfkit";
 import { formatCurrency, formatDate } from "@school-erp/shared";
-import type { Student, Fee, Payment, Teacher } from "@school-erp/shared";
 
+import type { Student, Fee, Payment, Teacher } from "@school-erp/shared";
 export function generateReceiptPDF(payment: Payment & { fee: Fee & { student: Student; feeStructure: { feeType: string; amount: number } }; collectedBy: { fullName: string } }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4" });

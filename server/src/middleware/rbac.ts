@@ -1,5 +1,5 @@
 ﻿import { Request, Response, NextFunction } from "express";
-import { ROLE_PERMISSIONS, UserRole } from "../shared-types";
+import { ROLE_PERMISSIONS, UserRole } from "@school-erp/shared";
 
 export function requirePermission(permission: string) {
   return (req: Request, res: Response, next: NextFunction): void => {

@@ -3,9 +3,8 @@ import { Fee, IFee, FeeStructure, IFeeStructure, Payment, IPayment, Student, ISt
 import { CreateFeeStructureSchema, CreatePaymentSchema, FeeQuerySchema, PaymentQuerySchema, DateRangeSchema, ObjectIdSchema } from "../validators";
 import { createAuditLog } from "../services/auditLog";
 import { AppError } from "../utils/errors";
-import { FeeStatus, FeeType } from "../shared-types";
+import { FeeStatus, FeeType, generateReceiptNumber } from "@school-erp/shared";
 import { generateReceiptPDF } from "../services/pdf";
-import { generateReceiptNumber } from "../shared-types";
 
 export async function getFeeStructures(req: Request, res: Response, next: NextFunction) {
   try {
@@ -47,8 +46,8 @@ export async function createFeeStructure(req: Request, res: Response, next: Next
 
 export async function updateFeeStructure(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const data = CreateFeeStructureSchema.parse(req.body);
+    const { id } = req.validatedParams as any;
+    const data = req.validatedBody as any;
     const structure = await FeeStructure.findByIdAndUpdate(id, data, { new: true });
     if (!structure) {
       throw AppError.notFound("Fee structure not found");
@@ -68,7 +67,7 @@ export async function updateFeeStructure(req: Request, res: Response, next: Next
 
 export async function deleteFeeStructure(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     await FeeStructure.findByIdAndDelete(id);
     await createAuditLog({
       userId: req.user!.userId,
@@ -84,7 +83,7 @@ export async function deleteFeeStructure(req: Request, res: Response, next: Next
 
 export async function getFees(req: Request, res: Response, next: NextFunction) {
   try {
-    const query = FeeQuerySchema.parse(req.query);
+    const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
     const dbQuery: any = {};
     if (filters.studentId) dbQuery.studentId = filters.studentId;
@@ -116,8 +115,8 @@ export async function getFees(req: Request, res: Response, next: NextFunction) {
 
 export async function getStudentFees(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const { academicYear } = req.query;
+    const { id } = req.validatedParams as any;
+    const { academicYear } = req.validatedQuery as any;
     const dbQuery: any = { studentId: id };
     if (academicYear) dbQuery.academicYear = academicYear;
     const fees = await Fee.find(dbQuery).populate("feeStructureId").lean();
@@ -186,7 +185,7 @@ export async function generateFees(req: Request, res: Response, next: NextFuncti
       }
     }
 
-    let results = [];
+    let results: any[] = [];
     if (feesToCreate.length > 0) {
       results = await Fee.insertMany(feesToCreate);
     }
@@ -338,7 +337,7 @@ export async function getMonthlyCollectionReport(req: Request, res: Response, ne
 
 export async function getReceiptPDF(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const payment = await Payment.findById(id).populate({
       path: "feeId",
       populate: { path: "feeStructureId studentId" }

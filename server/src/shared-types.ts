@@ -1,1 +1,1 @@
-﻿export * from "../../shared/dist";
+export * from "../../shared/dist/index.js";

@@ -1,7 +1,7 @@
 ﻿import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { env } from "../config";
-import { UserRole } from "../shared-types";
+import { UserRole } from "@school-erp/shared";
 import { SignOptions } from "jsonwebtoken";
 
 export interface TokenPayload {

@@ -6,7 +6,7 @@ import { AppError } from "../utils/errors";
 
 export async function getClasses(req: Request, res: Response, next: NextFunction) {
   try {
-    const query = PaginationSchema.parse(req.query);
+    const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder } = query;
     const sort: any = {};
     if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1;
@@ -27,7 +27,7 @@ export async function getClasses(req: Request, res: Response, next: NextFunction
 
 export async function getClassById(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const cls = await Class.findById(id).populate("classTeacherId sectionIds");
     if (!cls) {
       throw AppError.notFound("Class not found");
@@ -61,8 +61,8 @@ export async function createClass(req: Request, res: Response, next: NextFunctio
 
 export async function updateClass(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const data = UpdateClassSchema.parse(req.body);
+    const { id } = req.validatedParams as any;
+    const data = req.validatedBody as any;
     const cls = await Class.findByIdAndUpdate(id, data, { new: true });
     if (!cls) {
       throw AppError.notFound("Class not found");
@@ -82,7 +82,7 @@ export async function updateClass(req: Request, res: Response, next: NextFunctio
 
 export async function deleteClass(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const sections = await Section.countDocuments({ classId: id });
     if (sections > 0) {
       throw AppError.badRequest("Cannot delete class with sections");
@@ -136,8 +136,8 @@ export async function createSection(req: Request, res: Response, next: NextFunct
 
 export async function updateSection(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const data = UpdateSectionSchema.parse(req.body);
+    const { id } = req.validatedParams as any;
+    const data = req.validatedBody as any;
     const section = await Section.findByIdAndUpdate(id, data, { new: true });
     if (!section) {
       throw AppError.notFound("Section not found");
@@ -157,7 +157,7 @@ export async function updateSection(req: Request, res: Response, next: NextFunct
 
 export async function deleteSection(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const section = await Section.findByIdAndDelete(id);
     if (!section) {
       throw AppError.notFound("Section not found");
@@ -210,8 +210,8 @@ export async function createSubject(req: Request, res: Response, next: NextFunct
 
 export async function updateSubject(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const data = UpdateSubjectSchema.parse(req.body);
+    const { id } = req.validatedParams as any;
+    const data = req.validatedBody as any;
     const subject = await Subject.findByIdAndUpdate(id, data, { new: true });
     if (!subject) {
       throw AppError.notFound("Subject not found");
@@ -231,7 +231,7 @@ export async function updateSubject(req: Request, res: Response, next: NextFunct
 
 export async function deleteSubject(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     await Subject.findByIdAndDelete(id);
     await createAuditLog({
       userId: req.user!.userId,

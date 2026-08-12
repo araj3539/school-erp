@@ -1,7 +1,7 @@
 ﻿import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config";
-import { UserRole } from "../shared-types";
+import { UserRole } from "@school-erp/shared";
 
 export interface AuthPayload {
   userId: string;

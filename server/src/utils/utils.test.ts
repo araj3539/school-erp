@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { AppError } from "./errors";
 import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken, hashPassword, comparePassword } from "../services/auth";
-import { UserRole } from "../shared-types";
+import { UserRole } from "@school-erp/shared";
 
 describe("Server Utilities", () => {
   describe("AppError", () => {

@@ -7,7 +7,7 @@ import { hashPassword } from "../services/auth";
 
 export async function getUsers(req: Request, res: Response, next: NextFunction) {
   try {
-    const query = PaginationSchema.parse(req.query);
+    const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
     const dbQuery: any = { schoolId: req.user!.schoolId };
     if (filters.role) dbQuery.role = filters.role;
@@ -31,7 +31,7 @@ export async function getUsers(req: Request, res: Response, next: NextFunction) 
 
 export async function getUserById(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const user = await User.findOne({ _id: id, schoolId: req.user!.schoolId });
     if (!user) {
       throw AppError.notFound("User not found");
@@ -66,8 +66,8 @@ export async function createUser(req: Request, res: Response, next: NextFunction
 
 export async function updateUser(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
-    const data = UpdateUserSchema.parse(req.body);
+    const { id } = req.validatedParams as any;
+    const data = req.validatedBody as any;
     const user = await User.findOneAndUpdate(
       { _id: id, schoolId: req.user!.schoolId },
       data,
@@ -91,7 +91,7 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
 
 export async function deleteUser(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = ObjectIdSchema.parse(req.params);
+    const { id } = req.validatedParams as any;
     const user = await User.findOneAndUpdate(
       { _id: id, schoolId: req.user!.schoolId },
       { isActive: false },
