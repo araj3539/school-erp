@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: school-erp-api
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build --prefix shared && npm run build --prefix server
+    startCommand: npm start --prefix server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRY
+        value: "15m"
+      - key: JWT_REFRESH_EXPIRY
+        value: "7d"
+      - key: CORS_ORIGIN
+        value: https://school-erp.vercel.app
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
