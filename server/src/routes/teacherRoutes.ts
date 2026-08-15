@@ -6,10 +6,10 @@ import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, IdParamSche
 const router = Router();
 
 router.use(authenticate);
-router.get("/", requirePermission("teachers:read"), validate(PaginationSchema), getTeachers);
-router.get("/:id", requirePermission("teachers:read"), validate(IdParamSchema), getTeacherById);
+router.get("/", requirePermission("teachers:read"), validate(PaginationSchema, "query"), getTeachers);
+router.get("/:id", requirePermission("teachers:read"), validate(IdParamSchema, "params"), getTeacherById);
 router.post("/", requirePermission("teachers:write"), validate(CreateTeacherSchema), createTeacher);
-router.put("/:id", requirePermission("teachers:write"), validate(IdParamSchema), validate(UpdateTeacherSchema), updateTeacher);
-router.delete("/:id", requirePermission("teachers:delete"), validate(IdParamSchema), deleteTeacher);
+router.put("/:id", requirePermission("teachers:write"), validate(IdParamSchema, "params"), validate(UpdateTeacherSchema), updateTeacher);
+router.delete("/:id", requirePermission("teachers:delete"), validate(IdParamSchema, "params"), deleteTeacher);
 
 export default router;

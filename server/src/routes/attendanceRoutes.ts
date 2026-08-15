@@ -6,9 +6,9 @@ import { MarkAttendanceSchema, PaginationSchema, DateRangeSchema, IdParamSchema 
 const router = Router();
 
 router.use(authenticate);
-router.get("/", requirePermission("attendance:read"), validate(PaginationSchema), getAttendance);
+router.get("/", requirePermission("attendance:read"), validate(PaginationSchema, "query"), getAttendance);
 router.post("/", requirePermission("attendance:write"), validate(MarkAttendanceSchema), markAttendance);
-router.get("/student/:id", requirePermission("attendance:read"), validate(IdParamSchema), validate(DateRangeSchema), getStudentAttendance);
+router.get("/student/:id", requirePermission("attendance:read"), validate(IdParamSchema, "params"), validate(DateRangeSchema, "query"), getStudentAttendance);
 router.get("/report/monthly", requirePermission("attendance:read"), getMonthlyAttendanceReport);
 
 export default router;

@@ -10,7 +10,7 @@ export async function getAttendance(req: Request, res: Response, next: NextFunct
   try {
     const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
-    const dbQuery: any = {};
+    const dbQuery: any = { schoolId: req.user!.schoolId };
     if (filters.classId) dbQuery.classId = filters.classId;
     if (filters.sectionId) dbQuery.sectionId = filters.sectionId;
     if (filters.date) {
@@ -43,7 +43,31 @@ export async function getAttendance(req: Request, res: Response, next: NextFunct
 
 export async function markAttendance(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = MarkAttendanceSchema.parse(req.body);
+    const data = req.validatedBody as ReturnType<typeof MarkAttendanceSchema.parse>;
+    const schoolId = req.user!.schoolId;
+    const [cls, section] = await Promise.all([
+      Class.findOne({ _id: data.classId, schoolId }).select("_id"),
+      Section.findOne({ _id: data.sectionId, classId: data.classId, schoolId }).select("_id")
+    ]);
+    if (!cls || !section) {
+      throw AppError.notFound("Class or section not found");
+    }
+
+    const studentIds = data.records.map((record) => record.studentId);
+    if (new Set(studentIds).size !== studentIds.length) {
+      throw AppError.badRequest("Attendance records must contain each student only once");
+    }
+    const studentCount = await Student.countDocuments({
+      _id: { $in: studentIds },
+      classId: data.classId,
+      sectionId: data.sectionId,
+      schoolId,
+      status: "active"
+    });
+    if (studentCount !== studentIds.length) {
+      throw AppError.badRequest("Attendance records must only contain active students in this class and section");
+    }
+
     // Convert studentId strings to ObjectIds
     const records = data.records.map(r => ({
       ...r,
@@ -52,7 +76,8 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
     const existing = await Attendance.findOne({
       date: new Date(data.date),
       classId: data.classId,
-      sectionId: data.sectionId
+      sectionId: data.sectionId,
+      schoolId
     });
     if (existing) {
       existing.records = records;
@@ -71,6 +96,7 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
         ...data,
         records,
         date: new Date(data.date),
+        schoolId,
         markedBy: new Types.ObjectId(req.user!.userId)
       });
       await createAuditLog({
@@ -91,7 +117,14 @@ export async function getStudentAttendance(req: Request, res: Response, next: Ne
   try {
     const { id } = req.validatedParams as any;
     const { startDate, endDate } = req.validatedQuery as any;
-    const dbQuery: any = { "records.studentId": new Types.ObjectId(id) };
+    const student = await Student.findOne({ _id: id, schoolId: req.user!.schoolId }).select("_id");
+    if (!student) {
+      throw AppError.notFound("Student not found");
+    }
+    const dbQuery: any = {
+      schoolId: req.user!.schoolId,
+      "records.studentId": new Types.ObjectId(id)
+    };
     if (startDate || endDate) {
       dbQuery.date = {};
       if (startDate) dbQuery.date.$gte = new Date(startDate);
@@ -125,10 +158,16 @@ export async function getMonthlyAttendanceReport(req: Request, res: Response, ne
     }
     const startDate = new Date(Number(year), Number(month) - 1, 1);
     const endDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
-    const students = await Student.find({ classId, sectionId, status: "active" }).lean();
+    const schoolId = req.user!.schoolId;
+    const section = await Section.findOne({ _id: sectionId, classId, schoolId }).select("_id");
+    if (!section) {
+      throw AppError.notFound("Class or section not found");
+    }
+    const students = await Student.find({ classId, sectionId, schoolId, status: "active" }).lean();
     const attendance = await Attendance.find({
       classId,
       sectionId,
+      schoolId,
       date: { $gte: startDate, $lte: endDate }
     }).lean();
     const report = students.map((student: any) => {

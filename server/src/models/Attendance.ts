@@ -33,7 +33,7 @@ const AttendanceSchema = new Schema<IAttendance>({
   markedBy: { type: Schema.Types.ObjectId, ref: "User", required: true }
 }, { timestamps: true });
 
-AttendanceSchema.index({ date: 1, classId: 1, sectionId: 1 }, { unique: true });
+AttendanceSchema.index({ schoolId: 1, date: 1, classId: 1, sectionId: 1 }, { unique: true });
 AttendanceSchema.index({ schoolId: 1, date: 1 });
 AttendanceSchema.index({ "records.studentId": 1, date: 1 });
 
