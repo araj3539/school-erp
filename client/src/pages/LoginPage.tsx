@@ -36,7 +36,10 @@ export default function LoginPage() {
       addToast("Login successful", "success");
       navigate(from, { replace: true });
     } catch (error: any) {
-      addToast(error.response?.data?.error || "Login failed", "error");
+      const message = error.code === "ECONNABORTED"
+        ? "The server is taking too long to respond. Please try again."
+        : error.response?.data?.error || "Login failed";
+      addToast(message, "error");
     } finally {
       setIsLoading(false);
     }
