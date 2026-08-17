@@ -24,23 +24,64 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const data = LoginSchema.parse(req.body);
-    const user = await User.findOne({ email: data.email }).select("+passwordHash");
+    console.info("[AUTH] Login attempt", { email: data.email });
+
+    let user: (IUser & { passwordHash: string }) | null;
+    try {
+      user = await User.findOne({ email: data.email }).select("+passwordHash") as (IUser & { passwordHash: string }) | null;
+    } catch (error) {
+      console.error("[AUTH] User lookup failed", { name: error instanceof Error ? error.name : "UnknownError", message: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+
     if (!user || !user.isActive) {
+      console.info("[AUTH] Login rejected: user missing or inactive", { email: data.email, userFound: Boolean(user), active: user?.isActive ?? false });
       res.status(401).json({ error: "Invalid credentials", code: "UNAUTHORIZED" });
       return;
     }
-    const isValid = await comparePassword(data.password, user.passwordHash);
+
+    let isValid: boolean;
+    try {
+      isValid = await comparePassword(data.password, user.passwordHash);
+    } catch (error) {
+      console.error("[AUTH] Password comparison failed", { name: error instanceof Error ? error.name : "UnknownError", message: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+
     if (!isValid) {
+      console.info("[AUTH] Login rejected: invalid password", { email: data.email });
       res.status(401).json({ error: "Invalid credentials", code: "UNAUTHORIZED" });
       return;
     }
-    user.lastLogin = new Date();
-    await user.save();
+
+    try {
+      user.lastLogin = new Date();
+      await user.save();
+    } catch (error) {
+      console.error("[AUTH] Failed to update lastLogin", { name: error instanceof Error ? error.name : "UnknownError", message: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+
     const payload = { userId: user._id.toString(), email: user.email, role: user.role, schoolId: user.schoolId.toString() };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-    setAuthCookies(res, accessToken, refreshToken);
+    let accessToken: string;
+    let refreshToken: string;
+    try {
+      accessToken = generateAccessToken(payload);
+      refreshToken = generateRefreshToken(payload);
+    } catch (error) {
+      console.error("[AUTH] Token generation failed", { name: error instanceof Error ? error.name : "UnknownError", message: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+
+    try {
+      setAuthCookies(res, accessToken, refreshToken);
+    } catch (error) {
+      console.error("[AUTH] Setting auth cookies failed", { name: error instanceof Error ? error.name : "UnknownError", message: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+
     await createAuditLog({ userId: user._id.toString(), action: "LOGIN", entity: "User", entityId: user._id.toString() });
+    console.info("[AUTH] Login successful", { email: user.email, userId: user._id.toString() });
     res.json({ user: { id: user._id, email: user.email, role: user.role, schoolId: user.schoolId }, accessToken });
   } catch (error) { next(error); }
 }
