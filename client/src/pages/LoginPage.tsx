@@ -32,7 +32,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const response = await api.post("/auth/login", data);
-      login(response.data.user);
+      login(response.data.user, response.data.accessToken);
       addToast("Login successful", "success");
       navigate(from, { replace: true });
     } catch (error: any) {
