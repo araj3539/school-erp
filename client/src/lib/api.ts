@@ -1,8 +1,15 @@
 import axios from "axios";
 import { useAuthStore } from "../store/authStore";
 
+// In production, fall back to the live Render API if VITE_API_URL is not
+// configured in Vercel. The environment variable can still override this
+// value for staging/local deployments.
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://school-erp-api-6gm7.onrender.com/api/v1";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "/api/v1",
+  baseURL: API_BASE_URL,
   withCredentials: true,
   timeout: 30_000,
 });
@@ -11,7 +18,8 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+
+    if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true;
       try {
         const response = await api.post("/auth/refresh");
@@ -24,6 +32,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
     }
+
     return Promise.reject(error);
   },
 );
