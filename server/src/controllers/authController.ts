@@ -88,14 +88,16 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
 export async function refresh(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = RefreshTokenSchema.parse(req.body);
-    const payload = verifyRefreshToken(data.refreshToken);
+    // Prefer the httpOnly refresh cookie. Keep accepting the request body for
+    // backwards compatibility with existing clients.
+    const refreshToken = req.cookies?.refresh_token ?? RefreshTokenSchema.parse(req.body ?? {}).refreshToken;
+    const payload = verifyRefreshToken(refreshToken);
     const user = await User.findById(payload.userId);
     if (!user || !user.isActive) throw AppError.unauthorized("User not found or inactive");
     const newPayload = { userId: user._id.toString(), email: user.email, role: user.role, schoolId: user.schoolId.toString() };
     const accessToken = generateAccessToken(newPayload);
-    const refreshToken = generateRefreshToken(newPayload);
-    setAuthCookies(res, accessToken, refreshToken);
+    const newRefreshToken = generateRefreshToken(newPayload);
+    setAuthCookies(res, accessToken, newRefreshToken);
     res.json({ accessToken });
   } catch (error) { next(error); }
 }
