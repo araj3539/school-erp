@@ -9,6 +9,11 @@ import routes from "./routes/index.js";
 
 const app = express();
 
+// Render runs the service behind a reverse proxy and forwards the client IP
+// in X-Forwarded-For. Trust the first proxy so express-rate-limit can safely
+// identify clients by their forwarded IP address.
+app.set("trust proxy", 1);
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -33,7 +38,6 @@ const allowedOrigins = env.CORS_ORIGIN
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow non-browser/server-to-server requests with no Origin header.
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error("CORS origin not allowed"));
