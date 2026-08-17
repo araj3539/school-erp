@@ -38,22 +38,26 @@ export async function comparePassword(password: string, hash: string): Promise<b
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  // Vercel and Render are different sites, so production auth cookies must
+  // be sent on cross-site requests. `lax` would prevent that.
+  sameSite: env.NODE_ENV === "production" ? "none" as const : "lax" as const,
+};
+
 export function setAuthCookies(res: any, accessToken: string, refreshToken: string): void {
   res.cookie(ACCESS_TOKEN_COOKIE, accessToken, {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 15 * 60 * 1000
+    ...cookieOptions,
+    maxAge: 15 * 60 * 1000,
   });
   res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000
+    ...cookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
 
 export function clearAuthCookies(res: any): void {
-  res.clearCookie(ACCESS_TOKEN_COOKIE, { httpOnly: true, secure: env.NODE_ENV === "production", sameSite: "lax" });
-  res.clearCookie(REFRESH_TOKEN_COOKIE, { httpOnly: true, secure: env.NODE_ENV === "production", sameSite: "lax" });
+  res.clearCookie(ACCESS_TOKEN_COOKIE, cookieOptions);
+  res.clearCookie(REFRESH_TOKEN_COOKIE, cookieOptions);
 }
