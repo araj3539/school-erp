@@ -8,12 +8,32 @@ import { useAuthStore } from "./store/authStore";
 
 function App() {
   const { toasts, removeToast } = useUIStore();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, hasHydrated, setHasHydrated } = useAuthStore();
+
   useEffect(() => {
-    if (isAuthenticated && user) {
-      api.defaults.headers.common["Authorization"] = `Bearer ${(user as any).accessToken}`;
+    if (!hasHydrated) {
+      useAuthStore.persist.rehydrate();
+    }
+  }, [hasHydrated]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.accessToken) {
+      api.defaults.headers.common["Authorization"] = `Bearer ${user.accessToken}`;
+    } else {
+      delete api.defaults.headers.common["Authorization"];
     }
   }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    if (hasHydrated && isAuthenticated) {
+      setHasHydrated(true);
+    }
+  }, [hasHydrated, isAuthenticated, setHasHydrated]);
+
+  if (!hasHydrated) {
+    return null;
+  }
+
   return (
     <>
       <RouterProvider router={router} />
@@ -21,4 +41,5 @@ function App() {
     </>
   );
 }
+
 export default App;
