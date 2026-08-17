@@ -26,7 +26,6 @@ const PaymentSchema = new Schema<IPayment>({
   date: { type: Date, required: true }
 }, { timestamps: true });
 
-PaymentSchema.index({ receiptNo: 1 }, { unique: true });
 PaymentSchema.index({ schoolId: 1, feeId: 1 });
 PaymentSchema.index({ schoolId: 1, studentId: 1, date: 1 });
 PaymentSchema.index({ schoolId: 1, date: 1 });
