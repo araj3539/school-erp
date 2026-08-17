@@ -21,10 +21,21 @@ declare global {
 }
 
 const ACCESS_TOKEN_COOKIE = "access_token";
-const REFRESH_TOKEN_COOKIE = "refresh_token";
+
+function getAccessToken(req: Request): string | undefined {
+  const cookieToken = req.cookies?.[ACCESS_TOKEN_COOKIE];
+  if (cookieToken) return cookieToken;
+
+  const authorization = req.get("Authorization");
+  if (!authorization) return undefined;
+
+  const [scheme, token] = authorization.split(" ");
+  if (scheme?.toLowerCase() !== "bearer" || !token) return undefined;
+  return token;
+}
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
-  const accessToken = req.cookies?.[ACCESS_TOKEN_COOKIE];
+  const accessToken = getAccessToken(req);
   if (!accessToken) {
     res.status(401).json({ error: "Authentication required" });
     return;
@@ -39,7 +50,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 }
 
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
-  const accessToken = req.cookies?.[ACCESS_TOKEN_COOKIE];
+  const accessToken = getAccessToken(req);
   if (!accessToken) {
     next();
     return;
