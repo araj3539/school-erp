@@ -1,13 +1,23 @@
 import { Request, Response, NextFunction } from "express";
 import multer from "multer";
+import { ZodError } from "zod";
 import { AppError } from "../utils/errors.js";
 import { isDevelopment } from "../config/index.js";
 
 export function errorHandler(err: Error, req: Request, res: Response, next: NextFunction): void {
-  if (err instanceof AppError) {
-    res.status(err.statusCode).json({
-      error: err.message,
-      code: err.code
+  if (err instanceof AppError || (typeof err === "object" && err !== null && "statusCode" in err && "code" in err)) {
+    const appError = err as Error & { statusCode: number; code: string };
+    res.status(appError.statusCode).json({
+      error: appError.message,
+      code: appError.code
+    });
+    return;
+  }
+
+  if (err instanceof ZodError) {
+    res.status(400).json({
+      error: err.issues.map((issue) => issue.message).join("; "),
+      code: "VALIDATION_ERROR"
     });
     return;
   }
@@ -32,19 +42,13 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
   if (err.name === "ValidationError" && "errors" in err) {
     const mongooseErr = err as any;
     const messages = Object.values(mongooseErr.errors).map((e: any) => e.message);
-    res.status(400).json({
-      error: messages.join("; "),
-      code: "VALIDATION_ERROR"
-    });
+    res.status(400).json({ error: messages.join("; "), code: "VALIDATION_ERROR" });
     return;
   }
 
   if (err.name === "MongoServerError" && (err as any).code === 11000) {
     const field = Object.keys((err as any).keyValue)[0];
-    res.status(409).json({
-      error: `${field} already exists`,
-      code: "DUPLICATE_ENTRY"
-    });
+    res.status(409).json({ error: `${field} already exists`, code: "DUPLICATE_ENTRY" });
     return;
   }
 
@@ -58,7 +62,14 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
     return;
   }
 
-  console.error("Error:", err);
+  console.error("Unhandled error:", {
+    method: req.method,
+    path: req.path,
+    name: err.name,
+    message: err.message,
+    stack: err.stack
+  });
+
   res.status(500).json({
     error: isDevelopment ? err.message : "Internal server error",
     code: "INTERNAL_ERROR"
