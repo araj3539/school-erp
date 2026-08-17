@@ -1,6 +1,15 @@
+import dotenv from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { connectDB, disconnectDB } from "../config/index.js";
+
+// Load local environment variables before importing config, which validates them at module load time.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, "../../.env") });
+dotenv.config({ path: resolve(__dirname, "../../../.env"), override: false });
+
+const { connectDB, disconnectDB } = await import("../config/index.js");
 
 const DEMO_SCHOOL_ID = new mongoose.Types.ObjectId("66c000000000000000000001");
 const DEMO_ACADEMIC_YEAR_ID = new mongoose.Types.ObjectId("66c000000000000000000002");
@@ -74,11 +83,11 @@ async function seedDemo(): Promise<void> {
   console.log("Password: password123");
 }
 
-seedDemo()
-  .catch((error) => {
-    console.error("Demo seed failed:", error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await disconnectDB();
-  });
+try {
+  await seedDemo();
+} catch (error) {
+  console.error("Demo seed failed:", error);
+  process.exitCode = 1;
+} finally {
+  await disconnectDB();
+}
