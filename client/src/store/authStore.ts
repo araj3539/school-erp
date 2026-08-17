@@ -4,9 +4,10 @@ import type { User, UserRole } from "@school-erp/shared";
 
 interface AuthState {
   user: User | null;
+  accessToken: string | null;
   isAuthenticated: boolean;
   hasHydrated: boolean;
-  login: (user: User) => void;
+  login: (user: User, accessToken?: string) => void;
   logout: () => void;
   updateAccessToken: (accessToken: string) => void;
   setHasHydrated: (value: boolean) => void;
@@ -27,12 +28,12 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      accessToken: null,
       isAuthenticated: false,
       hasHydrated: false,
-      login: (user) => set({ user, isAuthenticated: true }),
-      logout: () => set({ user: null, isAuthenticated: false }),
-      updateAccessToken: (accessToken: string) =>
-        set((state) => ({ user: state.user ? { ...state.user, accessToken } : null })),
+      login: (user, accessToken) => set({ user, accessToken: accessToken ?? null, isAuthenticated: true }),
+      logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+      updateAccessToken: (accessToken) => set({ accessToken }),
       setHasHydrated: (value) => set({ hasHydrated: value }),
       hasPermission: (permission) => {
         const { user } = get();
@@ -51,7 +52,11 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "auth-storage",
       skipHydration: true,
-      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
+      partialize: (state) => ({
+        user: state.user,
+        accessToken: state.accessToken,
+        isAuthenticated: state.isAuthenticated
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       }
