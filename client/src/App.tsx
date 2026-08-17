@@ -8,7 +8,7 @@ import { useAuthStore } from "./store/authStore";
 
 function App() {
   const { toasts, removeToast } = useUIStore();
-  const { isAuthenticated, user, hasHydrated, setHasHydrated } = useAuthStore();
+  const { isAuthenticated, accessToken, hasHydrated } = useAuthStore();
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -17,18 +17,12 @@ function App() {
   }, [hasHydrated]);
 
   useEffect(() => {
-    if (isAuthenticated && user?.accessToken) {
-      api.defaults.headers.common["Authorization"] = `Bearer ${user.accessToken}`;
+    if (isAuthenticated && accessToken) {
+      api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
     } else {
       delete api.defaults.headers.common["Authorization"];
     }
-  }, [isAuthenticated, user]);
-
-  useEffect(() => {
-    if (hasHydrated && isAuthenticated) {
-      setHasHydrated(true);
-    }
-  }, [hasHydrated, isAuthenticated, setHasHydrated]);
+  }, [isAuthenticated, accessToken]);
 
   if (!hasHydrated) {
     return null;
