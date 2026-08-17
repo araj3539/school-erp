@@ -11,12 +11,6 @@ function App() {
   const { isAuthenticated, accessToken, hasHydrated } = useAuthStore();
 
   useEffect(() => {
-    if (!hasHydrated) {
-      useAuthStore.persist.rehydrate();
-    }
-  }, [hasHydrated]);
-
-  useEffect(() => {
     if (isAuthenticated && accessToken) {
       api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
     } else {
