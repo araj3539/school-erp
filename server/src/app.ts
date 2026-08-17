@@ -26,9 +26,19 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
+const allowedOrigins = env.CORS_ORIGIN
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: env.CORS_ORIGIN,
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow non-browser/server-to-server requests with no Origin header.
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("CORS origin not allowed"));
+  },
+  credentials: true,
 }));
 
 app.use(express.json({ limit: "10mb" }));
@@ -47,4 +57,3 @@ export async function startServer(): Promise<void> {
 }
 
 export default app;
-
