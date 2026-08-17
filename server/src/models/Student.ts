@@ -65,7 +65,6 @@ const StudentSchema = new Schema<IStudent>({
   admissionDate: { type: Date, required: true }
 }, { timestamps: true });
 
-StudentSchema.index({ admissionNo: 1 }, { unique: true });
 StudentSchema.index({ schoolId: 1, classId: 1, sectionId: 1, status: 1 });
 StudentSchema.index({ schoolId: 1, status: 1 });
 
