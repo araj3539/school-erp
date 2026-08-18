@@ -3,9 +3,11 @@ import { Class, IClass, Section, ISection, Subject, ISubject, Teacher, ITeacher 
 import { CreateClassSchema, UpdateClassSchema, CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
+import { getTenantId, withTenant } from "../utils/tenant.js";
 
 export async function getClasses(req: Request, res: Response, next: NextFunction) {
   try {
+    const schoolId = getTenantId(req);
     const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder } = query;
     const sort: any = {};
@@ -13,8 +15,8 @@ export async function getClasses(req: Request, res: Response, next: NextFunction
     else sort.name = 1;
     const skip = (page - 1) * limit;
     const [classes, total] = await Promise.all([
-      Class.find().populate("classTeacherId sectionIds").sort(sort).skip(skip).limit(limit).lean(),
-      Class.countDocuments()
+      Class.find({ schoolId }).populate("classTeacherId sectionIds").sort(sort).skip(skip).limit(limit).lean(),
+      Class.countDocuments({ schoolId })
     ]);
     res.json({
       data: classes,
@@ -28,7 +30,7 @@ export async function getClasses(req: Request, res: Response, next: NextFunction
 export async function getClassById(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const cls = await Class.findById(id).populate("classTeacherId sectionIds");
+    const cls = await Class.findOne({ _id: id, schoolId: getTenantId(req) }).populate("classTeacherId sectionIds");
     if (!cls) {
       throw AppError.notFound("Class not found");
     }
@@ -40,8 +42,8 @@ export async function getClassById(req: Request, res: Response, next: NextFuncti
 
 export async function createClass(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = CreateClassSchema.parse(req.body);
-    const existing = await Class.findOne({ name: data.name });
+    const data = withTenant(req, CreateClassSchema.parse(req.body) as any);
+    const existing = await Class.findOne({ schoolId: data.schoolId, name: data.name });
     if (existing) {
       throw AppError.conflict("Class name already exists");
     }
@@ -62,8 +64,9 @@ export async function createClass(req: Request, res: Response, next: NextFunctio
 export async function updateClass(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const data = req.validatedBody as any;
-    const cls = await Class.findByIdAndUpdate(id, data, { new: true });
+    const rawData = req.validatedBody as any;
+    const { schoolId: _ignored, ...data } = rawData;
+    const cls = await Class.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, data, { new: true });
     if (!cls) {
       throw AppError.notFound("Class not found");
     }
@@ -83,11 +86,15 @@ export async function updateClass(req: Request, res: Response, next: NextFunctio
 export async function deleteClass(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const sections = await Section.countDocuments({ classId: id });
+    const schoolId = getTenantId(req);
+    const sections = await Section.countDocuments({ classId: id, schoolId });
     if (sections > 0) {
       throw AppError.badRequest("Cannot delete class with sections");
     }
-    await Class.findByIdAndDelete(id);
+    const cls = await Class.findOneAndDelete({ _id: id, schoolId });
+    if (!cls) {
+      throw AppError.notFound("Class not found");
+    }
     await createAuditLog({
       userId: req.user!.userId,
       action: "DELETE",
@@ -102,8 +109,9 @@ export async function deleteClass(req: Request, res: Response, next: NextFunctio
 
 export async function getSections(req: Request, res: Response, next: NextFunction) {
   try {
+    const schoolId = getTenantId(req);
     const { classId } = req.query;
-    const dbQuery: any = {};
+    const dbQuery: any = { schoolId };
     if (classId) dbQuery.classId = classId;
     const sections = await Section.find(dbQuery).populate("classId").lean();
     res.json({ data: sections });
@@ -114,13 +122,17 @@ export async function getSections(req: Request, res: Response, next: NextFunctio
 
 export async function createSection(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = CreateSectionSchema.parse(req.body);
-    const existing = await Section.findOne({ classId: data.classId, name: data.name });
+    const data = withTenant(req, CreateSectionSchema.parse(req.body) as any);
+    const existingClass = await Class.findOne({ _id: data.classId, schoolId: data.schoolId });
+    if (!existingClass) {
+      throw AppError.notFound("Class not found");
+    }
+    const existing = await Section.findOne({ schoolId: data.schoolId, classId: data.classId, name: data.name });
     if (existing) {
       throw AppError.conflict("Section name already exists for this class");
     }
     const section = await Section.create(data);
-    await Class.findByIdAndUpdate(data.classId, { $push: { sectionIds: section._id } });
+    await Class.findOneAndUpdate({ _id: data.classId, schoolId: data.schoolId }, { $push: { sectionIds: section._id } });
     await createAuditLog({
       userId: req.user!.userId,
       action: "CREATE",
@@ -137,8 +149,9 @@ export async function createSection(req: Request, res: Response, next: NextFunct
 export async function updateSection(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const data = req.validatedBody as any;
-    const section = await Section.findByIdAndUpdate(id, data, { new: true });
+    const rawData = req.validatedBody as any;
+    const { schoolId: _ignored, ...data } = rawData;
+    const section = await Section.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, data, { new: true });
     if (!section) {
       throw AppError.notFound("Section not found");
     }
@@ -158,11 +171,12 @@ export async function updateSection(req: Request, res: Response, next: NextFunct
 export async function deleteSection(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const section = await Section.findByIdAndDelete(id);
+    const schoolId = getTenantId(req);
+    const section = await Section.findOneAndDelete({ _id: id, schoolId });
     if (!section) {
       throw AppError.notFound("Section not found");
     }
-    await Class.findByIdAndUpdate(section.classId, { $pull: { sectionIds: id } });
+    await Class.findOneAndUpdate({ _id: section.classId, schoolId }, { $pull: { sectionIds: id } });
     await createAuditLog({
       userId: req.user!.userId,
       action: "DELETE",
@@ -177,8 +191,9 @@ export async function deleteSection(req: Request, res: Response, next: NextFunct
 
 export async function getSubjects(req: Request, res: Response, next: NextFunction) {
   try {
+    const schoolId = getTenantId(req);
     const { classId } = req.query;
-    const dbQuery: any = {};
+    const dbQuery: any = { schoolId };
     if (classId) dbQuery.classIds = classId;
     const subjects = await Subject.find(dbQuery).populate("classIds teacherId").lean();
     res.json({ data: subjects });
@@ -189,8 +204,8 @@ export async function getSubjects(req: Request, res: Response, next: NextFunctio
 
 export async function createSubject(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = CreateSubjectSchema.parse(req.body);
-    const existing = await Subject.findOne({ code: data.code });
+    const data = withTenant(req, CreateSubjectSchema.parse(req.body) as any);
+    const existing = await Subject.findOne({ schoolId: data.schoolId, code: data.code });
     if (existing) {
       throw AppError.conflict("Subject code already exists");
     }
@@ -211,8 +226,9 @@ export async function createSubject(req: Request, res: Response, next: NextFunct
 export async function updateSubject(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const data = req.validatedBody as any;
-    const subject = await Subject.findByIdAndUpdate(id, data, { new: true });
+    const rawData = req.validatedBody as any;
+    const { schoolId: _ignored, ...data } = rawData;
+    const subject = await Subject.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, data, { new: true });
     if (!subject) {
       throw AppError.notFound("Subject not found");
     }
@@ -232,7 +248,10 @@ export async function updateSubject(req: Request, res: Response, next: NextFunct
 export async function deleteSubject(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    await Subject.findByIdAndDelete(id);
+    const subject = await Subject.findOneAndDelete({ _id: id, schoolId: getTenantId(req) });
+    if (!subject) {
+      throw AppError.notFound("Subject not found");
+    }
     await createAuditLog({
       userId: req.user!.userId,
       action: "DELETE",
