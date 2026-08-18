@@ -11,7 +11,7 @@ A comprehensive School Management System built with modern web technologies.
 - **State Management**: TanStack Query (server) + Zustand (client)
 - **Forms**: React Hook Form + Zod validation
 - **PDF Generation**: pdfkit
-- **File Storage**: Cloudinary
+- **File Storage**: Cloudflare R2 with private object keys and signed URLs
 - **Testing**: Vitest + Playwright
 - **Monorepo**: Turbo
 
@@ -64,7 +64,10 @@ npm run dev
 | JWT_SECRET | JWT signing secret (32+ chars) | Yes |
 | JWT_REFRESH_SECRET | Refresh token secret (32+ chars) | Yes |
 | CORS_ORIGIN | Frontend URL | Yes |
-| CLOUDINARY_* | Cloudinary credentials | No |
+| R2_ACCOUNT_ID | Cloudflare account ID for R2 | Yes for file storage |
+| R2_ACCESS_KEY_ID | R2 object read/write access key | Yes for file storage |
+| R2_SECRET_ACCESS_KEY | R2 secret access key | Yes for file storage |
+| R2_BUCKET_NAME | Private R2 bucket name | Yes for file storage |
 
 ### Development
 
@@ -74,6 +77,10 @@ npm run test
 npm run lint
 npm run format
 ```
+
+## File Storage
+
+School ERP uses a private Cloudflare R2 bucket for uploaded files. The backend stores the R2 object key as metadata and generates short-lived signed download URLs only after authentication and permission checks. R2 credentials must never be committed to Git.
 
 ## Deployment
 
