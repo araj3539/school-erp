@@ -16,6 +16,11 @@ const DEMO_ACADEMIC_YEAR_ID = new mongoose.Types.ObjectId("66c000000000000000000
 const DEMO_ADMIN_ID = new mongoose.Types.ObjectId("66c000000000000000000003");
 
 async function seedDemo(): Promise<void> {
+  const demoAdminPassword = process.env.DEMO_ADMIN_PASSWORD;
+  if (!demoAdminPassword || demoAdminPassword.length < 12) {
+    throw new Error("DEMO_ADMIN_PASSWORD must be set and contain at least 12 characters");
+  }
+
   await connectDB();
 
   const db = mongoose.connection.db;
@@ -23,7 +28,7 @@ async function seedDemo(): Promise<void> {
     throw new Error("MongoDB database connection is not available");
   }
 
-  const passwordHash = await bcrypt.hash("password123", 12);
+  const passwordHash = await bcrypt.hash(demoAdminPassword, 12);
   const now = new Date();
   const startDate = new Date("2026-04-01T00:00:00.000Z");
   const endDate = new Date("2027-03-31T23:59:59.999Z");
@@ -80,7 +85,7 @@ async function seedDemo(): Promise<void> {
 
   console.log("Demo data seeded successfully.");
   console.log("Email: admin@school.com");
-  console.log("Password: password123");
+  console.log("Password: supplied through DEMO_ADMIN_PASSWORD");
 }
 
 try {
