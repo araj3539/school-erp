@@ -40,6 +40,12 @@ export default function StudentDetailPage() {
     enabled: !!id
   });
 
+  const openDocument = async (documentId: string) => {
+    if (!id || !documentId) return;
+    const res = await api.get(`/students/${id}/documents/${documentId}/url`);
+    window.open(res.data.url, "_blank", "noopener,noreferrer");
+  };
+
   const statusBadges: Record<string, "success" | "warning" | "danger" | "info"> = {
     active: "success",
     left: "danger",
@@ -115,9 +121,9 @@ export default function StudentDetailPage() {
                 {s.documents?.length > 0 ? (
                   <ul className="space-y-2">
                     {s.documents.map((doc: any) => (
-                      <li key={doc.type} className="flex items-center justify-between">
+                      <li key={doc._id || doc.type} className="flex items-center justify-between">
                         <span className="capitalize">{doc.type.replace("_", " ")}</span>
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">View</a>
+                        <button type="button" onClick={() => openDocument(doc._id)} disabled={!doc._id} className="text-primary-600 hover:underline disabled:opacity-50 disabled:no-underline">View</button>
                       </li>
                     ))}
                   </ul>
@@ -140,21 +146,14 @@ export default function StudentDetailPage() {
             </CardHeader>
             <CardContent>
               {feesData?.fees?.length > 0 ? (
-                <Table
-                  data={feesData.fees}
-                  columns={[
-                    { key: "feeStructureId", header: "Fee Type", render: (f: any) => f.feeStructureId?.feeType },
-                    { key: "totalDue", header: "Total Due", render: (f: any) => formatCurrency(f.totalDue) },
-                    { key: "paidAmount", header: "Paid", render: (f: any) => formatCurrency(f.paidAmount) },
-                    { key: "balance", header: "Balance", render: (f: any) => formatCurrency(f.balance) },
-                    { key: "status", header: "Status", render: (f: any) => <Badge variant={f.status === "paid" ? "success" : f.status === "overdue" ? "danger" : "warning"}>{f.status}</Badge> }
-                  ]}
-                  keyExtractor={(f) => f._id}
-                  emptyMessage="No fee records"
-                />
-              ) : (
-                <p className="text-center text-gray-500 py-8">No fee records found</p>
-              )}
+                <Table data={feesData.fees} columns={[
+                  { key: "feeStructureId", header: "Fee Type", render: (f: any) => f.feeStructureId?.feeType },
+                  { key: "totalDue", header: "Total Due", render: (f: any) => formatCurrency(f.totalDue) },
+                  { key: "paidAmount", header: "Paid", render: (f: any) => formatCurrency(f.paidAmount) },
+                  { key: "balance", header: "Balance", render: (f: any) => formatCurrency(f.balance) },
+                  { key: "status", header: "Status", render: (f: any) => <Badge variant={f.status === "paid" ? "success" : f.status === "overdue" ? "danger" : "warning"}>{f.status}</Badge> }
+                ]} keyExtractor={(f) => f._id} emptyMessage="No fee records" />
+              ) : <p className="text-center text-gray-500 py-8">No fee records found</p>}
             </CardContent>
           </Card>
         </TabsContent>
@@ -172,25 +171,12 @@ export default function StudentDetailPage() {
             </CardHeader>
             <CardContent>
               {attendanceData?.attendance?.length > 0 ? (
-                <Table
-                  data={attendanceData.attendance}
-                  columns={[
-                    { key: "date", header: "Date", render: (a: any) => formatDate(a.date) },
-                    { key: "status", header: "Status", render: (a: any) => {
-                      const record = a.records?.find((r: any) => r.studentId === id);
-                      return record ? <Badge variant={record.status === "present" ? "success" : record.status === "absent" ? "danger" : record.status === "late" ? "warning" : "info"}>{record.status}</Badge> : "-";
-                    } },
-                    { key: "remark", header: "Remark", render: (a: any) => {
-                      const record = a.records?.find((r: any) => r.studentId === id);
-                      return record?.remark || "-";
-                    } }
-                  ]}
-                  keyExtractor={(a) => a._id}
-                  emptyMessage="No attendance records"
-                />
-              ) : (
-                <p className="text-center text-gray-500 py-8">No attendance records found</p>
-              )}
+                <Table data={attendanceData.attendance} columns={[
+                  { key: "date", header: "Date", render: (a: any) => formatDate(a.date) },
+                  { key: "status", header: "Status", render: (a: any) => { const record = a.records?.find((r: any) => r.studentId === id); return record ? <Badge variant={record.status === "present" ? "success" : record.status === "absent" ? "danger" : record.status === "late" ? "warning" : "info"}>{record.status}</Badge> : "-"; } },
+                  { key: "remark", header: "Remark", render: (a: any) => { const record = a.records?.find((r: any) => r.studentId === id); return record?.remark || "-"; } }
+                ]} keyExtractor={(a) => a._id} emptyMessage="No attendance records" />
+              ) : <p className="text-center text-gray-500 py-8">No attendance records found</p>}
             </CardContent>
           </Card>
         </TabsContent>
