@@ -1,18 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import multer from "multer";
-import { Student, IStudent, Class, IClass, Section, ISection, User, IUser } from "../models/index.js";
-import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
+import { Student } from "../models/index.js";
+import { CreateStudentSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
 import { escapeRegex } from "../utils/strings.js";
-import { buildR2Key, sanitizeFileName, uploadToR2 } from "../services/r2.js";
+import { buildR2Key, sanitizeFileName, uploadToR2, getR2SignedUrl } from "../services/r2.js";
 import { generateAdmissionNumber } from "@school-erp/shared";
 
-interface MulterRequest extends Request {
-  file?: Express.Multer.File;
-}
+interface MulterRequest extends Request { file?: Express.Multer.File; }
 
 export async function getStudents(req: Request, res: Response, next: NextFunction) {
   try {
@@ -41,9 +39,7 @@ export async function getStudents(req: Request, res: Response, next: NextFunctio
       Student.countDocuments(dbQuery)
     ]);
     res.json({ data: students, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 }
 
 export async function getStudentById(req: Request, res: Response, next: NextFunction) {
@@ -52,6 +48,21 @@ export async function getStudentById(req: Request, res: Response, next: NextFunc
     const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }).populate("classId sectionId userId");
     if (!student) throw AppError.notFound("Student not found");
     res.json({ student });
+  } catch (error) { next(error); }
+}
+
+export async function getStudentDocumentUrl(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id, documentId } = req.validatedParams as any;
+    const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }).select("documents");
+    if (!student) throw AppError.notFound("Student not found");
+
+    const document = student.documents.find((item: any) => item._id?.toString() === documentId);
+    if (!document) throw AppError.notFound("Document not found");
+    if (!document.url) throw AppError.notFound("Document storage key is missing");
+
+    const signedUrl = await getR2SignedUrl(document.url, 600);
+    res.json({ url: signedUrl, expiresIn: 600 });
   } catch (error) { next(error); }
 }
 
@@ -104,13 +115,7 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
 
     student.documents.push({ type: type as any, url: result.key, uploadedAt: new Date() });
     await student.save();
-    await createAuditLog({
-      userId: req.user!.userId,
-      action: "UPLOAD_DOCUMENT",
-      entity: "Student",
-      entityId: student._id.toString(),
-      after: { type, key: result.key, originalName: req.file.originalname, mimeType: req.file.mimetype, sizeBytes: req.file.size }
-    });
+    await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: req.file.mimetype, sizeBytes: req.file.size } });
     res.status(201).json({ document: student.documents[student.documents.length - 1] });
   } catch (error) { next(error); }
 }
