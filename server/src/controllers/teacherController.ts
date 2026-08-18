@@ -3,13 +3,15 @@ import { Teacher, ITeacher, Subject, ISubject, Class, IClass } from "../models/i
 import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
+import { getTenantId, withTenant } from "../utils/tenant.js";
 import { generateEmployeeId } from "@school-erp/shared";
 
 export async function getTeachers(req: Request, res: Response, next: NextFunction) {
   try {
+    const schoolId = getTenantId(req);
     const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
-    const dbQuery: any = {};
+    const dbQuery: any = { schoolId };
     if (filters.status) dbQuery.status = filters.status;
     if (filters.search) {
       dbQuery.$or = [
@@ -39,7 +41,7 @@ export async function getTeachers(req: Request, res: Response, next: NextFunctio
 export async function getTeacherById(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const teacher = await Teacher.findById(id).populate("subjects classTeacherOf userId");
+    const teacher = await Teacher.findOne({ _id: id, schoolId: getTenantId(req) }).populate("subjects classTeacherOf userId");
     if (!teacher) {
       throw AppError.notFound("Teacher not found");
     }
@@ -51,15 +53,15 @@ export async function getTeacherById(req: Request, res: Response, next: NextFunc
 
 export async function createTeacher(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = CreateTeacherSchema.parse(req.body);
+    const data = withTenant(req, CreateTeacherSchema.parse(req.body) as any);
     if (!data.employeeId) {
       data.employeeId = generateEmployeeId();
     }
-    const existing = await Teacher.findOne({ employeeId: data.employeeId });
+    const existing = await Teacher.findOne({ schoolId: data.schoolId, employeeId: data.employeeId });
     if (existing) {
       throw AppError.conflict("Employee ID already exists");
     }
-    const existingEmail = await Teacher.findOne({ email: data.email });
+    const existingEmail = await Teacher.findOne({ schoolId: data.schoolId, email: data.email });
     if (existingEmail) {
       throw AppError.conflict("Email already registered");
     }
@@ -80,8 +82,9 @@ export async function createTeacher(req: Request, res: Response, next: NextFunct
 export async function updateTeacher(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const data = req.validatedBody as any;
-    const teacher = await Teacher.findByIdAndUpdate(id, data, { new: true });
+    const rawData = req.validatedBody as any;
+    const { schoolId: _ignored, ...data } = rawData;
+    const teacher = await Teacher.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, data, { new: true });
     if (!teacher) {
       throw AppError.notFound("Teacher not found");
     }
@@ -101,7 +104,7 @@ export async function updateTeacher(req: Request, res: Response, next: NextFunct
 export async function deleteTeacher(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const teacher = await Teacher.findByIdAndUpdate(id, { status: "inactive" }, { new: true });
+    const teacher = await Teacher.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, { status: "inactive" }, { new: true });
     if (!teacher) {
       throw AppError.notFound("Teacher not found");
     }
