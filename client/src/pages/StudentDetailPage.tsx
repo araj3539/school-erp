@@ -24,7 +24,7 @@ const statusBadges: Record<string, "success" | "warning" | "danger" | "info"> = 
 
 function labelForType(type: string) {
   if (type === "photo") return "Photo";
-  return DOCUMENT_TYPES.find(([value]) => value === type)?.[1] || type.replaceAll("_", " ");
+  return DOCUMENT_TYPES.find(([value]) => value === type)?.[1] || type.split("_").join(" ");
 }
 
 function calculateAge(value: string | Date) {
