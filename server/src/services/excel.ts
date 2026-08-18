@@ -40,7 +40,7 @@ export async function generateExcelFile(data: ExcelRow[], sheetName = "Sheet1"):
     }))
   ];
 
-  const buffer = await writeExcelFile(rows, { sheetName }).toBuffer();
+  const buffer = await writeExcelFile(rows, { sheet: sheetName }).toBuffer();
   return Buffer.from(buffer);
 }
 
