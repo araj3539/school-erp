@@ -52,7 +52,6 @@ app.use(express.urlencoded({
   extended: true,
   limit: "1mb",
   parameterLimit: 100,
-  depth: 5,
 }));
 app.use(cookieParser());
 
