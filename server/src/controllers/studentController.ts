@@ -4,6 +4,7 @@ import { Student, IStudent, Class, IClass, Section, ISection, User, IUser } from
 import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, ObjectIdSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
+import { getTenantId, withTenant } from "../utils/tenant.js";
 import { generateAdmissionNumber } from "@school-erp/shared";
 import { uploadImage } from "../services/cloudinary.js";
 
@@ -13,9 +14,10 @@ interface MulterRequest extends Request {
 
 export async function getStudents(req: Request, res: Response, next: NextFunction) {
   try {
+    const schoolId = getTenantId(req);
     const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
-    const dbQuery: any = {};
+    const dbQuery: any = { schoolId };
     if (filters.classId) dbQuery.classId = filters.classId;
     if (filters.sectionId) dbQuery.sectionId = filters.sectionId;
     if (filters.status) dbQuery.status = filters.status;
@@ -47,7 +49,7 @@ export async function getStudents(req: Request, res: Response, next: NextFunctio
 export async function getStudentById(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const student = await Student.findById(id).populate("classId sectionId userId");
+    const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }).populate("classId sectionId userId");
     if (!student) {
       throw AppError.notFound("Student not found");
     }
@@ -59,11 +61,11 @@ export async function getStudentById(req: Request, res: Response, next: NextFunc
 
 export async function createStudent(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = CreateStudentSchema.parse(req.body);
+    const data = withTenant(req, CreateStudentSchema.parse(req.body) as any);
     if (!data.admissionNo) {
       data.admissionNo = generateAdmissionNumber();
     }
-    const existing = await Student.findOne({ admissionNo: data.admissionNo });
+    const existing = await Student.findOne({ schoolId: data.schoolId, admissionNo: data.admissionNo });
     if (existing) {
       throw AppError.conflict("Admission number already exists");
     }
@@ -84,8 +86,9 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
 export async function updateStudent(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const data = req.validatedBody as any;
-    const student = await Student.findByIdAndUpdate(id, data, { new: true });
+    const rawData = req.validatedBody as any;
+    const { schoolId: _ignored, ...data } = rawData;
+    const student = await Student.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, data, { new: true });
     if (!student) {
       throw AppError.notFound("Student not found");
     }
@@ -105,7 +108,7 @@ export async function updateStudent(req: Request, res: Response, next: NextFunct
 export async function deleteStudent(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const student = await Student.findByIdAndUpdate(id, { status: "left" }, { new: true });
+    const student = await Student.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, { status: "left" }, { new: true });
     if (!student) {
       throw AppError.notFound("Student not found");
     }
@@ -128,7 +131,7 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
     if (!req.file) {
       throw AppError.badRequest("No file uploaded");
     }
-    const student = await Student.findById(id);
+    const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) });
     if (!student) {
       throw AppError.notFound("Student not found");
     }
@@ -158,6 +161,7 @@ export async function bulkImportStudents(req: MulterRequest, res: Response, next
     if (!req.file) {
       throw AppError.badRequest("No file uploaded");
     }
+    const schoolId = getTenantId(req);
     const rows = parseExcelFile(req.file.buffer);
     const { valid, errors } = validateRequiredFields(rows, [
       "firstName", "lastName", "dob", "gender", "fatherName",
@@ -169,6 +173,7 @@ export async function bulkImportStudents(req: MulterRequest, res: Response, next
         const admissionNo = row.admissionNo || generateAdmissionNumber();
         const student = await Student.create({
           ...row,
+          schoolId,
           admissionNo,
           dob: new Date(row.dob as string),
           admissionDate: new Date(row.admissionDate as string),
@@ -190,7 +195,7 @@ export async function bulkImportStudents(req: MulterRequest, res: Response, next
 export async function exportStudents(req: Request, res: Response, next: NextFunction) {
   try {
     const { generateExcelFile } = await import("../services/excel.js");
-    const students = await Student.find().populate("classId sectionId").lean();
+    const students = await Student.find({ schoolId: getTenantId(req) }).populate("classId sectionId").lean();
     const data = students.map((s: any) => ({
       admissionNo: s.admissionNo,
       firstName: s.firstName,
