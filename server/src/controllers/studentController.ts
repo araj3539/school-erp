@@ -162,7 +162,7 @@ export async function bulkImportStudents(req: MulterRequest, res: Response, next
       throw AppError.badRequest("No file uploaded");
     }
     const schoolId = getTenantId(req);
-    const rows = parseExcelFile(req.file.buffer);
+    const rows = await parseExcelFile(req.file.buffer);
     const { valid, errors } = validateRequiredFields(rows, [
       "firstName", "lastName", "dob", "gender", "fatherName",
       "motherName", "phone", "address", "admissionDate"
@@ -206,7 +206,7 @@ export async function exportStudents(req: Request, res: Response, next: NextFunc
       phone: s.phone,
       status: s.status
     }));
-    const buffer = generateExcelFile(data, "Students");
+    const buffer = await generateExcelFile(data, "Students");
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", "attachment; filename=students.xlsx");
     res.send(buffer);
