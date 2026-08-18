@@ -3,6 +3,7 @@ import writeExcelFile from "write-excel-file/node";
 import { AppError } from "../utils/errors.js";
 
 const MAX_IMPORT_ROWS = 5000;
+type ExcelCell = string | number | boolean | Date | null;
 
 export interface ExcelRow {
   [key: string]: unknown;
@@ -17,6 +18,15 @@ function normalizeHeader(value: unknown): string {
 function normalizeCellValue(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
   return value;
+}
+
+function toExcelCell(value: unknown): ExcelCell {
+  if (value == null) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  return String(value);
 }
 
 export async function parseExcelFile(buffer: Buffer): Promise<ExcelRow[]> {
@@ -38,12 +48,9 @@ export async function parseExcelFile(buffer: Buffer): Promise<ExcelRow[]> {
 
 export async function generateExcelFile(data: ExcelRow[], sheetName = "Sheet1"): Promise<Buffer> {
   const headers = data.length > 0 ? Object.keys(data[0]) : [];
-  const rows = [
+  const rows: ExcelCell[][] = [
     headers,
-    ...data.map((item) => headers.map((header) => {
-      const value = item[header];
-      return value instanceof Date ? value : value ?? null;
-    }))
+    ...data.map((item) => headers.map((header) => toExcelCell(item[header])))
   ];
 
   const buffer = await writeExcelFile(rows, { sheet: sheetName }).toBuffer();
