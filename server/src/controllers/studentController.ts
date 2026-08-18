@@ -7,7 +7,7 @@ import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
 import { escapeRegex } from "../utils/strings.js";
-import { buildR2Key, sanitizeFileName, uploadToR2, getR2SignedUrl } from "../services/r2.js";
+import { buildR2Key, sanitizeFileName, uploadToR2, getR2SignedUrl, deleteFromR2 } from "../services/r2.js";
 import { generateAdmissionNumber, DocumentType } from "@school-erp/shared";
 
 interface MulterRequest extends Request { file?: Express.Multer.File; }
@@ -54,6 +54,7 @@ export async function deleteStudent(req: Request, res: Response, next: NextFunct
 }
 
 export async function uploadStudentDocument(req: MulterRequest, res: Response, next: NextFunction) {
+  let uploadedKey: string | null = null;
   try {
     const { id } = req.validatedParams as any;
     const type = String(req.body?.type || "").trim().toLowerCase();
@@ -61,17 +62,42 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
     if (!req.file) throw AppError.badRequest("No file uploaded");
     const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) });
     if (!student) throw AppError.notFound("Student not found");
+
     const prepared = await prepareStudentDocument(req.file);
     const safeOriginalName = sanitizeFileName(req.file.originalname).replace(/\.[^.]+$/, "");
     const fileName = `${safeOriginalName}${prepared.extension}`;
     const documentId = new mongoose.Types.ObjectId().toString();
     const key = buildR2Key(["students", id, "documents", `${documentId}_${fileName}`]);
     const result = await uploadToR2(prepared.buffer, key, prepared.contentType);
-    student.documents.push({ type: type as any, url: result.key, uploadedAt: new Date() });
+    uploadedKey = result.key;
+
+    const existingPhoto = type === DocumentType.PHOTO
+      ? student.documents.find((document: any) => document.type === DocumentType.PHOTO)
+      : undefined;
+    const previousPhotoKey = existingPhoto?.url;
+    const newDocument = { _id: new mongoose.Types.ObjectId(), type: type as any, url: result.key, uploadedAt: new Date() };
+
+    if (existingPhoto) {
+      existingPhoto.url = newDocument.url;
+      existingPhoto.uploadedAt = newDocument.uploadedAt;
+    } else {
+      student.documents.push(newDocument as any);
+    }
+
     await student.save();
-    await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length } });
-    res.status(201).json({ document: student.documents[student.documents.length - 1] });
-  } catch (error) { next(error); }
+    uploadedKey = null;
+
+    if (previousPhotoKey && previousPhotoKey !== result.key) {
+      try { await deleteFromR2(previousPhotoKey); } catch (cleanupError) { console.error("[R2] Failed to delete replaced student photo", cleanupError); }
+    }
+
+    await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length, replacedKey: previousPhotoKey || undefined } });
+    const savedDocument = existingPhoto || student.documents[student.documents.length - 1];
+    res.status(201).json({ document: savedDocument });
+  } catch (error) {
+    if (uploadedKey) { try { await deleteFromR2(uploadedKey); } catch (cleanupError) { console.error("[R2] Failed to clean up failed upload", cleanupError); } }
+    next(error);
+  }
 }
 
 export async function bulkImportStudents(req: MulterRequest, res: Response, next: NextFunction) {
