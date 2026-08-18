@@ -9,12 +9,13 @@ const allowedOrigins = env.CORS_ORIGIN
   .filter(Boolean);
 
 /**
- * Blocks browser cross-site state-changing requests while preserving support
- * for non-browser API clients that do not send an Origin header.
+ * Blocks unauthorized browser state-changing requests while allowing the
+ * legitimate cross-site SPA -> API requests used by the production app.
  *
- * Authentication uses SameSite=None cookies in production because the SPA and
- * API are hosted on different sites, so Origin/Fetch-Metadata validation is
- * required as a CSRF defense-in-depth layer.
+ * The SPA and API live on different origins, so Sec-Fetch-Site is expected to
+ * be "cross-site" for legitimate requests. Origin is therefore the primary
+ * browser CSRF check, while Fetch Metadata is only used as a fallback when no
+ * Origin header is present.
  */
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
   if (SAFE_METHODS.has(req.method)) {
@@ -22,15 +23,27 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  const fetchSite = req.get("Sec-Fetch-Site");
-  if (fetchSite === "cross-site") {
-    res.status(403).json({ error: "Cross-site state-changing request blocked" });
+  const origin = req.get("Origin");
+
+  // Browser requests with an Origin must come from an explicitly configured
+  // frontend origin. This permits the legitimate Vercel -> Render flow while
+  // rejecting cross-site state-changing requests from unknown sites.
+  if (origin) {
+    if (!allowedOrigins.includes(origin)) {
+      res.status(403).json({ error: "Request origin not allowed" });
+      return;
+    }
+
+    next();
     return;
   }
 
-  const origin = req.get("Origin");
-  if (origin && !allowedOrigins.includes(origin)) {
-    res.status(403).json({ error: "Request origin not allowed" });
+  // Requests without Origin can be legitimate non-browser API clients. Keep
+  // those working, but reject a browser Fetch-Metadata signal that explicitly
+  // identifies the request as cross-site.
+  const fetchSite = req.get("Sec-Fetch-Site");
+  if (fetchSite === "cross-site") {
+    res.status(403).json({ error: "Cross-site state-changing request blocked" });
     return;
   }
 
