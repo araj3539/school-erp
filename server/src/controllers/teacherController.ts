@@ -4,6 +4,7 @@ import { CreateTeacherSchema, UpdateTeacherSchema, PaginationSchema, ObjectIdSch
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
+import { escapeRegex } from "../utils/strings.js";
 import { generateEmployeeId } from "@school-erp/shared";
 
 export async function getTeachers(req: Request, res: Response, next: NextFunction) {
@@ -14,11 +15,12 @@ export async function getTeachers(req: Request, res: Response, next: NextFunctio
     const dbQuery: any = { schoolId };
     if (filters.status) dbQuery.status = filters.status;
     if (filters.search) {
+      const search = escapeRegex(String(filters.search));
       dbQuery.$or = [
-        { firstName: { $regex: filters.search, $options: "i" } },
-        { lastName: { $regex: filters.search, $options: "i" } },
-        { employeeId: { $regex: filters.search, $options: "i" } },
-        { email: { $regex: filters.search, $options: "i" } }
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { employeeId: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }
       ];
     }
     const sort: any = {};
