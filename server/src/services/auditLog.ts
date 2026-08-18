@@ -1,3 +1,4 @@
+import { ClientSession } from "mongoose";
 import { AuditLog, IAuditLog } from "../models/index.js";
 
 export async function createAuditLog(data: {
@@ -9,11 +10,18 @@ export async function createAuditLog(data: {
   after?: Record<string, unknown>;
   ip?: string;
   userAgent?: string;
+  session?: ClientSession;
 }): Promise<void> {
   try {
-    await AuditLog.create(data);
+    const { session, ...auditData } = data;
+    if (session) {
+      await AuditLog.create([auditData], { session });
+    } else {
+      await AuditLog.create(auditData);
+    }
   } catch (error) {
     console.error("Failed to create audit log:", error);
+    throw error;
   }
 }
 
