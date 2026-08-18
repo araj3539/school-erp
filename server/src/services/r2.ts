@@ -38,5 +38,17 @@ export async function getR2SignedUrl(key: string, expiresIn = 600): Promise<stri
 }
 
 export function buildR2Key(parts: string[]): string {
-  return parts.filter(Boolean).map((part) => part.replace(/^\/+|\/+$/g, "")).join("/");
+  return parts
+    .filter(Boolean)
+    .map((part) => part.replace(/^\/+|\/+$/g, ""))
+    .join("/");
+}
+
+export function sanitizeFileName(fileName: string): string {
+  const normalized = fileName.normalize("NFKC");
+  const cleaned = normalized
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return cleaned || "file";
 }
