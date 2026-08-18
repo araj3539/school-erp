@@ -12,16 +12,13 @@ export async function createAuditLog(data: {
   userAgent?: string;
   session?: ClientSession;
 }): Promise<void> {
+  const { session, ...auditData } = data;
   try {
-    const { session, ...auditData } = data;
-    if (session) {
-      await AuditLog.create([auditData], { session });
-    } else {
-      await AuditLog.create(auditData);
-    }
+    if (session) await AuditLog.create([auditData], { session });
+    else await AuditLog.create(auditData);
   } catch (error) {
     console.error("Failed to create audit log:", error);
-    throw error;
+    if (session) throw error;
   }
 }
 
