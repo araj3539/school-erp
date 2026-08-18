@@ -21,7 +21,6 @@ async function prepareStudentDocument(file: Express.Multer.File): Promise<{ buff
   }
 
   const image = sharp(file.buffer).rotate();
-  const metadata = await image.metadata();
   const resized = image.resize(1200, 1200, { fit: "inside", withoutEnlargement: true });
 
   if (file.mimetype === "image/png") {
