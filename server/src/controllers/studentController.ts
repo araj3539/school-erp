@@ -13,6 +13,40 @@ import { generateAdmissionNumber } from "@school-erp/shared";
 
 interface MulterRequest extends Request { file?: Express.Multer.File; }
 
+const RASTER_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+async function prepareStudentDocument(file: Express.Multer.File): Promise<{ buffer: Buffer; contentType: string; extension: string }> {
+  if (!RASTER_IMAGE_TYPES.has(file.mimetype)) {
+    return { buffer: file.buffer, contentType: file.mimetype, extension: file.originalname.includes(".") ? `.${file.originalname.split(".").pop()}` : "" };
+  }
+
+  const image = sharp(file.buffer).rotate();
+  const metadata = await image.metadata();
+  const resized = image.resize(1200, 1200, { fit: "inside", withoutEnlargement: true });
+
+  if (file.mimetype === "image/png") {
+    return {
+      buffer: await resized.png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer(),
+      contentType: "image/png",
+      extension: ".png",
+    };
+  }
+
+  if (file.mimetype === "image/webp") {
+    return {
+      buffer: await resized.webp({ quality: 78 }).toBuffer(),
+      contentType: "image/webp",
+      extension: ".webp",
+    };
+  }
+
+  return {
+    buffer: await resized.jpeg({ quality: 78, mozjpeg: true }).toBuffer(),
+    contentType: "image/jpeg",
+    extension: ".jpg",
+  };
+}
+
 export async function getStudents(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = getTenantId(req);
@@ -107,18 +141,16 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
     const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) });
     if (!student) throw AppError.notFound("Student not found");
 
-    const isImage = req.file.mimetype.startsWith("image/");
-    const fileBuffer = isImage
-      ? await sharp(req.file.buffer).resize(800, 800, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer()
-      : req.file.buffer;
-    const fileName = sanitizeFileName(req.file.originalname).replace(/\.[^.]+$/, isImage ? ".jpg" : "");
+    const prepared = await prepareStudentDocument(req.file);
+    const safeOriginalName = sanitizeFileName(req.file.originalname).replace(/\.[^.]+$/, "");
+    const fileName = `${safeOriginalName}${prepared.extension}`;
     const documentId = new mongoose.Types.ObjectId().toString();
     const key = buildR2Key(["students", id, "documents", `${documentId}_${fileName}`]);
-    const result = await uploadToR2(fileBuffer, key, isImage ? "image/jpeg" : req.file.mimetype);
+    const result = await uploadToR2(prepared.buffer, key, prepared.contentType);
 
     student.documents.push({ type: type as any, url: result.key, uploadedAt: new Date() });
     await student.save();
-    await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: isImage ? "image/jpeg" : req.file.mimetype, sizeBytes: fileBuffer.length } });
+    await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length } });
     res.status(201).json({ document: student.documents[student.documents.length - 1] });
   } catch (error) { next(error); }
 }
