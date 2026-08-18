@@ -99,6 +99,7 @@ export const StudentSchema = z.object({
   documents: z.array(z.object({
     type: z.nativeEnum(DocumentType),
     url: z.string().url(),
+    publicId: z.string().max(300).optional(),
     uploadedAt: z.string().datetime()
   })).default([]),
   status: z.nativeEnum(StudentStatus).default(StudentStatus.ACTIVE),
@@ -135,7 +136,7 @@ export const TeacherSchema = z.object({
 });
 
 export const CreateTeacherSchema = TeacherSchema.omit({ _id: true, createdAt: true, updatedAt: true, documents: true });
-export const UpdateTeacherSchema = CreateTeacherSchema.partial();
+export const UpdateTeacherSchema = TeacherSchema.partial();
 
 export const ClassSchema = z.object({
   _id: ObjectIdSchema.optional(),
