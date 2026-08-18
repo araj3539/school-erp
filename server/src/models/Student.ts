@@ -4,6 +4,7 @@ import { StudentStatus, Gender, BloodGroup, DocumentType } from "@school-erp/sha
 export interface IStudentDocument {
   type: DocumentType;
   url: string;
+  publicId?: string;
   uploadedAt: Date;
 }
 
@@ -37,6 +38,7 @@ export interface IStudent extends Document {
 const StudentDocumentSchema = new Schema<IStudentDocument>({
   type: { type: String, enum: Object.values(DocumentType), required: true },
   url: { type: String, required: true },
+  publicId: { type: String },
   uploadedAt: { type: Date, default: Date.now }
 });
 
