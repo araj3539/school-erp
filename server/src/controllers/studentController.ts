@@ -6,8 +6,8 @@ import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
 import { escapeRegex } from "../utils/strings.js";
+import { buildR2Key, sanitizeFileName, uploadToR2 } from "../services/r2.js";
 import { generateAdmissionNumber } from "@school-erp/shared";
-import { uploadImage } from "../services/cloudinary.js";
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
@@ -137,10 +137,15 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
     if (!student) {
       throw AppError.notFound("Student not found");
     }
-    const result = await uploadImage(req.file.buffer, "student", id, type);
+
+    const fileName = sanitizeFileName(req.file.originalname);
+    const documentId = new mongoose.Types.ObjectId().toString();
+    const key = buildR2Key(["students", id, "documents", `${documentId}_${fileName}`]);
+    const result = await uploadToR2(req.file.buffer, key, req.file.mimetype);
+
     student.documents.push({
       type: type as any,
-      url: result.url,
+      url: result.key,
       uploadedAt: new Date()
     });
     await student.save();
@@ -149,9 +154,9 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
       action: "UPLOAD_DOCUMENT",
       entity: "Student",
       entityId: student._id.toString(),
-      after: { type, url: result.url }
+      after: { type, key: result.key, originalName: req.file.originalname, mimeType: req.file.mimetype, sizeBytes: req.file.size }
     });
-    res.json({ document: student.documents[student.documents.length - 1] });
+    res.status(201).json({ document: student.documents[student.documents.length - 1] });
   } catch (error) {
     next(error);
   }
