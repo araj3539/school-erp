@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import multer from "multer";
+import sharp from "sharp";
 import { Student } from "../models/index.js";
 import { CreateStudentSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
@@ -56,11 +57,9 @@ export async function getStudentDocumentUrl(req: Request, res: Response, next: N
     const { id, documentId } = req.validatedParams as any;
     const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }).select("documents");
     if (!student) throw AppError.notFound("Student not found");
-
     const document = student.documents.find((item: any) => item._id?.toString() === documentId);
     if (!document) throw AppError.notFound("Document not found");
     if (!document.url) throw AppError.notFound("Document storage key is missing");
-
     const signedUrl = await getR2SignedUrl(document.url, 600);
     res.json({ url: signedUrl, expiresIn: 600 });
   } catch (error) { next(error); }
@@ -108,14 +107,18 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
     const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) });
     if (!student) throw AppError.notFound("Student not found");
 
-    const fileName = sanitizeFileName(req.file.originalname);
+    const isImage = req.file.mimetype.startsWith("image/");
+    const fileBuffer = isImage
+      ? await sharp(req.file.buffer).resize(800, 800, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer()
+      : req.file.buffer;
+    const fileName = sanitizeFileName(req.file.originalname).replace(/\.[^.]+$/, isImage ? ".jpg" : "");
     const documentId = new mongoose.Types.ObjectId().toString();
     const key = buildR2Key(["students", id, "documents", `${documentId}_${fileName}`]);
-    const result = await uploadToR2(req.file.buffer, key, req.file.mimetype);
+    const result = await uploadToR2(fileBuffer, key, isImage ? "image/jpeg" : req.file.mimetype);
 
     student.documents.push({ type: type as any, url: result.key, uploadedAt: new Date() });
     await student.save();
-    await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: req.file.mimetype, sizeBytes: req.file.size } });
+    await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: isImage ? "image/jpeg" : req.file.mimetype, sizeBytes: fileBuffer.length } });
     res.status(201).json({ document: student.documents[student.documents.length - 1] });
   } catch (error) { next(error); }
 }
