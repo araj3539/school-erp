@@ -46,8 +46,14 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// Keep request bodies bounded to reduce parser memory/CPU abuse.
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({
+  extended: true,
+  limit: "1mb",
+  parameterLimit: 100,
+  depth: 5,
+}));
 app.use(cookieParser());
 
 // Lightweight liveness endpoint for UptimeRobot. Keep it outside the API
