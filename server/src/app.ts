@@ -4,6 +4,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { env, connectDB } from "./config/index.js";
 import { rateLimiter, authRateLimiter } from "./middleware/index.js";
+import { csrfProtection } from "./middleware/csrf.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import routes from "./routes/index.js";
 
@@ -55,6 +56,10 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+// Production auth uses cross-site HttpOnly cookies because the SPA and API
+// are hosted on different sites. Validate browser request context before any
+// state-changing API route to prevent CSRF.
+app.use(csrfProtection);
 app.use(rateLimiter);
 app.use("/api/v1/auth/login", authRateLimiter);
 app.use("/api/v1", routes);
