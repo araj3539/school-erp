@@ -7,7 +7,7 @@ import { AppError } from "../utils/errors.js";
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
-    const data = CreateUserSchema.parse(req.body);
+    const data = CreateUserSchema.parse({ ...req.body, schoolId: req.user!.schoolId });
     const existingUser = await User.findOne({ email: data.email, schoolId: data.schoolId });
     if (existingUser) throw AppError.conflict("Email already registered");
     const passwordHash = await hashPassword(data.password);
