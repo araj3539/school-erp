@@ -5,19 +5,16 @@ export async function uploadToCloudinary(
   file: Buffer,
   folder: string,
   publicId?: string,
-  options: { authenticated?: boolean } = {},
 ): Promise<{ url: string; publicId: string }> {
   if (!isCloudinaryConfigured) {
     throw new Error("Cloudinary not configured");
   }
-
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
         public_id: publicId,
         resource_type: "auto",
-        type: options.authenticated ? "authenticated" : "upload",
         transformation: [{ quality: "auto", fetch_format: "auto" }],
       },
       (error, result) => {
@@ -31,21 +28,7 @@ export async function uploadToCloudinary(
 
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
   if (!isCloudinaryConfigured) return;
-  await cloudinary.uploader.destroy(publicId, { type: "authenticated", resource_type: "auto" });
-}
-
-export function getAuthenticatedUrl(publicId: string, resourceType: "image" | "raw" | "video" = "image"): string {
-  if (!isCloudinaryConfigured) {
-    throw new Error("Cloudinary not configured");
-  }
-
-  return cloudinary.url(publicId, {
-    secure: true,
-    type: "authenticated",
-    resource_type: resourceType,
-    sign_url: true,
-    secure_distribution: undefined,
-  });
+  await cloudinary.uploader.destroy(publicId);
 }
 
 export async function uploadImage(
@@ -56,6 +39,5 @@ export async function uploadImage(
 ): Promise<{ url: string; publicId: string }> {
   const folder = `school-erp/${entityType}/${entityId}`;
   const publicId = documentType ? `${documentType}-${Date.now()}` : undefined;
-  const authenticated = entityType === "document";
-  return uploadToCloudinary(file, folder, publicId, { authenticated });
+  return uploadToCloudinary(file, folder, publicId);
 }
