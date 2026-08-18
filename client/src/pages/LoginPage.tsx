@@ -32,7 +32,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const response = await api.post("/auth/login", data);
-      login(response.data.user, response.data.accessToken);
+      login(response.data.user);
       addToast("Login successful", "success");
       navigate(from, { replace: true });
     } catch (error: any) {
@@ -74,9 +74,6 @@ export default function LoginPage() {
           </Button>
         </CardContent>
       </Card>
-      <p className="text-center text-sm text-gray-500">
-        Demo: admin@school.com / password123
-      </p>
     </form>
   );
 }
