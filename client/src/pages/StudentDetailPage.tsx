@@ -1,185 +1,232 @@
-import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/Tabs";
 import { Table } from "../components/ui/Table";
-import { Download, DollarSign, Calendar, User, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft, Calendar, Camera, Download, FileText, GraduationCap, Trash2, Upload, User, Users, Wallet, Eye, Pencil, X } from "lucide-react";
 import api from "../lib/api";
 import { formatCurrency, formatDate } from "../utils";
 
+const DOCUMENT_TYPES = [
+  ["birth_certificate", "Birth Certificate"],
+  ["aadhar", "Aadhaar"],
+  ["transfer_certificate", "Transfer Certificate"],
+  ["marksheet", "Marksheet"],
+  ["signature", "Signature"],
+  ["other", "Other"],
+] as const;
+const ACCEPTED_FILE_TYPES = "image/jpeg,image/png,image/webp,application/pdf";
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const statusBadges: Record<string, "success" | "warning" | "danger" | "info"> = { active: "success", left: "danger", graduated: "info", transferred: "warning" };
+
+function labelForType(type: string) {
+  if (type === "photo") return "Photo";
+  return DOCUMENT_TYPES.find(([value]) => value === type)?.[1] || type.replaceAll("_", " ");
+}
+
+function calculateAge(value: string | Date) {
+  const dob = new Date(value);
+  if (Number.isNaN(dob.getTime())) return "-";
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const beforeBirthday = now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
+  if (beforeBirthday) age -= 1;
+  return age;
+}
+
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [activeTab, setActiveTab] = useState("profile");
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [documentType, setDocumentType] = useState("birth_certificate");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
-  const { data: student } = useQuery({
+  const { data: studentData, isLoading, isError } = useQuery({
     queryKey: ["student", id],
-    queryFn: async () => {
-      const res = await api.get(`/students/${id}`);
-      return res.data;
-    },
-    enabled: !!id
+    queryFn: async () => (await api.get(`/students/${id}`)).data,
+    enabled: !!id,
   });
+  const student = studentData?.student;
+
+  const photoDocument = useMemo(() => student?.documents?.find((doc: any) => doc.type === "photo"), [student]);
+  useQuery({
+    queryKey: ["student-photo-url", id, photoDocument?._id, photoDocument?.url],
+    queryFn: async () => {
+      const res = await api.get(`/students/${id}/documents/${photoDocument._id}/url`);
+      setPhotoUrl(res.data.url);
+      return res.data.url;
+    },
+    enabled: !!id && !!photoDocument?._id,
+  });
+
   const { data: feesData } = useQuery({
     queryKey: ["fees", "student", id],
-    queryFn: async () => {
-      const res = await api.get(`/fees/student/${id}`);
-      return res.data;
-    },
-    enabled: !!id
+    queryFn: async () => (await api.get(`/fees/student/${id}`)).data,
+    enabled: !!id && activeTab === "fees",
   });
   const { data: attendanceData } = useQuery({
     queryKey: ["attendance", "student", id],
-    queryFn: async () => {
-      const res = await api.get(`/attendance/student/${id}`);
-      return res.data;
+    queryFn: async () => (await api.get(`/attendance/student/${id}`)).data,
+    enabled: !!id && activeTab === "attendance",
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      if (!id || !selectedFile) throw new Error("Select a file first");
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("type", documentType);
+      return (await api.post(`/students/${id}/documents`, formData)).data;
     },
-    enabled: !!id
+    onSuccess: () => {
+      setSelectedFile(null);
+      setUploadError("");
+      if (inputRef.current) inputRef.current.value = "";
+      setPhotoUrl(null);
+      queryClient.invalidateQueries({ queryKey: ["student", id] });
+    },
+    onError: (error: any) => setUploadError(error?.response?.data?.message || "Document upload failed. Please try again."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (documentId: string) => (await api.delete(`/students/${id}/documents/${documentId}`)).data,
+    onSuccess: () => {
+      setPhotoUrl(null);
+      queryClient.invalidateQueries({ queryKey: ["student", id] });
+    },
   });
 
   const openDocument = async (documentId: string) => {
-    if (!id || !documentId) return;
     const res = await api.get(`/students/${id}/documents/${documentId}/url`);
     window.open(res.data.url, "_blank", "noopener,noreferrer");
   };
 
-  const statusBadges: Record<string, "success" | "warning" | "danger" | "info"> = {
-    active: "success",
-    left: "danger",
-    graduated: "info",
-    transferred: "warning"
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setUploadError("");
+    if (!file) return;
+    if (!ACCEPTED_FILE_TYPES.split(",").includes(file.type)) {
+      setSelectedFile(null);
+      setUploadError("Only JPG, PNG, WebP and PDF files are supported.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setSelectedFile(null);
+      setUploadError("File must be 5 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+    setSelectedFile(file);
   };
 
-  if (!student?.student) return <div className="text-center py-8">Loading...</div>;
+  if (isLoading) return <div className="flex min-h-[300px] items-center justify-center text-gray-500">Loading student...</div>;
+  if (isError || !student) return <div className="space-y-4"><Link to="/students" className="inline-flex items-center text-sm text-primary-600"><ArrowLeft className="mr-2 h-4 w-4" />Back to Students</Link><Card><CardContent className="py-12 text-center text-red-600">Unable to load this student.</CardContent></Card></div>;
 
-  const s = student.student;
+  const s = student;
+  const documents = s.documents || [];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Link to="/students" className="btn-secondary">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Students
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link to="/students" className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900"><ArrowLeft className="mr-2 h-4 w-4" />Back to Students</Link>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.open(`/api/students/${id}/id-card`, "_blank")}>
-            <Download className="w-4 h-4 mr-2" />
-            ID Card
-          </Button>
+          <Button variant="outline" onClick={() => navigate(`/students?edit=${id}`)}><Pencil className="mr-2 h-4 w-4" />Edit Student</Button>
         </div>
       </div>
+
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-start gap-6">
-            <div className="w-32 h-32 rounded-lg bg-gray-100 flex items-center justify-center">
-              <User className="w-16 h-16 text-gray-400" />
+          <div className="flex flex-col gap-6 md:flex-row md:items-center">
+            <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-xl border bg-gray-50">
+              {photoUrl ? <img src={photoUrl} alt={`${s.firstName} ${s.lastName}`} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><User className="h-16 w-16 text-gray-300" /></div>}
+              <button type="button" onClick={() => setActiveTab("documents")} className="absolute bottom-1 right-1 rounded-full bg-white p-2 shadow hover:bg-gray-50" title="Manage photo"><Camera className="h-4 w-4" /></button>
             </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">{s.firstName} {s.lastName}</h1>
-              <p className="text-gray-500 mt-1">Admission No: {s.admissionNo}</p>
-              <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600">
-                <span>Class: {s.classId?.displayName} - {s.sectionId?.name}</span>
-                <span>Gender: {s.gender}</span>
-                <span>DOB: {formatDate(s.dob)} (Age: {Math.floor((Date.now() - new Date(s.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))})</span>
-                <span>Blood Group: {s.bloodGroup || "N/A"}</span>
-                <span>Phone: {s.phone}</span>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-bold text-gray-900">{s.firstName} {s.lastName}</h1>
                 <Badge variant={statusBadges[s.status] || "default"}>{s.status}</Badge>
+              </div>
+              <p className="mt-1 text-gray-500">Admission No. <span className="font-medium text-gray-700">{s.admissionNo}</span></p>
+              <div className="mt-4 grid gap-3 text-sm text-gray-600 sm:grid-cols-2 lg:grid-cols-4">
+                <div><span className="text-gray-400">Class</span><p className="font-medium text-gray-800">{s.classId?.displayName || "Not assigned"}{s.sectionId?.name ? ` · ${s.sectionId.name}` : ""}</p></div>
+                <div><span className="text-gray-400">Date of Birth</span><p className="font-medium text-gray-800">{formatDate(s.dob)} · {calculateAge(s.dob)} yrs</p></div>
+                <div><span className="text-gray-400">Gender</span><p className="font-medium capitalize text-gray-800">{s.gender}</p></div>
+                <div><span className="text-gray-400">Phone</span><p className="font-medium text-gray-800">{s.phone || "Not provided"}</p></div>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="profile"><User className="w-4 h-4 mr-2" />Profile</TabsTrigger>
-          <TabsTrigger value="fees"><DollarSign className="w-4 h-4 mr-2" />Fees</TabsTrigger>
-          <TabsTrigger value="attendance"><Calendar className="w-4 h-4 mr-2" />Attendance</TabsTrigger>
+        <TabsList className="flex flex-wrap">
+          <TabsTrigger value="overview"><User className="mr-2 h-4 w-4" />Overview</TabsTrigger>
+          <TabsTrigger value="academic"><GraduationCap className="mr-2 h-4 w-4" />Academic</TabsTrigger>
+          <TabsTrigger value="documents"><FileText className="mr-2 h-4 w-4" />Documents</TabsTrigger>
+          <TabsTrigger value="fees"><Wallet className="mr-2 h-4 w-4" />Fees</TabsTrigger>
+          <TabsTrigger value="attendance"><Calendar className="mr-2 h-4 w-4" />Attendance</TabsTrigger>
         </TabsList>
-        <TabsContent value="profile">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader><h3 className="text-lg font-semibold">Personal Details</h3></CardHeader>
-              <CardContent className="space-y-3">
-                <p><strong>Father&apos;s Name:</strong> {s.fatherName}</p>
-                <p><strong>Mother&apos;s Name:</strong> {s.motherName}</p>
-                <p><strong>Guardian Phone:</strong> {s.guardianPhone || "N/A"}</p>
-                <p><strong>Religion:</strong> {s.religion || "N/A"}</p>
-                <p><strong>Category:</strong> {s.category || "N/A"}</p>
-                <p><strong>Previous School:</strong> {s.previousSchool || "N/A"}</p>
-                <p><strong>Address:</strong> {s.address}</p>
-                <p><strong>Admission Date:</strong> {formatDate(s.admissionDate)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><h3 className="text-lg font-semibold">Documents</h3></CardHeader>
-              <CardContent>
-                {s.documents?.length > 0 ? (
-                  <ul className="space-y-2">
-                    {s.documents.map((doc: any) => (
-                      <li key={doc._id || doc.type} className="flex items-center justify-between">
-                        <span className="capitalize">{doc.type.replace("_", " ")}</span>
-                        <button type="button" onClick={() => openDocument(doc._id)} disabled={!doc._id} className="text-primary-600 hover:underline disabled:opacity-50 disabled:no-underline">View</button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500">No documents uploaded</p>
-                )}
-              </CardContent>
-            </Card>
+
+        <TabsContent value="overview">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card><CardHeader><h3 className="text-lg font-semibold">Personal Information</h3></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
+              <div><p className="text-xs text-gray-400">Father&apos;s Name</p><p className="font-medium">{s.fatherName || "-"}</p></div>
+              <div><p className="text-xs text-gray-400">Mother&apos;s Name</p><p className="font-medium">{s.motherName || "-"}</p></div>
+              <div><p className="text-xs text-gray-400">Guardian Phone</p><p className="font-medium">{s.guardianPhone || "-"}</p></div>
+              <div><p className="text-xs text-gray-400">Blood Group</p><p className="font-medium">{s.bloodGroup || "-"}</p></div>
+              <div><p className="text-xs text-gray-400">Religion</p><p className="font-medium">{s.religion || "-"}</p></div>
+              <div><p className="text-xs text-gray-400">Category</p><p className="font-medium">{s.category || "-"}</p></div>
+              <div className="sm:col-span-2"><p className="text-xs text-gray-400">Address</p><p className="font-medium">{s.address || "-"}</p></div>
+            </CardContent></Card>
+            <Card><CardHeader><h3 className="text-lg font-semibold">Admission Information</h3></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
+              <div><p className="text-xs text-gray-400">Admission Date</p><p className="font-medium">{formatDate(s.admissionDate)}</p></div>
+              <div><p className="text-xs text-gray-400">Previous School</p><p className="font-medium">{s.previousSchool || "-"}</p></div>
+              <div><p className="text-xs text-gray-400">Student ID</p><p className="break-all font-mono text-xs">{s._id}</p></div>
+              <div><p className="text-xs text-gray-400">Documents</p><p className="font-medium">{documents.length}</p></div>
+            </CardContent></Card>
           </div>
         </TabsContent>
-        <TabsContent value="fees">
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Fee Records</h3>
-              <div className="flex gap-2">
-                <span className="text-sm font-medium text-green-600">Total Due: {formatCurrency(feesData?.summary?.totalDue || 0)}</span>
-                <span className="text-sm font-medium text-blue-600">Paid: {formatCurrency(feesData?.summary?.paid || 0)}</span>
-                <span className="text-sm font-medium text-red-600">Balance: {formatCurrency(feesData?.summary?.balance || 0)}</span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {feesData?.fees?.length > 0 ? (
-                <Table data={feesData.fees} columns={[
-                  { key: "feeStructureId", header: "Fee Type", render: (f: any) => f.feeStructureId?.feeType },
-                  { key: "totalDue", header: "Total Due", render: (f: any) => formatCurrency(f.totalDue) },
-                  { key: "paidAmount", header: "Paid", render: (f: any) => formatCurrency(f.paidAmount) },
-                  { key: "balance", header: "Balance", render: (f: any) => formatCurrency(f.balance) },
-                  { key: "status", header: "Status", render: (f: any) => <Badge variant={f.status === "paid" ? "success" : f.status === "overdue" ? "danger" : "warning"}>{f.status}</Badge> }
-                ]} keyExtractor={(f) => f._id} emptyMessage="No fee records" />
-              ) : <p className="text-center text-gray-500 py-8">No fee records found</p>}
-            </CardContent>
-          </Card>
+
+        <TabsContent value="academic"><Card><CardHeader><h3 className="text-lg font-semibold">Academic Information</h3></CardHeader><CardContent className="grid gap-6 md:grid-cols-3">
+          <div><p className="text-xs text-gray-400">Class</p><p className="text-lg font-semibold">{s.classId?.displayName || "Not assigned"}</p></div>
+          <div><p className="text-xs text-gray-400">Section</p><p className="text-lg font-semibold">{s.sectionId?.name || "Not assigned"}</p></div>
+          <div><p className="text-xs text-gray-400">Previous School</p><p className="text-lg font-semibold">{s.previousSchool || "-"}</p></div>
+        </CardContent></Card></TabsContent>
+
+        <TabsContent value="documents">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <Card><CardHeader><div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Student Documents</h3><Badge variant="info">{documents.length} file{documents.length === 1 ? "" : "s"}</Badge></div></CardHeader><CardContent>
+              {documents.length === 0 ? <div className="rounded-lg border border-dashed p-10 text-center"><FileText className="mx-auto h-10 w-10 text-gray-300" /><p className="mt-3 font-medium">No documents uploaded</p><p className="mt-1 text-sm text-gray-500">Upload a photo, certificate, Aadhaar, marksheet or PDF.</p></div> : <div className="divide-y">
+                {documents.map((doc: any) => <div key={doc._id} className="flex flex-wrap items-center gap-3 py-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">{doc.type === "photo" ? <Camera className="h-5 w-5 text-gray-500" /> : <FileText className="h-5 w-5 text-gray-500" />}</div>
+                  <div className="min-w-0 flex-1"><p className="font-medium capitalize">{labelForType(doc.type)}</p><p className="text-xs text-gray-500">Uploaded {formatDate(doc.uploadedAt)}</p></div>
+                  <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={() => openDocument(doc._id)}><Eye className="mr-1 h-4 w-4" />View</Button><Button type="button" variant="outline" size="sm" onClick={() => openDocument(doc._id)}><Download className="mr-1 h-4 w-4" />Open</Button><Button type="button" variant="outline" size="sm" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm(`Delete ${labelForType(doc.type)}? This will permanently remove the file from storage.`)) deleteMutation.mutate(doc._id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>
+                </div>)}
+              </div>}
+            </CardContent></Card>
+
+            <Card><CardHeader><h3 className="text-lg font-semibold">Upload Document</h3></CardHeader><CardContent className="space-y-4">
+              <div><label className="mb-1 block text-sm font-medium">Document Type</label><select value={documentType} onChange={(e) => setDocumentType(e.target.value)} className="w-full rounded-md border px-3 py-2 text-sm"><option value="photo">Photo</option>{DOCUMENT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+              <div><label className="mb-1 block text-sm font-medium">File</label><input ref={inputRef} type="file" accept={ACCEPTED_FILE_TYPES} onChange={handleFileChange} className="block w-full text-sm" /><p className="mt-1 text-xs text-gray-500">JPG, PNG, WebP or PDF · maximum 5 MB</p></div>
+              {selectedFile && <div className="rounded-md bg-gray-50 p-3 text-sm"><div className="flex items-center justify-between gap-2"><span className="truncate">{selectedFile.name}</span><button type="button" onClick={() => { setSelectedFile(null); if (inputRef.current) inputRef.current.value = ""; }}><X className="h-4 w-4" /></button></div><p className="mt-1 text-xs text-gray-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p></div>}
+              {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
+              <Button type="button" className="w-full" disabled={!selectedFile || uploadMutation.isPending} onClick={() => uploadMutation.mutate()}><Upload className="mr-2 h-4 w-4" />{uploadMutation.isPending ? "Uploading..." : "Upload Document"}</Button>
+              <p className="text-xs text-gray-500">Uploading a new photo replaces the existing student photo.</p>
+            </CardContent></Card>
+          </div>
         </TabsContent>
-        <TabsContent value="attendance">
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Attendance Records</h3>
-              <div className="flex gap-4 text-sm">
-                <span className="font-medium text-green-600">Present: {attendanceData?.summary?.present || 0}</span>
-                <span className="font-medium text-red-600">Absent: {attendanceData?.summary?.absent || 0}</span>
-                <span className="font-medium text-yellow-600">Late: {attendanceData?.summary?.late || 0}</span>
-                <span className="font-medium text-blue-600">Half Day: {attendanceData?.summary?.halfDay || 0}</span>
-                <span className="font-medium text-gray-600">On Leave: {attendanceData?.summary?.onLeave || 0}</span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {attendanceData?.attendance?.length > 0 ? (
-                <Table data={attendanceData.attendance} columns={[
-                  { key: "date", header: "Date", render: (a: any) => formatDate(a.date) },
-                  { key: "status", header: "Status", render: (a: any) => { const record = a.records?.find((r: any) => r.studentId === id); return record ? <Badge variant={record.status === "present" ? "success" : record.status === "absent" ? "danger" : record.status === "late" ? "warning" : "info"}>{record.status}</Badge> : "-"; } },
-                  { key: "remark", header: "Remark", render: (a: any) => { const record = a.records?.find((r: any) => r.studentId === id); return record?.remark || "-"; } }
-                ]} keyExtractor={(a) => a._id} emptyMessage="No attendance records" />
-              ) : <p className="text-center text-gray-500 py-8">No attendance records found</p>}
-            </CardContent>
-          </Card>
-        </TabsContent>
+
+        <TabsContent value="fees"><Card><CardHeader className="flex items-center justify-between"><h3 className="text-lg font-semibold">Fee Records</h3><div className="flex flex-wrap gap-3 text-sm"><span className="font-medium">Due: {formatCurrency(feesData?.summary?.totalDue || 0)}</span><span className="font-medium text-green-600">Paid: {formatCurrency(feesData?.summary?.paid || 0)}</span><span className="font-medium text-red-600">Balance: {formatCurrency(feesData?.summary?.balance || 0)}</span></div></CardHeader><CardContent>{feesData?.fees?.length ? <Table data={feesData.fees} columns={[{ key: "feeStructureId", header: "Fee Type", render: (f: any) => f.feeStructureId?.feeType || "-" }, { key: "totalDue", header: "Total Due", render: (f: any) => formatCurrency(f.totalDue) }, { key: "paidAmount", header: "Paid", render: (f: any) => formatCurrency(f.paidAmount) }, { key: "balance", header: "Balance", render: (f: any) => formatCurrency(f.balance) }, { key: "status", header: "Status", render: (f: any) => <Badge variant={f.status === "paid" ? "success" : f.status === "overdue" ? "danger" : "warning"}>{f.status}</Badge> }]} keyExtractor={(f) => f._id} /> : <p className="py-10 text-center text-gray-500">No fee records found.</p>}</CardContent></Card></TabsContent>
+
+        <TabsContent value="attendance"><Card><CardHeader className="flex items-center justify-between"><h3 className="text-lg font-semibold">Attendance</h3><div className="flex flex-wrap gap-3 text-sm"><span className="text-green-600">Present: {attendanceData?.summary?.present || 0}</span><span className="text-red-600">Absent: {attendanceData?.summary?.absent || 0}</span><span className="text-yellow-600">Late: {attendanceData?.summary?.late || 0}</span><span className="text-blue-600">Half Day: {attendanceData?.summary?.halfDay || 0}</span></div></CardHeader><CardContent>{attendanceData?.attendance?.length ? <Table data={attendanceData.attendance} columns={[{ key: "date", header: "Date", render: (a: any) => formatDate(a.date) }, { key: "status", header: "Status", render: (a: any) => { const record = a.records?.find((r: any) => r.studentId === id); return record ? <Badge variant={record.status === "present" ? "success" : record.status === "absent" ? "danger" : record.status === "late" ? "warning" : "info"}>{record.status}</Badge> : "-"; } }, { key: "remark", header: "Remark", render: (a: any) => a.records?.find((r: any) => r.studentId === id)?.remark || "-" }]} keyExtractor={(a) => a._id} /> : <p className="py-10 text-center text-gray-500">No attendance records found.</p>}</CardContent></Card></TabsContent>
       </Tabs>
     </div>
   );
