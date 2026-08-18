@@ -1,5 +1,8 @@
 import { readSheet } from "read-excel-file/node";
 import writeExcelFile from "write-excel-file/node";
+import { AppError } from "../utils/errors.js";
+
+const MAX_IMPORT_ROWS = 5000;
 
 export interface ExcelRow {
   [key: string]: unknown;
@@ -19,6 +22,9 @@ function normalizeCellValue(value: unknown): unknown {
 export async function parseExcelFile(buffer: Buffer): Promise<ExcelRow[]> {
   const rows = await readSheet(buffer);
   if (rows.length === 0) return [];
+  if (rows.length - 1 > MAX_IMPORT_ROWS) {
+    throw AppError.badRequest(`Excel import exceeds the maximum of ${MAX_IMPORT_ROWS} data rows`);
+  }
 
   const headers = rows[0].map(normalizeHeader);
   return rows.slice(1).map((row) => {
