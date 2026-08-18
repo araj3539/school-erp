@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware/index.js";
 import { upload } from "../middleware/upload.js";
-import { getStudents, getStudentById, createStudent, updateStudent, deleteStudent, uploadStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController.js";
-import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, IdParamSchema } from "../validators/index.js";
-import { z } from "zod";
+import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController.js";
+import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, IdParamSchema, StudentDocumentParamSchema } from "../validators/index.js";
 
 const router = Router();
 
 router.use(authenticate);
 router.get("/", requirePermission("students:read"), validate(PaginationSchema, "query"), getStudents);
 router.get("/export", requirePermission("students:read"), exportStudents);
+router.get("/:id/documents/:documentId/url", requirePermission("students:read"), validate(StudentDocumentParamSchema, "params"), getStudentDocumentUrl);
 router.get("/:id", requirePermission("students:read"), validate(IdParamSchema, "params"), getStudentById);
 router.post("/", requirePermission("students:write"), validate(CreateStudentSchema), createStudent);
 router.put("/:id", requirePermission("students:write"), validate(IdParamSchema, "params"), validate(UpdateStudentSchema), updateStudent);
