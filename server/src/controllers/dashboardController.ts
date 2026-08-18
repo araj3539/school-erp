@@ -5,7 +5,7 @@ import { AppError } from "../utils/errors.js";
 export async function getDashboardStats(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = req.user!.schoolId;
-    const currentYear = await AcademicYear.findOne({ isCurrent: true });
+    const currentYear = await AcademicYear.findOne({ schoolId, isCurrent: true });
     if (!currentYear) {
       throw AppError.badRequest("No current academic year set");
     }
@@ -23,6 +23,7 @@ export async function getDashboardStats(req: Request, res: Response, next: NextF
       Class.countDocuments({ schoolId }),
       Fee.countDocuments({ schoolId, academicYear: currentYear._id, status: { $in: ["pending", "overdue", "partial"] } }),
       Attendance.findOne({
+        schoolId,
         date: {
           $gte: new Date(new Date().setHours(0, 0, 0, 0)),
           $lt: new Date(new Date().setHours(23, 59, 59, 999))
@@ -44,7 +45,7 @@ export async function getDashboardStats(req: Request, res: Response, next: NextF
 
     const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
-    const todayPayments = await Payment.find({ date: { $gte: startOfDay, $lte: endOfDay } }).lean();
+    const todayPayments = await Payment.find({ schoolId, date: { $gte: startOfDay, $lte: endOfDay } }).lean();
     const todayCollection = todayPayments.reduce((sum, p) => sum + p.amount, 0);
 
     res.json({
@@ -65,7 +66,8 @@ export async function getDashboardStats(req: Request, res: Response, next: NextF
 
 export async function getDashboardCharts(req: Request, res: Response, next: NextFunction) {
   try {
-    const currentYear = await AcademicYear.findOne({ isCurrent: true });
+    const schoolId = req.user!.schoolId;
+    const currentYear = await AcademicYear.findOne({ schoolId, isCurrent: true });
     if (!currentYear) {
       throw AppError.badRequest("No current academic year set");
     }
@@ -77,7 +79,7 @@ export async function getDashboardCharts(req: Request, res: Response, next: Next
       date.setHours(0, 0, 0, 0);
       const nextDate = new Date(date);
       nextDate.setDate(date.getDate() + 1);
-      const attendance = await Attendance.findOne({ date: { $gte: date, $lt: nextDate } }).lean();
+      const attendance = await Attendance.findOne({ schoolId, date: { $gte: date, $lt: nextDate } }).lean();
       const present = attendance ? attendance.records.filter((r: any) => r.status === "present").length : 0;
       const total = attendance ? attendance.records.length : 0;
       attendanceTrend.push({
@@ -94,13 +96,13 @@ export async function getDashboardCharts(req: Request, res: Response, next: Next
       date.setDate(date.getDate() - i);
       const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999);
-      const payments = await Payment.find({ date: { $gte: startOfDay, $lte: endOfDay } }).lean();
+      const payments = await Payment.find({ schoolId, date: { $gte: startOfDay, $lte: endOfDay } }).lean();
       const total = payments.reduce((sum, p) => sum + p.amount, 0);
       collectionTrend.push({ date: date.toISOString().split("T")[0], total });
     }
 
     const feeStatus = await Fee.aggregate([
-      { $match: { academicYear: currentYear._id } },
+      { $match: { schoolId, academicYear: currentYear._id } },
       { $group: { _id: "$status", count: { $sum: 1 }, total: { $sum: "$balance" } } }
     ]);
 
@@ -112,11 +114,12 @@ export async function getDashboardCharts(req: Request, res: Response, next: Next
 
 export async function getBirthdays(req: Request, res: Response, next: NextFunction) {
   try {
+    const schoolId = req.user!.schoolId;
     const today = new Date();
     const month = today.getMonth() + 1;
     const day = today.getDate();
     const students = await Student.aggregate([
-      { $match: { status: "active" } },
+      { $match: { schoolId, status: "active" } },
       { $addFields: { dobMonth: { $month: "$dob" }, dobDay: { $dayOfMonth: "$dob" } } },
       { $match: { dobMonth: month, dobDay: day } },
       { $project: { admissionNo: 1, firstName: 1, lastName: 1, dob: 1, classId: 1 } },
