@@ -48,13 +48,15 @@ app.use(cors({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(rateLimiter);
-app.use("/api/v1/auth/login", authRateLimiter);
 
+// Lightweight liveness endpoint for UptimeRobot. Keep it outside the API
+// rate limiter so monitoring never consumes application request quota.
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+app.use(rateLimiter);
+app.use("/api/v1/auth/login", authRateLimiter);
 app.use("/api/v1", routes);
 app.use(errorHandler);
 
