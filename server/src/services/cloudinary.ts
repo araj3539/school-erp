@@ -1,19 +1,23 @@
 import { v2 as cloudinary } from "cloudinary";
 import { isCloudinaryConfigured } from "../config/cloudinary.js";
+
 export async function uploadToCloudinary(
   file: Buffer,
   folder: string,
   publicId?: string,
+  options: { authenticated?: boolean } = {},
 ): Promise<{ url: string; publicId: string }> {
   if (!isCloudinaryConfigured) {
     throw new Error("Cloudinary not configured");
   }
+
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
         public_id: publicId,
         resource_type: "auto",
+        type: options.authenticated ? "authenticated" : "upload",
         transformation: [{ quality: "auto", fetch_format: "auto" }],
       },
       (error, result) => {
@@ -24,10 +28,26 @@ export async function uploadToCloudinary(
     uploadStream.end(file);
   });
 }
+
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
   if (!isCloudinaryConfigured) return;
-  await cloudinary.uploader.destroy(publicId);
+  await cloudinary.uploader.destroy(publicId, { type: "authenticated", resource_type: "auto" });
 }
+
+export function getAuthenticatedUrl(publicId: string, resourceType: "image" | "raw" | "video" = "image"): string {
+  if (!isCloudinaryConfigured) {
+    throw new Error("Cloudinary not configured");
+  }
+
+  return cloudinary.url(publicId, {
+    secure: true,
+    type: "authenticated",
+    resource_type: resourceType,
+    sign_url: true,
+    secure_distribution: undefined,
+  });
+}
+
 export async function uploadImage(
   file: Buffer,
   entityType: "student" | "teacher" | "document",
@@ -36,5 +56,6 @@ export async function uploadImage(
 ): Promise<{ url: string; publicId: string }> {
   const folder = `school-erp/${entityType}/${entityId}`;
   const publicId = documentType ? `${documentType}-${Date.now()}` : undefined;
-  return uploadToCloudinary(file, folder, publicId);
+  const authenticated = entityType === "document";
+  return uploadToCloudinary(file, folder, publicId, { authenticated });
 }
