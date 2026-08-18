@@ -2,6 +2,8 @@ import multer from "multer";
 import { AppError } from "../utils/errors.js";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FIELDS = 20;
+const FIELD_NESTING_DEPTH = 2;
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",
@@ -25,6 +27,8 @@ export const upload = multer({
   limits: {
     fileSize: MAX_FILE_SIZE,
     files: 1,
+    fields: MAX_FIELDS,
+    fieldNestingDepth: FIELD_NESTING_DEPTH,
   },
   fileFilter,
 });
@@ -34,6 +38,8 @@ export const uploadMultiple = multer({
   limits: {
     fileSize: MAX_FILE_SIZE,
     files: 10,
+    fields: MAX_FIELDS,
+    fieldNestingDepth: FIELD_NESTING_DEPTH,
   },
   fileFilter,
 });
