@@ -8,11 +8,11 @@ const EnvSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRY: z.string().default("15m"),
   JWT_REFRESH_EXPIRY: z.string().default("7d"),
-  // Supports one or more comma-separated browser origins.
   CORS_ORIGIN: z.string().min(1),
-  CLOUDINARY_CLOUD_NAME: z.string().optional(),
-  CLOUDINARY_API_KEY: z.string().optional(),
-  CLOUDINARY_API_SECRET: z.string().optional(),
+  R2_ACCOUNT_ID: z.string().min(1),
+  R2_ACCESS_KEY_ID: z.string().min(1),
+  R2_SECRET_ACCESS_KEY: z.string().min(1),
+  R2_BUCKET_NAME: z.string().min(1),
 });
 
 export const env = EnvSchema.parse(process.env);
