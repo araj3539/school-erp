@@ -16,7 +16,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const requestUrl = originalRequest?.url ?? "";
-    const isAuthRequest = ["/auth/login", "/auth/refresh", "/auth/logout", "/auth/me"].includes(requestUrl);
+    const isAuthRequest = ["/auth/login", "/auth/refresh", "/auth/logout"].includes(requestUrl);
 
     if (error.response?.status === 401 && !originalRequest?._retry && !isAuthRequest) {
       originalRequest._retry = true;
