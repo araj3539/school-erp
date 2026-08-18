@@ -5,6 +5,7 @@ import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, ObjectIdSch
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
+import { escapeRegex } from "../utils/strings.js";
 import { generateAdmissionNumber } from "@school-erp/shared";
 import { uploadImage } from "../services/cloudinary.js";
 
@@ -22,11 +23,12 @@ export async function getStudents(req: Request, res: Response, next: NextFunctio
     if (filters.sectionId) dbQuery.sectionId = filters.sectionId;
     if (filters.status) dbQuery.status = filters.status;
     if (filters.search) {
+      const search = escapeRegex(String(filters.search));
       dbQuery.$or = [
-        { firstName: { $regex: filters.search, $options: "i" } },
-        { lastName: { $regex: filters.search, $options: "i" } },
-        { admissionNo: { $regex: filters.search, $options: "i" } },
-        { phone: { $regex: filters.search, $options: "i" } }
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { admissionNo: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } }
       ];
     }
     const sort: any = {};
