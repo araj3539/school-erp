@@ -12,17 +12,49 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import api from "../lib/api";
-import { formatCurrency, formatDate } from "../utils";
-import { StudentStatus, BloodGroup, CreateStudentSchema, type CreateStudent, Gender } from "@school-erp/shared";
+import { formatDate } from "../utils";
+import { StudentStatus, BloodGroup, Gender } from "@school-erp/shared";
 
-type StudentForm = CreateStudent;
+const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").refine((value) => {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}, "Invalid date");
+
+const optionalObjectId = z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid selection").optional());
+const optionalBloodGroup = z.preprocess((value) => value === "" ? undefined : value, z.nativeEnum(BloodGroup).optional());
+
+// Keep the browser form contract local to the client. HTML date inputs emit YYYY-MM-DD;
+// they are calendar dates and must not be validated as ISO datetimes.
+const studentFormSchema = z.object({
+  admissionNo: z.string().min(1, "Admission No is required").max(20),
+  firstName: z.string().min(1, "First Name is required").max(50),
+  lastName: z.string().min(1, "Last Name is required").max(50),
+  dob: dateOnlySchema,
+  gender: z.nativeEnum(Gender),
+  bloodGroup: optionalBloodGroup,
+  religion: z.string().max(50).optional(),
+  category: z.string().max(50).optional(),
+  fatherName: z.string().min(1, "Father's Name is required").max(100),
+  motherName: z.string().min(1, "Mother's Name is required").max(100),
+  phone: z.string().min(1, "Phone is required").max(20),
+  address: z.string().min(1, "Address is required").max(500),
+  guardianPhone: z.string().max(20).optional(),
+  previousSchool: z.string().max(100).optional(),
+  classId: optionalObjectId,
+  sectionId: optionalObjectId,
+  status: z.nativeEnum(StudentStatus),
+  admissionDate: dateOnlySchema,
+});
+
+type StudentForm = z.infer<typeof studentFormSchema>;
 
 const defaultValues: StudentForm = {
   admissionNo: "",
   firstName: "",
   lastName: "",
   dob: new Date().toISOString().split("T")[0],
-  gender: "male" as unknown as Gender,
+  gender: Gender.MALE,
   fatherName: "",
   motherName: "",
   phone: "",
@@ -33,8 +65,8 @@ const defaultValues: StudentForm = {
   category: "",
   guardianPhone: "",
   previousSchool: "",
-  classId: "",
-  sectionId: "",
+  classId: undefined,
+  sectionId: undefined,
   status: StudentStatus.ACTIVE,
 };
 
@@ -53,8 +85,8 @@ export default function StudentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
 
-const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<StudentForm>({
-    resolver: zodResolver(CreateStudentSchema),
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<StudentForm>({
+    resolver: zodResolver(studentFormSchema),
     defaultValues,
   });
 
@@ -93,9 +125,9 @@ const { register, handleSubmit, reset, setValue, formState: { errors } } = useFo
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["students"] })
   });
 
-const handleOpenCreate = () => {
+  const handleOpenCreate = () => {
     setEditingStudent(null);
-    reset();
+    reset(defaultValues);
     setIsModalOpen(true);
   };
 
@@ -106,7 +138,7 @@ const handleOpenCreate = () => {
     setValue("lastName", student.lastName);
     setValue("dob", student.dob?.split("T")[0] || "");
     setValue("gender", student.gender);
-    setValue("bloodGroup", student.bloodGroup || "");
+    setValue("bloodGroup", student.bloodGroup || undefined);
     setValue("religion", student.religion || "");
     setValue("category", student.category || "");
     setValue("fatherName", student.fatherName);
@@ -116,8 +148,8 @@ const handleOpenCreate = () => {
     setValue("guardianPhone", student.guardianPhone || "");
     setValue("previousSchool", student.previousSchool || "");
     setValue("admissionDate", student.admissionDate?.split("T")[0] || "");
-    setValue("classId", student.classId?._id || "");
-    setValue("sectionId", student.sectionId?._id || "");
+    setValue("classId", student.classId?._id || undefined);
+    setValue("sectionId", student.sectionId?._id || undefined);
     setIsModalOpen(true);
   };
 
