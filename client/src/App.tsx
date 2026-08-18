@@ -3,20 +3,15 @@ import { Toaster } from "./components/ui/Toaster";
 import { useUIStore } from "./store/uiStore";
 import { router } from "./routes/routes";
 import { useEffect } from "react";
-import api from "./lib/api";
 import { useAuthStore } from "./store/authStore";
 
 function App() {
   const { toasts, removeToast } = useUIStore();
-  const { isAuthenticated, accessToken, hasHydrated } = useAuthStore();
+  const { hasHydrated, initializeAuth } = useAuthStore();
 
   useEffect(() => {
-    if (isAuthenticated && accessToken) {
-      api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-    } else {
-      delete api.defaults.headers.common["Authorization"];
-    }
-  }, [isAuthenticated, accessToken]);
+    void initializeAuth();
+  }, [initializeAuth]);
 
   if (!hasHydrated) {
     return null;
