@@ -136,7 +136,7 @@ export const TeacherSchema = z.object({
 });
 
 export const CreateTeacherSchema = TeacherSchema.omit({ _id: true, createdAt: true, updatedAt: true, documents: true });
-export const UpdateTeacherSchema = TeacherSchema.partial();
+export const UpdateTeacherSchema = CreateTeacherSchema.partial();
 
 export const ClassSchema = z.object({
   _id: ObjectIdSchema.optional(),
@@ -280,7 +280,7 @@ export type UpdateStudent = z.infer<typeof UpdateStudentSchema>;
 export type Teacher = z.infer<typeof TeacherSchema>;
 export type CreateTeacher = z.infer<typeof CreateTeacherSchema>;
 export type UpdateTeacher = z.infer<typeof UpdateTeacherSchema>;
-export type Class = z.infer<typeof ClassSchema>;
+export type Class = z.infer<typeof CreateClassSchema>;
 export type CreateClass = z.infer<typeof CreateClassSchema>;
 export type UpdateClass = z.infer<typeof UpdateClassSchema>;
 export type Section = z.infer<typeof SectionSchema>;
