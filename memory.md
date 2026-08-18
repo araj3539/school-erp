@@ -1,78 +1,32 @@
 # School ERP — AI Project Memory
 
-> **Purpose:** This file is a compact operational memory for AI coding agents.
-> An agent should be able to read this file plus the other project documents and understand the
-> repository without relying on previous chat history.
->
-> **Last analyzed:** 11 August 2026
->
-> **Repository status:** actively developed; incomplete; not production-ready.
+> **Purpose:** Compact operational memory for AI coding agents. Verify important claims against the repository before relying on them.
+
+**Last verified:** 18 August 2026
+**Repository status:** actively developed; incomplete; not production-ready.
 
 ---
 
-# 1. Project Snapshot
+## 1. Project Snapshot
 
-The project is a School ERP intended to become an industry-grade multi-tenant SaaS.
+School ERP intended to become an industry-grade multi-tenant SaaS.
 
 Current target:
-- initially support one school
-- approximately 500 students
-- later support 3–4 schools / ~3,000 students
-- eventually scale to many schools
+- initially one school / ~500 students
+- later 3–4 schools / ~3,000 students
+- eventually many schools
 
-The developer wants low operating cost but does not want low-quality architecture.
-
-The project should therefore use a modular monolith first and scale infrastructure only when justified.
-
----
-
-# 2. Current Repository Structure
-
-```text
-school-erp/
-├── client/
-│   └── src/
-│       ├── components/
-│       ├── hooks/
-│       ├── layouts/
-│       ├── lib/
-│       ├── pages/
-│       ├── routes/
-│       ├── store/
-│       ├── styles/
-│       ├── test/
-│       ├── types/
-│       └── utils/
-│
-├── server/
-│   └── src/
-│       ├── config/
-│       ├── controllers/
-│       ├── middleware/
-│       ├── models/
-│       ├── routes/
-│       ├── services/
-│       ├── utils/
-│       ├── validators/
-│       └── server.ts
-│
-├── shared/
-│   └── src/
-│       ├── constants/
-│       ├── schemas/
-│       └── utils/
-│
-├── docker-compose.yml
-├── package.json
-├── turbo.json
-└── README.md
-```
+Architecture philosophy:
+- modular monolith first
+- MongoDB + Mongoose
+- low infrastructure cost without sacrificing security/correctness
+- scale infrastructure only when justified
 
 ---
 
-# 3. Current Technology
+## 2. Current Stack
 
-## Frontend
+### Frontend
 - React 18
 - TypeScript
 - Vite
@@ -86,7 +40,7 @@ school-erp/
 - Recharts
 - Lucide React
 
-## Backend
+### Backend
 - Node.js
 - Express
 - TypeScript
@@ -100,27 +54,24 @@ school-erp/
 - cookie-parser
 - Cloudinary
 - PDFKit
-- xlsx
+- read-excel-file
+- write-excel-file
 - Zod
 
-## Testing
+### Testing/tooling
 - Vitest
 - Playwright
 - Testing Library
 - jsdom
-
-## Tooling
 - Turbo
 - npm
 - Docker Compose
-- MongoDB 7
 
 ---
 
-# 4. Current Frontend Pages
+## 3. Implemented Functional Areas
 
-Implemented routes include:
-
+Frontend routes:
 ```text
 /login
 /dashboard
@@ -134,19 +85,7 @@ Implemented routes include:
 /settings
 ```
 
-Authentication is protected by `RequireAuth`.
-
-Main authenticated layout:
-- AdminLayout
-- Header
-- Sidebar
-
----
-
-# 5. Current Backend Routes
-
-Current API groups:
-
+Backend groups:
 ```text
 /api/v1/auth
 /api/v1/students
@@ -158,63 +97,7 @@ Current API groups:
 /api/v1/health
 ```
 
-Important route details:
-
-### Auth
-- register
-- login
-- refresh
-- logout
-- me
-- change password
-
-### Students
-- list
-- export
-- detail
-- create
-- update
-- delete
-- bulk import
-- document upload
-
-### Teachers
-- CRUD foundation
-- documents/ID-related functionality
-
-### Academics
-- classes
-- sections
-- subjects
-
-### Attendance
-- list
-- mark
-- student attendance
-- monthly report
-
-### Fees
-- fee structures
-- fee CRUD
-- student fees
-- fee generation
-- payment collection
-- payment list
-- daily collection
-- monthly collection
-- receipt PDF
-
-### Dashboard
-- stats
-- charts
-- birthdays
-
----
-
-# 6. Current Data Models
-
-Implemented Mongoose models:
-
+Core models:
 ```text
 School
 User
@@ -231,440 +114,187 @@ Payment
 AuditLog
 ```
 
-Most tenant-owned models contain `schoolId`.
-
 ---
 
-# 7. Current Shared Enums/Roles
+## 4. Security Baseline — Verified 18 Aug 2026
 
-Roles:
-
-```text
-SUPER_ADMIN
-PRINCIPAL
-ACCOUNTANT
-TEACHER
-STUDENT
-PARENT
-```
-
-Statuses include:
-- active/inactive/suspended
-- student active/left/graduated/transferred
-- teacher active/inactive/on_leave
-- attendance present/absent/late/half_day/on_leave
-- fee paid/partial/pending/overdue/waived
-
-Payment modes:
-
-```text
-cash
-upi
-card
-bank_transfer
-cheque
-online
-```
-
----
-
-# 8. Current Security Foundation
-
-Already present:
-- JWT access token
-- JWT refresh token
-- HTTP-only cookies
-- bcrypt password hashing
+Implemented:
+- JWT access + refresh tokens
+- HttpOnly auth cookies
+- production `SameSite=None` cookies for separate SPA/API hosting
+- Origin / Fetch-Metadata CSRF protection
 - Helmet
-- CORS
-- rate limiting
+- strict CORS allowlist
+- API rate limiting + login rate limiting
 - Zod validation
 - RBAC
-- audit logs
+- audit logging
+- bounded JSON / URL-encoded request bodies
+- bounded multipart uploads
+- MIME restrictions for uploads
+- escaped Mongo regex search input
+- hardcoded demo password removed from seed and login UI
+- Excel import/export migrated away from SheetJS `xlsx`
+- spreadsheet import row cap (5,000)
 
-However, the current system is **not yet safe for multi-school production**.
+The frontend no longer persists access tokens in localStorage. Authentication is now cookie-authoritative and the app restores the session through `/auth/me`.
 
 ---
 
-# 9. Critical Known Problems Found During Codebase Analysis
+## 5. Tenant Isolation — Current State
 
-## P0 — Tenant isolation is incomplete
+Core tenant-owned CRUD/reporting controllers currently scope database queries using `req.user.schoolId` or an equivalent tenant helper, including:
+- students
+- teachers
+- classes/sections/subjects
+- attendance
+- fees/payments
+- dashboard
 
-Some controllers perform queries without `schoolId`.
+The fee payment workflow uses a MongoDB transaction so Payment creation and Fee balance/status updates are atomic.
 
-Examples include patterns such as:
-- `findById`
-- `find(...)` with only class/date filters
-- dashboard queries without tenant scope
-- fee structure queries without tenant scope
-- attendance queries without tenant scope
+### Remaining P0/P1 tenant work
 
-This must be fixed before multi-school deployment.
+#### P0 — Login tenant selection
+Login still searches by email alone while user uniqueness is `(email, schoolId)`.
 
-### Rule
+Required future design:
+- explicit tenant identifier such as school code/slug/subdomain
+- login must resolve the tenant first and then query `{ email, schoolId }`
 
-Every tenant-owned query must be scoped to:
+Do not remove the composite uniqueness constraint.
 
+#### P1 — Audit log tenant metadata
+AuditLog currently lacks an explicit `schoolId` field. Add tenant metadata and tenant-scoped audit querying before exposing audit logs to school users.
+
+#### P1 — School configuration
+School model needs a stable public tenant identifier (for example code/slug) before tenant-aware login can be completed cleanly.
+
+---
+
+## 6. Authentication Architecture
+
+Current authoritative mechanism:
 ```text
-req.user.schoolId
+HttpOnly access_token cookie
+        +
+HttpOnly refresh_token cookie
 ```
 
----
+Frontend behavior:
+- no auth token in localStorage
+- login stores only user state in memory
+- app calls `/auth/me` during bootstrap
+- Axios refreshes the session when an authenticated request receives 401
+- logout calls `/auth/logout` and clears client state
 
-## P0 — Login is not fully tenant-aware
-
-Current login searches by email:
-
-```text
-User.findOne({ email: data.email })
-```
-
-while the user uniqueness constraint is:
-
-```text
-email + schoolId
-```
-
-That creates a design mismatch.
-
-Future login must define how the system identifies the school/tenant, for example:
-- school slug/subdomain
-- school code
-- tenant identifier
-- platform login that explicitly selects school
-
-Do not blindly remove the schoolId uniqueness constraint.
+Do not reintroduce persistent access-token storage in browser localStorage/sessionStorage.
 
 ---
 
-## P0 — Financial payment operation needs transaction safety
+## 7. Permissions
 
-Current payment flow:
-1. create Payment
-2. update Fee
-3. audit
+`shared/src/constants/index.ts` is the source of truth for `ROLE_PERMISSIONS`.
 
-This is not enough for a production financial system.
+Server RBAC and frontend permission checks should consume the shared definition.
 
-Convert it to an atomic operation using a MongoDB transaction.
+Do not duplicate role-permission maps in the client.
 
 ---
 
-## P0 — Permission definitions are duplicated
+## 8. File Uploads
 
-Permissions exist in shared constants and also in the client auth store.
-
-This can drift.
-
-Make shared permission metadata the source of truth.
-
----
-
-## P1 — Client auth persistence needs security review
-
-Zustand persist stores user state.
-
-The access token is also updated in client state after refresh.
-
-Review this so long-lived credentials are not persisted unnecessarily in browser storage.
-
-Prefer HTTP-only cookies as the authoritative auth mechanism.
-
----
-
-## P1 — PDF content is hardcoded
-
-Current receipt/ID-card PDF code contains placeholder values such as:
-- "School Name"
-- "School Address"
-- placeholder phone
-- text-based PHOTO/QR placeholders
-
-These must use tenant school configuration and actual image/QR generation before production.
-
----
-
-## P1 — Shared package/build arrangement needs cleanup
-
-Client points `@school-erp/shared` to:
-
-```text
-../shared/dist
-```
-
-Server uses a local `src/shared-types` path.
-
-Shared types/schemas are therefore not fully centralized.
-
-Future target:
-- one shared package
-- consistent build/reference strategy
-- no duplicated domain types
-
----
-
-## P1 — Date/time handling needs standardization
-
-Attendance and dashboard code uses native `Date` calculations.
-
-For a multi-school product, explicitly define:
-- school timezone
-- storage timezone
-- reporting timezone
-- academic-day boundaries
-
-Do not let server host timezone silently define school attendance dates.
-
----
-
-## P1 — Some dashboard queries are inefficient
-
-The dashboard chart code performs repeated database queries inside loops.
-
-This should be optimized with:
-- aggregation
-- batch queries
-- precomputed summaries
-- caching where justified
-
-Do not prematurely optimize ordinary CRUD, but dashboard aggregation should be fixed before large deployments.
-
----
-
-## P1 — Some code uses hardcoded `any`
-
-Examples exist in controllers and pages.
-
-Replace `any` progressively in business-critical areas.
-
-Do not perform a giant unrelated type rewrite.
-
----
-
-## P1 — Feature permissions exist before features
-
-Permission constants already mention:
-
-```text
-homework
-marks
-expenses
-salary
-```
-
-but corresponding complete modules are not yet implemented.
-
-Do not treat the permission enum as proof that the feature exists.
-
----
-
-## P1 — Transport is referenced but not implemented
-
-Student model contains:
-
-```text
-transportId
-```
-
-with a Transport reference, but a Transport model/module is not present in the current repository.
-
-Do not build against a nonexistent Transport entity without first defining the model and requirements.
-
----
-
-# 10. Current Testing
-
-Vitest and Playwright are already configured.
-
-Current unit tests exist for utilities/schemas.
-
-However, production-critical tests are still missing.
-
-Priority tests:
-
-```text
-tenant isolation
-authentication
-RBAC
-student CRUD
-attendance
-fee generation
-payment collection
-receipt generation
-file upload authorization
-```
-
----
-
-# 11. Current File Upload Strategy
-
-Cloudinary integration exists.
-
-Upload flow:
-
+Current flow:
 ```text
 Multer
   ↓
 Buffer
   ↓
-Cloudinary upload service
-  ↓
-secure URL + public ID
+Cloudinary
 ```
 
-Do not switch to local Render disk for permanent files.
+Permanent files must not use local Render disk.
+
+### Remaining privacy work
+Student/teacher documents currently store Cloudinary secure URLs. Before production, sensitive documents should use a private/authenticated delivery strategy with controlled access rather than permanent public URLs.
 
 ---
 
-# 12. Current PDF Strategy
+## 9. PDF / Reports
 
-PDFKit server-side.
+Server-side PDFKit is used for fee receipts and ID cards.
 
-Existing:
-- fee receipt
-- student ID card
-- teacher ID card
-
-Keep server-side PDF generation.
-
----
-
-# 13. Current UI Strategy
-
-The UI is Tailwind-based and has reusable primitives.
-
-Do not replace the entire UI architecture.
-
-Continue with:
-- Card
-- Table
-- Modal
-- Button
-- Input
-- Select
-- Tabs
-- Badge
-- Toaster
-
-Extract repeated patterns as the application grows.
+Remaining work:
+- replace hardcoded school placeholders with tenant School configuration
+- actual student/teacher photos
+- QR generation where required
+- standardized timezone/date handling
 
 ---
 
-# 14. Current Product Gaps
+## 10. Performance / Correctness Work Remaining
+
+Dashboard chart generation is tenant-safe but currently performs repeated queries in loops. Replace with batched aggregation queries before larger deployments.
+
+Standardize school timezone/reporting timezone instead of relying on server-local `Date` behavior.
+
+Progressively remove business-critical `any` usage; avoid giant unrelated type rewrites.
+
+---
+
+## 11. Feature Gaps
 
 Not fully implemented:
 - parent portal
 - student portal
 - teacher portal
-- mobile app
-- SMS
-- push notifications
-- WhatsApp
-- payment gateway
-- exams
-- marks/results
+- exams/marks/results
 - homework
 - timetable
 - library
 - transport
 - inventory
 - expenses
-- payroll
-- staff
-- leave
-- subscriptions
-- SaaS tenant administration
+- payroll/staff/leave
+- SMS/push/WhatsApp
+- payment gateway
+- subscriptions/SaaS administration
 - advanced backup/recovery
 - production observability
+- mobile app
+
+Permission entries for future features do not mean those modules are implemented.
+
+Transport is referenced by Student but no complete Transport module exists yet. Do not build against it without defining requirements/model.
 
 ---
 
-# 15. Immediate Recommended Work
+## 12. Immediate Development Order
 
-When asked "what should I implement next?", default to:
+Continue in this order:
 
 ```text
-1. Tenant isolation
-2. Auth/session hardening
-3. Shared permissions/schemas
-4. Security + tenant tests
-5. Core admin correctness
-6. Attendance hardening
-7. Fee/payment transaction safety
-8. Reports/PDF correctness
-9. Exams/results
-10. Notifications
-11. Portals
+1. Tenant-aware login + School public identifier
+2. AuditLog tenant isolation
+3. Production-critical security/tenant tests
+4. Sensitive document access hardening
+5. PDF/School configuration correctness
+6. Dashboard aggregation + timezone standardization
+7. Core admin correctness
+8. Exams/results
+9. Notifications
+10. Portals
+11. SaaS administration
 12. Mobile
-13. SaaS platform
 ```
 
----
-
-# 16. Things Not to Do Yet
-
-Do not prioritize:
-- microservices
-- Kubernetes
-- complex AI
-- GPS tracking
-- WhatsApp automation
-- advanced ML
-- massive caching
-- event-driven architecture everywhere
-
-until the core ERP is correct.
+Do not prioritize microservices, Kubernetes, complex AI/ML, GPS tracking, WhatsApp automation, or large-scale caching before the core ERP is correct.
 
 ---
 
-# 17. Important Developer Context
+## 13. AI Coding Contract
 
-The project is being built by one developer and is intentionally budget-conscious.
-
-Preferred philosophy:
-
-```text
-low infrastructure cost
-+
-strong architecture
-+
-incremental development
-+
-production-grade security
-```
-
-The developer wants the application to work locally first and be deployable later.
-
-Do not assume cloud-only operation.
-
----
-
-# 18. Current Architecture Decision
-
-Current database remains:
-
-```text
-MongoDB + Mongoose
-```
-
-Do not migrate to PostgreSQL unless the developer explicitly chooses that architecture.
-
-MongoDB can support the intended initial scale if:
-- tenant indexes are correct
-- transactions are used for financial workflows
-- queries are scoped
-- pagination is used
-- backups are configured
-
----
-
-# 19. AI Agent Working Contract
-
-When an AI agent receives a task:
-
-### Before coding
-Read:
-
+Before coding, inspect:
 ```text
 prd.md
 architecture.md
@@ -674,109 +304,19 @@ phases.md
 memory.md
 ```
 
-Then inspect the relevant source files.
-
-### During coding
-- preserve existing patterns
+During coding:
+- preserve existing architecture
 - use TypeScript
-- reuse existing components
-- reuse existing API utilities
-- reuse shared schemas/constants
+- reuse existing components/API utilities/shared schemas/constants
 - enforce tenant isolation
-- add tests
+- add tests for business-critical changes
 - avoid unrelated refactors
 
-### After coding
-Verify:
-- build
-- tests
-- lint if configured
-- tenant safety
-- authorization
-- error states
-- docs if behavior changed
+After coding:
+- verify build
+- verify tests
+- verify authorization and tenant safety
+- verify error states
+- update docs when behavior/architecture changes
 
----
-
-# 20. Document Maintenance
-
-When architecture changes:
-- update `architecture.md`
-- update `memory.md`
-
-When product scope changes:
-- update `prd.md`
-- update `phases.md`
-
-When engineering constraints change:
-- update `rules.md`
-
-When UI conventions change:
-- update `design.md`
-
-These files are living project documentation, not one-time notes.
-
----
-
-## 12. Living Memory & Synchronization Protocol
-
-This file is intentionally a **compact, continuously refreshed memory** for AI coding agents. It is not a historical transcript. It should describe the latest verified project state and important decisions.
-
-### Status Metadata
-
-- **Document version:** 1.1.0
-- **Lifecycle status:** Living / actively maintained
-- **Baseline verified:** 11 August 2026
-- **Last repository verification:** 11 August 2026
-- **Current state:** Actively developed and incomplete; not production-ready
-- **Next mandatory review:** After every meaningful feature, phase completion, architecture change, security fix, or major debugging discovery
-
-### What Belongs Here
-
-Keep only information that helps a future AI agent work safely and efficiently:
-- current phase and immediate priorities
-- verified implemented capabilities
-- known gaps/bugs/risks
-- important architectural/business decisions
-- external services and operational assumptions
-- constraints that are easy to forget
-- recent changes that affect future work
-
-Do not turn this into a duplicate PRD or source-code dump.
-
-### Synchronization Rule
-
-After a meaningful implementation change, update this memory if the change affects the project's current state. Remove or revise statements that are no longer true.
-
-When an AI agent starts a new task, it should read this file but must verify important claims against the repository before relying on them. Memory is context, not proof.
-
-### Staleness Rule
-
-If a statement cannot be verified or is known to be outdated:
-- mark it `UNKNOWN`, `STALE`, or `NEEDS_VERIFICATION`, or
-- remove it if it no longer has operational value.
-
-Never preserve an old statement just for historical completeness. Important historical decisions belong in architecture/design/rules changelogs.
-
-### Phase Update Checklist
-
-At phase completion, refresh:
-- current phase/status
-- completed capabilities
-- remaining blockers
-- known technical debt
-- security concerns
-- deployment state
-- next recommended work
-
-### AI Handoff Contract
-
-A new AI agent should be able to read `memory.md` and then the relevant sections of `prd.md`, `architecture.md`, `rules.md`, `phases.md`, and `design.md` to understand the project without depending on previous chat history.
-
-### Changelog
-
-| Version | Date | Change | Verified By |
-|---|---|---|---|
-| 1.1.0 | 2026-08-11 | Added living-memory lifecycle, staleness handling, phase refresh protocol, and AI handoff contract. | AI-assisted repository review |
-| 1.0.0 | 2026-08-11 | Initial AI project memory. | AI-assisted repository review |
-
+Memory is living context, not proof. Refresh it after meaningful implementation changes.
