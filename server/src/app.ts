@@ -50,6 +50,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(rateLimiter);
 app.use("/api/v1/auth/login", authRateLimiter);
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 app.use("/api/v1", routes);
 app.use(errorHandler);
 
