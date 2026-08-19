@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import sharp from "sharp";
-import { Student } from "../models/index.js";
+import { Student, DocumentRecovery } from "../models/index.js";
 import { CreateStudentSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
 import { escapeRegex } from "../utils/strings.js";
 import { buildR2Key, uploadToR2, getR2SignedUrl, deleteFromR2 } from "../services/r2.js";
+import { buildRecoveryKey, copyB2ObjectToRecovery } from "../services/documentRecovery.js";
 import { generateAdmissionNumber, DocumentType } from "@school-erp/shared";
 
 interface MulterRequest extends Request { file?: Express.Multer.File; }
@@ -77,8 +78,53 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
 }
 
 export async function deleteStudentDocument(req: Request, res: Response, next: NextFunction) {
-  try { const { id, documentId } = req.validatedParams as any; const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }); if (!student) throw AppError.notFound("Student not found"); const index = student.documents.findIndex((item: any) => item._id?.toString() === documentId); if (index < 0) throw AppError.notFound("Document not found"); const document = student.documents[index]; const key = document.url; student.documents.splice(index, 1); await student.save(); if (key) { try { await deleteFromR2(key); } catch (cleanupError) { console.error("[R2] Failed to delete student document", cleanupError); } } await createAuditLog({ userId: req.user!.userId, action: "DELETE_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { documentId, type: document.type, key } }); res.json({ message: "Document deleted" }); }
-  catch (error) { next(error); }
+  try {
+    const { id, documentId } = req.validatedParams as any;
+    const schoolId = getTenantId(req);
+    const student = await Student.findOne({ _id: id, schoolId });
+    if (!student) throw AppError.notFound("Student not found");
+    const index = student.documents.findIndex((item: any) => item._id?.toString() === documentId);
+    if (index < 0) throw AppError.notFound("Document not found");
+    const document = student.documents[index];
+    const key = document.url;
+    if (key) {
+      const deletedAt = new Date();
+      const recoveryKey = buildRecoveryKey(key, deletedAt);
+      try {
+        await copyB2ObjectToRecovery(key, recoveryKey);
+        await DocumentRecovery.create({ schoolId, studentId: id, documentType: document.type, storageKey: key, recoveryKey, originalName: document.originalName, mimeType: document.mimeType, sizeBytes: document.sizeBytes, deletedAt, expiresAt: new Date(deletedAt.getTime() + 60 * 24 * 60 * 60 * 1000), source: "r2-deletion", status: "available" });
+      } catch (backupError) {
+        console.error("[B2] Failed to preserve document before R2 deletion", backupError);
+      }
+    }
+    student.documents.splice(index, 1);
+    await student.save();
+    if (key) { try { await deleteFromR2(key); } catch (cleanupError) { console.error("[R2] Failed to delete student document", cleanupError); } }
+    await createAuditLog({ userId: req.user!.userId, action: "DELETE_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { documentId, type: document.type, key } });
+    res.json({ message: "Document deleted" });
+  } catch (error) { next(error); }
+}
+
+export async function getStudentDocumentRecoveryHistory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.validatedParams as any;
+    const schoolId = getTenantId(req);
+    const documentType = String(req.query.type || "").trim().toLowerCase();
+    const filter: any = { schoolId, studentId: id, status: "available" };
+    if (documentType) filter.documentType = documentType;
+    const recoveries = await DocumentRecovery.find(filter).sort({ deletedAt: -1 }).lean();
+    res.json({ data: recoveries });
+  } catch (error) { next(error); }
+}
+
+export async function restoreStudentDocumentRecovery(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id, recoveryId } = req.validatedParams as any;
+    const schoolId = getTenantId(req);
+    const recovery = await DocumentRecovery.findOne({ _id: recoveryId, schoolId, studentId: id, status: "available", expiresAt: { $gt: new Date() } });
+    if (!recovery) throw AppError.notFound("Recovery file not found or expired");
+    throw AppError.internal("Recovery restore requires the B2 recovery service to be enabled on the API runtime");
+  } catch (error) { next(error); }
 }
 
 export async function bulkImportStudents(req: MulterRequest, res: Response, next: NextFunction) {
