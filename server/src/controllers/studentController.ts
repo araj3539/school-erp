@@ -70,11 +70,18 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
     if (!Object.values(DocumentType).includes(type as DocumentType)) throw AppError.badRequest("Invalid document type"); if (!req.file) throw AppError.badRequest("No file uploaded");
     const student = await Student.findOne({ _id: id, schoolId }); if (!student) throw AppError.notFound("Student not found");
     const prepared = await prepareStudentDocument(req.file); const key = documentStorageKey(schoolId, id, type);
+    const existingDocument = student.documents.find((document: any) => document.type === type); const previousKey = existingDocument?.url;
     const result = await uploadToR2(prepared.buffer, key, prepared.contentType); uploadedKey = result.key;
-    const existingDocument = student.documents.find((document: any) => document.type === type); const documentMetadata = { originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length, uploadedAt: new Date() };
+    const documentMetadata = { originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length, uploadedAt: new Date() };
     if (existingDocument) { existingDocument.url = result.key; existingDocument.originalName = documentMetadata.originalName; existingDocument.mimeType = documentMetadata.mimeType; existingDocument.sizeBytes = documentMetadata.sizeBytes; existingDocument.uploadedAt = documentMetadata.uploadedAt; }
     else student.documents.push({ _id: new mongoose.Types.ObjectId(), type: type as any, url: result.key, ...documentMetadata } as any);
     await student.save(); uploadedKey = null;
+
+    if (previousKey && previousKey !== result.key) {
+      try { await deleteFromR2(previousKey); }
+      catch (cleanupError) { console.error("[R2] Failed to delete replaced student document", cleanupError); }
+    }
+
     await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length, replaced: Boolean(existingDocument) } });
     res.status(201).json({ document: student.documents.find((document: any) => document.type === type) });
   } catch (error) {
