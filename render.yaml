@@ -21,9 +21,3 @@ services:
         value: "7d"
       - key: CORS_ORIGIN
         value: https://school-erp-flame-mu.vercel.app
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
