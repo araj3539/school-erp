@@ -1,0 +1,78 @@
+name: Verify Backup Health
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Install rclone
+        run: |
+          set -euo pipefail
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone version
+
+      - name: Configure B2
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          for value in B2_KEY_ID B2_APPLICATION_KEY B2_BUCKET_NAME B2_ENDPOINT; do
+            test -n "${!value}" || { echo "Missing required secret: $value"; exit 1; }
+          done
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [b2]
+          type = s3
+          provider = Other
+          access_key_id = $B2_KEY_ID
+          secret_access_key = $B2_APPLICATION_KEY
+          endpoint = $B2_ENDPOINT
+          acl = private
+          EOF
+
+      - name: Verify latest R2 backup manifest
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json" > /tmp/r2-manifest.json
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          with open('/tmp/r2-manifest.json', encoding='utf-8') as f:
+              data = json.load(f)
+          completed = datetime.fromisoformat(data['completedAt'].replace('Z', '+00:00'))
+          age_hours = (datetime.now(timezone.utc) - completed).total_seconds() / 3600
+          print(f"R2 backup age: {age_hours:.2f} hours")
+          if age_hours > 26:
+              raise SystemExit('R2 backup is older than 26 hours')
+          if data.get('objectCount', 0) <= 0:
+              raise SystemExit('R2 manifest contains zero objects')
+          PY
+
+      - name: Verify latest MongoDB backup pointer
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          PATH_FILE=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest-path.txt")
+          test -n "$PATH_FILE"
+          rclone size "$PATH_FILE"
+          echo "Latest MongoDB backup: $PATH_FILE"
+
+      - name: Failure notice
+        if: failure()
+        run: |
+          echo "BACKUP HEALTH CHECK FAILED. Treat backups as stale and inspect GitHub Actions immediately."
