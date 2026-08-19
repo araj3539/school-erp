@@ -62,7 +62,7 @@ jobs:
               raise SystemExit('R2 manifest contains zero objects')
           PY
 
-      - name: Verify latest MongoDB backup pointer
+      - name: Verify latest MongoDB backup freshness and size
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
@@ -70,7 +70,20 @@ jobs:
           PATH_FILE=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest-path.txt")
           test -n "$PATH_FILE"
           rclone size "$PATH_FILE"
-          echo "Latest MongoDB backup: $PATH_FILE"
+          python - "$PATH_FILE" <<'PY'
+          import re
+          import sys
+          from datetime import datetime, timezone
+          path = sys.argv[1]
+          match = re.search(r'(\d{8}T\d{6}Z)\.archive\.gz$', path)
+          if not match:
+              raise SystemExit('Latest MongoDB backup path has no valid timestamp')
+          created = datetime.strptime(match.group(1), '%Y%m%dT%H%M%SZ').replace(tzinfo=timezone.utc)
+          age_hours = (datetime.now(timezone.utc) - created).total_seconds() / 3600
+          print(f"MongoDB backup age: {age_hours:.2f} hours")
+          if age_hours > 26:
+              raise SystemExit('MongoDB backup is older than 26 hours')
+          PY
 
       - name: Failure notice
         if: failure()
