@@ -13,7 +13,7 @@ async function cleanup(): Promise<void> {
 
   try {
     const students = await Student.find({
-      "documents": {
+      documents: {
         $elemMatch: {
           status: "pending_deletion",
           deletionScheduledAt: { $lte: now }
@@ -22,14 +22,16 @@ async function cleanup(): Promise<void> {
     }).limit(BATCH_SIZE);
 
     for (const student of students) {
-      let changed = false;
-      for (const document of student.documents) {
-        if (document.status !== "pending_deletion" || !document.deletionScheduledAt || document.deletionScheduledAt > now) continue;
+      const eligible = student.documents.filter(
+        (document) => document.status === "pending_deletion" && document.deletionScheduledAt && document.deletionScheduledAt <= now
+      );
+      const successfullyDeleted = new Set<string>();
+
+      for (const document of eligible) {
         processed++;
         try {
           await deleteFromR2(document.url);
-          student.documents = student.documents.filter((item) => item._id.toString() !== document._id.toString()) as typeof student.documents;
-          changed = true;
+          successfullyDeleted.add(document._id.toString());
           deleted++;
           console.log(`[document-cleanup] permanently deleted ${student._id}/${document._id} (${document.url})`);
         } catch (error) {
@@ -37,7 +39,11 @@ async function cleanup(): Promise<void> {
           console.error(`[document-cleanup] failed to delete ${student._id}/${document._id}:`, error);
         }
       }
-      if (changed) await student.save();
+
+      if (successfullyDeleted.size > 0) {
+        student.documents = student.documents.filter((document) => !successfullyDeleted.has(document._id.toString())) as typeof student.documents;
+        await student.save();
+      }
     }
   } finally {
     await disconnectDB();
