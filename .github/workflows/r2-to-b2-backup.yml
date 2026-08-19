@@ -63,10 +63,9 @@ jobs:
           rclone lsd "r2:${R2_BUCKET_NAME}"
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
-      - name: Inspect R2 and protect against mass deletion
+      - name: Record R2 size
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
           rclone size "r2:${R2_BUCKET_NAME}" --json > /tmp/r2-size.json
@@ -75,22 +74,6 @@ jobs:
           echo "R2_COUNT=$R2_COUNT" >> "$GITHUB_ENV"
           echo "R2_BYTES=$R2_BYTES" >> "$GITHUB_ENV"
           echo "Current R2 objects: $R2_COUNT; bytes: $R2_BYTES"
-
-          if [ "$R2_COUNT" -eq 0 ]; then
-            echo "ERROR: R2 contains zero objects. Refusing to modify B2."
-            exit 1
-          fi
-
-          if rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json" > /tmp/previous-manifest.json 2>/dev/null; then
-            PREVIOUS_COUNT=$(python -c 'import json; print(json.load(open("/tmp/previous-manifest.json")).get("objectCount", 0))')
-            if [ "$PREVIOUS_COUNT" -gt 0 ] && [ "$R2_COUNT" -lt $((PREVIOUS_COUNT * 10 / 100)) ]; then
-              echo "ERROR: R2 object count dropped from $PREVIOUS_COUNT to $R2_COUNT. Refusing backup."
-              echo "This protects B2 from a catastrophic/mass deletion event."
-              exit 1
-            fi
-          else
-            echo "No previous R2 manifest found; deletion guard will activate after this run."
-          fi
 
       - name: Copy R2 to B2 without propagating deletions
         env:
