@@ -1,8 +1,6 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 import { StudentStatus, Gender, BloodGroup, DocumentType } from "@school-erp/shared";
 
-export type StudentDocumentStatus = "active" | "pending_deletion";
-
 export interface IStudentDocument {
   type: DocumentType;
   url: string;
@@ -11,9 +9,6 @@ export interface IStudentDocument {
   mimeType?: string;
   sizeBytes?: number;
   uploadedAt: Date;
-  status: StudentDocumentStatus;
-  deletedAt?: Date;
-  deletionScheduledAt?: Date;
 }
 
 export interface IStudent extends Document {
@@ -50,10 +45,7 @@ const StudentDocumentSchema = new Schema<IStudentDocument>({
   originalName: { type: String, maxlength: 255 },
   mimeType: { type: String, maxlength: 100 },
   sizeBytes: { type: Number, min: 0 },
-  uploadedAt: { type: Date, default: Date.now },
-  status: { type: String, enum: ["active", "pending_deletion"], default: "active" },
-  deletedAt: { type: Date },
-  deletionScheduledAt: { type: Date }
+  uploadedAt: { type: Date, default: Date.now }
 });
 
 const StudentSchema = new Schema<IStudent>({
@@ -83,7 +75,6 @@ const StudentSchema = new Schema<IStudent>({
 
 StudentSchema.index({ schoolId: 1, classId: 1, sectionId: 1, status: 1 });
 StudentSchema.index({ schoolId: 1, status: 1 });
-StudentSchema.index({ "documents.status": 1, "documents.deletionScheduledAt": 1 });
 
 StudentSchema.virtual("fullName").get(function () {
   return `${this.firstName} ${this.lastName}`;
