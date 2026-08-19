@@ -27,15 +27,8 @@ function documentStorageKey(schoolId: string, studentId: string, type: string): 
 }
 
 export async function getStudents(req: Request, res: Response, next: NextFunction) {
-  try {
-    const schoolId = getTenantId(req); const query = req.validatedQuery as any;
-    const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query; const dbQuery: any = { schoolId };
-    if (filters.classId) dbQuery.classId = filters.classId; if (filters.sectionId) dbQuery.sectionId = filters.sectionId; if (filters.status) dbQuery.status = filters.status;
-    if (filters.search) { const search = escapeRegex(String(filters.search)); dbQuery.$or = [{ firstName: { $regex: search, $options: "i" } }, { lastName: { $regex: search, $options: "i" } }, { admissionNo: { $regex: search, $options: "i" } }, { phone: { $regex: search, $options: "i" } }]; }
-    const sort: any = {}; if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1; else sort.createdAt = -1; const skip = (page - 1) * limit;
-    const [students, total] = await Promise.all([Student.find(dbQuery).populate("classId sectionId").sort(sort).skip(skip).limit(limit).lean(), Student.countDocuments(dbQuery)]);
-    res.json({ data: students, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
-  } catch (error) { next(error); }
+  try { const schoolId = getTenantId(req); const query = req.validatedQuery as any; const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query; const dbQuery: any = { schoolId }; if (filters.classId) dbQuery.classId = filters.classId; if (filters.sectionId) dbQuery.sectionId = filters.sectionId; if (filters.status) dbQuery.status = filters.status; if (filters.search) { const search = escapeRegex(String(filters.search)); dbQuery.$or = [{ firstName: { $regex: search, $options: "i" } }, { lastName: { $regex: search, $options: "i" } }, { admissionNo: { $regex: search, $options: "i" } }, { phone: { $regex: search, $options: "i" } }]; } const sort: any = {}; if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1; else sort.createdAt = -1; const skip = (page - 1) * limit; const [students, total] = await Promise.all([Student.find(dbQuery).populate("classId sectionId").sort(sort).skip(skip).limit(limit).lean(), Student.countDocuments(dbQuery)]); res.json({ data: students, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }); }
+  catch (error) { next(error); }
 }
 
 export async function getStudentById(req: Request, res: Response, next: NextFunction) {
@@ -70,24 +63,17 @@ export async function uploadStudentDocument(req: MulterRequest, res: Response, n
     if (!Object.values(DocumentType).includes(type as DocumentType)) throw AppError.badRequest("Invalid document type"); if (!req.file) throw AppError.badRequest("No file uploaded");
     const student = await Student.findOne({ _id: id, schoolId }); if (!student) throw AppError.notFound("Student not found");
     const prepared = await prepareStudentDocument(req.file); const key = documentStorageKey(schoolId, id, type);
-    const existingDocument = student.documents.find((document: any) => document.type === type); const previousKey = existingDocument?.url;
+    const existingDocument = student.documents.find((document: any) => document.type === type);
+    const previousKey = existingDocument?.url;
     const result = await uploadToR2(prepared.buffer, key, prepared.contentType); uploadedKey = result.key;
     const documentMetadata = { originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length, uploadedAt: new Date() };
     if (existingDocument) { existingDocument.url = result.key; existingDocument.originalName = documentMetadata.originalName; existingDocument.mimeType = documentMetadata.mimeType; existingDocument.sizeBytes = documentMetadata.sizeBytes; existingDocument.uploadedAt = documentMetadata.uploadedAt; }
     else student.documents.push({ _id: new mongoose.Types.ObjectId(), type: type as any, url: result.key, ...documentMetadata } as any);
     await student.save(); uploadedKey = null;
-
-    if (previousKey && previousKey !== result.key) {
-      try { await deleteFromR2(previousKey); }
-      catch (cleanupError) { console.error("[R2] Failed to delete replaced student document", cleanupError); }
-    }
-
+    if (previousKey && previousKey !== result.key) { try { await deleteFromR2(previousKey); } catch (cleanupError) { console.error("[R2] Failed to delete replaced student document", cleanupError); } }
     await createAuditLog({ userId: req.user!.userId, action: "UPLOAD_DOCUMENT", entity: "Student", entityId: student._id.toString(), after: { type, key: result.key, originalName: req.file.originalname, mimeType: prepared.contentType, sizeBytes: prepared.buffer.length, replaced: Boolean(existingDocument) } });
     res.status(201).json({ document: student.documents.find((document: any) => document.type === type) });
-  } catch (error) {
-    if (uploadedKey) { try { await deleteFromR2(uploadedKey); } catch (cleanupError) { console.error("[R2] Failed to clean up failed upload", cleanupError); } }
-    next(error);
-  }
+  } catch (error) { if (uploadedKey) { try { await deleteFromR2(uploadedKey); } catch (cleanupError) { console.error("[R2] Failed to clean up failed upload", cleanupError); } } next(error); }
 }
 
 export async function deleteStudentDocument(req: Request, res: Response, next: NextFunction) {
