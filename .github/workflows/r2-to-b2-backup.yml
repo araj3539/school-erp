@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  RECOVERY_PREFIX: recovery/r2-deleted
+
 jobs:
   backup:
     runs-on: ubuntu-latest
@@ -46,7 +49,7 @@ jobs:
           acl = private
 
           [b2]
-          type = s3
+          type = Other
           provider = Other
           access_key_id = $B2_KEY_ID
           secret_access_key = $B2_APPLICATION_KEY
@@ -89,7 +92,7 @@ jobs:
             --low-level-retries 10 \
             --stats 30s
 
-      - name: Mark R2 deletions in B2
+      - name: Preserve newly deleted R2 objects for recovery
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
@@ -98,17 +101,22 @@ jobs:
 
           mkdir -p /tmp/r2-b2-lists
           rclone lsf "r2:${R2_BUCKET_NAME}/schools" --recursive --files-only | sort -u > /tmp/r2-b2-lists/r2.txt
-          rclone lsf "b2:${B2_BUCKET_NAME}/schools" --recursive --files-only | sort -u > /tmp/r2-b2-lists/b2.txt
+          rclone lsf "b2:${B2_BUCKET_NAME}" --recursive --files-only | sort -u > /tmp/r2-b2-lists/b2.txt
 
-          comm -23 /tmp/r2-b2-lists/b2.txt /tmp/r2-b2-lists/r2.txt > /tmp/r2-b2-lists/deleted.txt
+          comm -23 /tmp/r2-b2-lists/b2.txt /tmp/r2-b2-lists/r2.txt \
+            | grep '^schools/' \
+            | grep -v '^schools/.*\.tmp$' \
+            > /tmp/r2-b2-lists/deleted.txt || true
 
+          TODAY=$(date -u +%Y-%m-%d)
           deleted_count=$(wc -l < /tmp/r2-b2-lists/deleted.txt | tr -d ' ')
-          echo "B2 objects no longer present in R2: $deleted_count"
+          echo "R2 objects missing from the live bucket: $deleted_count"
 
           while IFS= read -r relative_path; do
             [ -n "$relative_path" ] || continue
-            echo "Marking deleted R2 object in B2: schools/$relative_path"
-            rclone deletefile "b2:${B2_BUCKET_NAME}/schools/$relative_path"
+            recovery_path="${RECOVERY_PREFIX}/${TODAY}/${relative_path}"
+            echo "Preserving deleted R2 object: $relative_path -> $recovery_path"
+            rclone copyto "b2:${B2_BUCKET_NAME}/${relative_path}" "b2:${B2_BUCKET_NAME}/${recovery_path}"
           done < /tmp/r2-b2-lists/deleted.txt
 
       - name: Write and upload backup manifest
@@ -124,8 +132,8 @@ jobs:
             "completedAt": "$NOW",
             "objectCount": $R2_COUNT,
             "bytes": $R2_BYTES,
-            "mode": "copy-with-delete-markers",
-            "deletionsPropagated": "as-delete-markers"
+            "mode": "copy-with-recovery-namespace",
+            "recoveryPrefix": "$RECOVERY_PREFIX"
           }
           EOF
           rclone copyto /tmp/r2-manifest.json "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
@@ -138,7 +146,7 @@ jobs:
           set -euo pipefail
           rclone size "b2:${B2_BUCKET_NAME}"
           rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
-          echo "R2 -> B2 backup completed. R2 is current-only; B2 retains deleted/replaced versions for recovery."
+          echo "R2 -> B2 backup completed. R2 is current-only; B2 retains deleted files in the recovery namespace."
 
       - name: Failure notice
         if: failure()
