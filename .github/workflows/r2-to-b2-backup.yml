@@ -10,6 +10,7 @@ permissions:
 
 env:
   RECOVERY_PREFIX: recovery/r2-deleted
+  RECOVERY_RETENTION_DAYS: 60
 
 jobs:
   backup:
@@ -119,6 +120,27 @@ jobs:
             rclone copyto "b2:${B2_BUCKET_NAME}/${relative_path}" "b2:${B2_BUCKET_NAME}/${recovery_path}"
           done < /tmp/r2-b2-lists/deleted.txt
 
+      - name: Remove expired recovery copies
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          cutoff_epoch=$(date -u -d "${RECOVERY_RETENTION_DAYS} days ago" +%s)
+
+          rclone lsf "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}" --recursive --files-only > /tmp/r2-b2-lists/recovery.txt
+
+          while IFS= read -r relative_path; do
+            [ -n "$relative_path" ] || continue
+            recovery_date=$(printf '%s\n' "$relative_path" | awk -F/ '{print $1}')
+            recovery_epoch=$(date -u -d "$recovery_date" +%s 2>/dev/null || true)
+            [ -n "$recovery_epoch" ] || continue
+
+            if [ "$recovery_epoch" -lt "$cutoff_epoch" ]; then
+              echo "Removing expired recovery copy: ${RECOVERY_PREFIX}/${relative_path}"
+              rclone deletefile "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}/${relative_path}"
+            fi
+          done < /tmp/r2-b2-lists/recovery.txt
+
       - name: Write and upload backup manifest
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
@@ -133,7 +155,8 @@ jobs:
             "objectCount": $R2_COUNT,
             "bytes": $R2_BYTES,
             "mode": "copy-with-recovery-namespace",
-            "recoveryPrefix": "$RECOVERY_PREFIX"
+            "recoveryPrefix": "$RECOVERY_PREFIX",
+            "recoveryRetentionDays": $RECOVERY_RETENTION_DAYS
           }
           EOF
           rclone copyto /tmp/r2-manifest.json "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
@@ -146,7 +169,7 @@ jobs:
           set -euo pipefail
           rclone size "b2:${B2_BUCKET_NAME}"
           rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
-          echo "R2 -> B2 backup completed. R2 is current-only; B2 retains deleted files in the recovery namespace."
+          echo "R2 -> B2 backup completed. R2 is current-only; B2 retains deleted files for 60 days."
 
       - name: Failure notice
         if: failure()
