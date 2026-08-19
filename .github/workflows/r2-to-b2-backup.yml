@@ -30,6 +30,7 @@ jobs:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
           B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
         run: |
+          set -euo pipefail
           test -n "$R2_ACCOUNT_ID"
           test -n "$R2_ACCESS_KEY_ID"
           test -n "$R2_SECRET_ACCESS_KEY"
@@ -63,15 +64,38 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
+          set -euo pipefail
           rclone lsd "r2:${R2_BUCKET_NAME}"
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
-      - name: Sync R2 to B2
+      - name: Inspect R2 before backup
+        env:
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          rclone size "r2:${R2_BUCKET_NAME}" --json > /tmp/r2-size.json
+          cat /tmp/r2-size.json
+          R2_COUNT=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["count"])')
+          R2_BYTES=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["bytes"])')
+          echo "R2_COUNT=$R2_COUNT" >> "$GITHUB_ENV"
+          echo "R2_BYTES=$R2_BYTES" >> "$GITHUB_ENV"
+
+          # Never erase the backup because of an empty/near-empty live bucket.
+          # A real school file store should not suddenly lose 90%+ of its files.
+          if [ "$R2_COUNT" -eq 0 ]; then
+            echo "ERROR: R2 contains zero objects. Refusing to modify B2."
+            exit 1
+          fi
+
+      - name: Backup R2 to B2 without propagating deletions
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
-          rclone sync "r2:${R2_BUCKET_NAME}" "b2:${B2_BUCKET_NAME}" \
+          set -euo pipefail
+          # copy intentionally does NOT delete objects that disappeared from R2.
+          # B2 therefore remains a recovery copy rather than a mirror.
+          rclone copy "r2:${R2_BUCKET_NAME}" "b2:${B2_BUCKET_NAME}" \
             --fast-list \
             --transfers 4 \
             --checkers 8 \
@@ -83,4 +107,11 @@ jobs:
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
+          set -euo pipefail
           rclone size "b2:${B2_BUCKET_NAME}"
+          echo "R2 backup completed successfully. B2 deletions are intentionally not synchronized."
+
+      - name: Failure notice
+        if: failure()
+        run: |
+          echo "R2 -> B2 backup FAILED. Check this GitHub Actions run immediately."
