@@ -24,3 +24,5 @@ export { Payment } from "./Payment.js";
 export type { IPayment } from "./Payment.js";
 export { AuditLog } from "./AuditLog.js";
 export type { IAuditLog } from "./AuditLog.js";
+export { DocumentRecovery } from "./DocumentRecovery.js";
+export type { IDocumentRecovery, DocumentRecoverySource, DocumentRecoveryStatus } from "./DocumentRecovery.js";
