@@ -1,0 +1,87 @@
+name: Backup MongoDB to Backblaze B2
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install MongoDB Database Tools
+        run: |
+          set -euo pipefail
+          curl -fsSL https://www.mongodb.com/docs/database-tools/release-downloads/ | grep -q "Database Tools" || true
+          wget -qO /tmp/mongodb-tools.tgz "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.12.2.tgz"
+          tar -xzf /tmp/mongodb-tools.tgz -C /tmp
+          sudo install /tmp/mongodb-database-tools-*/bin/mongodump /usr/local/bin/mongodump
+          mongodump --version
+
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+          rclone version
+
+      - name: Configure B2
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          test -n "$B2_KEY_ID"
+          test -n "$B2_APPLICATION_KEY"
+          test -n "$B2_BUCKET_NAME"
+          test -n "$B2_ENDPOINT"
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [b2]
+          type = s3
+          provider = Other
+          access_key_id = $B2_KEY_ID
+          secret_access_key = $B2_APPLICATION_KEY
+          endpoint = $B2_ENDPOINT
+          acl = private
+          EOF
+
+      - name: Create MongoDB dump
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: |
+          set -euo pipefail
+          test -n "$MONGODB_URI"
+          mkdir -p /tmp/mongodb-backup
+          mongodump --uri="$MONGODB_URI" --archive=/tmp/mongodb-backup/school-erp.archive.gz --gzip
+          test -s /tmp/mongodb-backup/school-erp.archive.gz
+          ls -lh /tmp/mongodb-backup/school-erp.archive.gz
+
+      - name: Upload database backup to B2
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          BACKUP_DATE=$(date -u +%Y-%m-%d)
+          rclone copy /tmp/mongodb-backup "b2:${B2_BUCKET_NAME}/database/${BACKUP_DATE}" \
+            --retries 3 \
+            --low-level-retries 10 \
+            --stats 30s
+
+      - name: Verify database backup
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          rclone ls "b2:${B2_BUCKET_NAME}/database" | tail -20
+          echo "MongoDB backup completed successfully."
+
+      - name: Failure notice
+        if: failure()
+        run: |
+          echo "MongoDB -> B2 backup FAILED. Check this GitHub Actions run immediately."
