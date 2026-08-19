@@ -17,15 +17,16 @@ jobs:
       - name: Install MongoDB Database Tools
         run: |
           set -euo pipefail
-          curl -fsSL https://www.mongodb.com/docs/database-tools/release-downloads/ | grep -q "Database Tools" || true
-          wget -qO /tmp/mongodb-tools.tgz "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.12.2.tgz"
-          tar -xzf /tmp/mongodb-tools.tgz -C /tmp
-          sudo install /tmp/mongodb-database-tools-*/bin/mongodump /usr/local/bin/mongodump
+          curl -fsSL -o /tmp/mongodb-database-tools.deb \
+            https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.17.0.deb
+          sudo apt-get update -qq
+          sudo apt-get install -y /tmp/mongodb-database-tools.deb
           mongodump --version
 
       - name: Install rclone
         run: |
-          curl https://rclone.org/install.sh | sudo bash
+          set -euo pipefail
+          curl -fsSL https://rclone.org/install.sh | sudo bash
           rclone version
 
       - name: Configure B2
@@ -36,10 +37,9 @@ jobs:
           B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
         run: |
           set -euo pipefail
-          test -n "$B2_KEY_ID"
-          test -n "$B2_APPLICATION_KEY"
-          test -n "$B2_BUCKET_NAME"
-          test -n "$B2_ENDPOINT"
+          for value in B2_KEY_ID B2_APPLICATION_KEY B2_BUCKET_NAME B2_ENDPOINT; do
+            test -n "${!value}" || { echo "Missing required secret: $value"; exit 1; }
+          done
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf <<EOF
           [b2]
@@ -51,15 +51,26 @@ jobs:
           acl = private
           EOF
 
-      - name: Create MongoDB dump
+      - name: Verify B2 access
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          rclone lsd "b2:${B2_BUCKET_NAME}"
+
+      - name: Create compressed MongoDB dump
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
           set -euo pipefail
           test -n "$MONGODB_URI"
           mkdir -p /tmp/mongodb-backup
-          mongodump --uri="$MONGODB_URI" --archive=/tmp/mongodb-backup/school-erp.archive.gz --gzip
+          mongodump \
+            --uri="$MONGODB_URI" \
+            --archive=/tmp/mongodb-backup/school-erp.archive.gz \
+            --gzip
           test -s /tmp/mongodb-backup/school-erp.archive.gz
+          sha256sum /tmp/mongodb-backup/school-erp.archive.gz | tee /tmp/mongodb-backup/sha256.txt
           ls -lh /tmp/mongodb-backup/school-erp.archive.gz
 
       - name: Upload database backup to B2
@@ -67,18 +78,24 @@ jobs:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          BACKUP_DATE=$(date -u +%Y-%m-%d)
-          rclone copy /tmp/mongodb-backup "b2:${B2_BUCKET_NAME}/database/${BACKUP_DATE}" \
-            --retries 3 \
-            --low-level-retries 10 \
-            --stats 30s
+          DATE=$(date -u +%Y/%m/%d)
+          TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          BASE="b2:${B2_BUCKET_NAME}/database/${DATE}/school-erp-${TIMESTAMP}"
+          rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${BASE}.archive.gz"
+          rclone copyto /tmp/mongodb-backup/sha256.txt "${BASE}.sha256"
+          printf '%s\n' "${BASE}.archive.gz" > /tmp/mongodb-backup/latest-path.txt
+          rclone copyto /tmp/mongodb-backup/latest-path.txt "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest-path.txt"
 
       - name: Verify database backup
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          rclone ls "b2:${B2_BUCKET_NAME}/database" | tail -20
+          PATH_FILE=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest-path.txt")
+          test -n "$PATH_FILE"
+          rclone size "$PATH_FILE"
+          SHA_PATH="${PATH_FILE%.archive.gz}.sha256"
+          rclone cat "$SHA_PATH" | head -n 1
           echo "MongoDB backup completed successfully."
 
       - name: Failure notice
