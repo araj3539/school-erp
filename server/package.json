@@ -9,6 +9,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "seed:demo": "tsx src/scripts/seedDemo.ts",
+    "cleanup:documents": "tsx src/scripts/cleanupDeletedStudentDocuments.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "lint": "eslint src --ext .ts"
