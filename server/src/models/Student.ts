@@ -5,6 +5,9 @@ export interface IStudentDocument {
   type: DocumentType;
   url: string;
   publicId?: string;
+  originalName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
   uploadedAt: Date;
 }
 
@@ -39,6 +42,9 @@ const StudentDocumentSchema = new Schema<IStudentDocument>({
   type: { type: String, enum: Object.values(DocumentType), required: true },
   url: { type: String, required: true },
   publicId: { type: String },
+  originalName: { type: String, maxlength: 255 },
+  mimeType: { type: String, maxlength: 100 },
+  sizeBytes: { type: Number, min: 0 },
   uploadedAt: { type: Date, default: Date.now }
 });
 
