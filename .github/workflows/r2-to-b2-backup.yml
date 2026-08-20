@@ -38,7 +38,6 @@ jobs:
           for value in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET_NAME B2_KEY_ID B2_APPLICATION_KEY B2_BUCKET_NAME B2_ENDPOINT; do
             test -n "${!value}" || { echo "Missing required secret: $value"; exit 1; }
           done
-
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf <<EOF
           [r2]
@@ -47,7 +46,6 @@ jobs:
           access_key_id = $R2_ACCESS_KEY_ID
           secret_access_key = $R2_SECRET_ACCESS_KEY
           endpoint = https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com
-          acl = private
 
           [b2]
           type = Other
@@ -55,7 +53,6 @@ jobs:
           access_key_id = $B2_KEY_ID
           secret_access_key = $B2_APPLICATION_KEY
           endpoint = $B2_ENDPOINT
-          acl = private
           EOF
 
       - name: Verify storage access
@@ -67,18 +64,6 @@ jobs:
           rclone lsd "r2:${R2_BUCKET_NAME}"
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
-      - name: Record R2 size
-        env:
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-        run: |
-          set -euo pipefail
-          rclone size "r2:${R2_BUCKET_NAME}" --json > /tmp/r2-size.json
-          R2_COUNT=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["count"])')
-          R2_BYTES=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["bytes"])')
-          echo "R2_COUNT=$R2_COUNT" >> "$GITHUB_ENV"
-          echo "R2_BYTES=$R2_BYTES" >> "$GITHUB_ENV"
-          echo "Current R2 objects: $R2_COUNT; bytes: $R2_BYTES"
-
       - name: Copy current R2 files to B2
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
@@ -86,6 +71,8 @@ jobs:
         run: |
           set -euo pipefail
           rclone copy "r2:${R2_BUCKET_NAME}" "b2:${B2_BUCKET_NAME}" \
+            --exclude "${RECOVERY_PREFIX}/**" \
+            --exclude "metadata/**" \
             --fast-list \
             --transfers 4 \
             --checkers 8 \
@@ -93,60 +80,24 @@ jobs:
             --low-level-retries 10 \
             --stats 30s
 
-      - name: Preserve newly deleted R2 objects for recovery
+      - name: Remove recovery copies older than 60 days
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          rclone delete "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}" --min-age "${RECOVERY_RETENTION_DAYS}d" --fast-list --stats 30s
+          rclone rmdirs "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}" --leave-root || true
+
+      - name: Write backup manifest
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-
-          mkdir -p /tmp/r2-b2-lists
-          rclone lsf "r2:${R2_BUCKET_NAME}/schools" --recursive --files-only | sort -u > /tmp/r2-b2-lists/r2.txt
-          rclone lsf "b2:${B2_BUCKET_NAME}" --recursive --files-only | sort -u > /tmp/r2-b2-lists/b2.txt
-
-          comm -23 /tmp/r2-b2-lists/b2.txt /tmp/r2-b2-lists/r2.txt \
-            | grep '^schools/' \
-            | grep -v '^schools/.*\.tmp$' \
-            > /tmp/r2-b2-lists/deleted.txt || true
-
-          TODAY=$(date -u +%Y-%m-%d)
-          deleted_count=$(wc -l < /tmp/r2-b2-lists/deleted.txt | tr -d ' ')
-          echo "R2 objects missing from the live bucket: $deleted_count"
-
-          while IFS= read -r relative_path; do
-            [ -n "$relative_path" ] || continue
-            recovery_path="${RECOVERY_PREFIX}/${TODAY}/${relative_path}"
-            echo "Preserving deleted R2 object: $relative_path -> $recovery_path"
-            rclone copyto "b2:${B2_BUCKET_NAME}/${relative_path}" "b2:${B2_BUCKET_NAME}/${recovery_path}"
-          done < /tmp/r2-b2-lists/deleted.txt
-
-      - name: Remove expired recovery copies
-        env:
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
-        run: |
-          set -euo pipefail
-          cutoff_epoch=$(date -u -d "${RECOVERY_RETENTION_DAYS} days ago" +%s)
-
-          rclone lsf "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}" --recursive --files-only > /tmp/r2-b2-lists/recovery.txt
-
-          while IFS= read -r relative_path; do
-            [ -n "$relative_path" ] || continue
-            recovery_date=$(printf '%s\n' "$relative_path" | awk -F/ '{print $1}')
-            recovery_epoch=$(date -u -d "$recovery_date" +%s 2>/dev/null || true)
-            [ -n "$recovery_epoch" ] || continue
-
-            if [ "$recovery_epoch" -lt "$cutoff_epoch" ]; then
-              echo "Removing expired recovery copy: ${RECOVERY_PREFIX}/${relative_path}"
-              rclone deletefile "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}/${relative_path}"
-            fi
-          done < /tmp/r2-b2-lists/recovery.txt
-
-      - name: Write and upload backup manifest
-        env:
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
-        run: |
-          set -euo pipefail
           NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          rclone size "r2:${R2_BUCKET_NAME}" --json > /tmp/r2-size.json
+          R2_COUNT=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["count"])')
+          R2_BYTES=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["bytes"])')
           cat > /tmp/r2-manifest.json <<EOF
           {
             "source": "r2",
@@ -154,7 +105,7 @@ jobs:
             "completedAt": "$NOW",
             "objectCount": $R2_COUNT,
             "bytes": $R2_BYTES,
-            "mode": "copy-with-recovery-namespace",
+            "mode": "current-copy-plus-application-recovery",
             "recoveryPrefix": "$RECOVERY_PREFIX",
             "recoveryRetentionDays": $RECOVERY_RETENTION_DAYS
           }
@@ -167,11 +118,9 @@ jobs:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          rclone size "b2:${B2_BUCKET_NAME}"
           rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
-          echo "R2 -> B2 backup completed. R2 is current-only; B2 retains deleted files for 60 days."
+          echo "Backup completed: R2 remains current-only; B2 stores current backups and application-created recovery snapshots for 60 days."
 
       - name: Failure notice
         if: failure()
-        run: |
-          echo "R2 -> B2 backup FAILED. Check this GitHub Actions run immediately."
+        run: echo "R2 -> B2 backup FAILED. Check this GitHub Actions run immediately."
