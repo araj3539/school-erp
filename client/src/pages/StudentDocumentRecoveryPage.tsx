@@ -16,8 +16,8 @@ export default function StudentDocumentRecoveryPage() {
   const queryClient = useQueryClient();
   const { data: studentData } = useQuery({ queryKey: ["student", id], queryFn: async () => (await api.get(`/students/${id}`)).data, enabled: !!id });
   const { data, isLoading, isError } = useQuery({ queryKey: ["student-document-recoveries", id], queryFn: async () => (await api.get(`/students/${id}/document-recoveries`)).data, enabled: !!id });
-  const recoveries = data?.data || [];
-  const groups = useMemo(() => recoveries.reduce((result: Record<string, any[]>, item: any) => { (result[item.documentType] ||= []).push(item); return result; }, {}), [recoveries]);
+  const recoveries: any[] = Array.isArray(data?.data) ? data.data : [];
+  const groups = useMemo<Record<string, any[]>>(() => recoveries.reduce<Record<string, any[]>>((result, item) => { (result[item.documentType] ||= []).push(item); return result; }, {}), [recoveries]);
   const restoreMutation = useMutation({ mutationFn: async (recoveryId: string) => (await api.post(`/students/${id}/document-recoveries/${recoveryId}/restore`)).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["student-document-recoveries", id] }); queryClient.invalidateQueries({ queryKey: ["student", id] }); } });
   const preview = async (recoveryId: string) => { const response = await api.get(`/students/${id}/document-recoveries/${recoveryId}/preview`); window.open(response.data.url, "_blank", "noopener,noreferrer"); };
   const student = studentData?.student;
