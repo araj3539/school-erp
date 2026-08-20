@@ -7,6 +7,7 @@ import DashboardPage from "../pages/DashboardPage";
 import StudentsPage from "../pages/StudentsPage";
 import StudentDetailPage from "../pages/StudentDetailPage";
 import StudentDocumentRecoveryPage from "../pages/StudentDocumentRecoveryPage";
+import DocumentRecoveryPage from "../pages/DocumentRecoveryPage";
 import TeachersPage from "../pages/TeachersPage";
 import ClassesPage from "../pages/ClassesPage";
 import AttendancePage from "../pages/AttendancePage";
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
       { path: "/dashboard", element: <DashboardPage /> },
       { path: "/students", element: <StudentsPage /> },
       { path: "/students/:id", element: <StudentDetailPage /> },
+      { path: "/document-recovery", element: <DocumentRecoveryPage /> },
       { path: "/students/:id/document-recovery", element: <StudentDocumentRecoveryPage /> },
       { path: "/teachers", element: <TeachersPage /> },
       { path: "/classes", element: <ClassesPage /> },
