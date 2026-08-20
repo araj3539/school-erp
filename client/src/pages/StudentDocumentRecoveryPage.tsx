@@ -1,0 +1,25 @@
+import { useMemo } from "react";
+import { Link, useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Eye, FileClock, RotateCcw, ShieldCheck } from "lucide-react";
+import { Button } from "../components/ui/Button";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Badge } from "../components/ui/Badge";
+import api from "../lib/api";
+import { formatDate } from "../utils";
+
+function documentLabel(value: string) { return value.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "); }
+function bytes(value?: number) { if (!value) return "Unknown size"; if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`; return `${(value / 1024 / 1024).toFixed(2)} MB`; }
+
+export default function StudentDocumentRecoveryPage() {
+  const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const { data: studentData } = useQuery({ queryKey: ["student", id], queryFn: async () => (await api.get(`/students/${id}`)).data, enabled: !!id });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["student-document-recoveries", id], queryFn: async () => (await api.get(`/students/${id}/document-recoveries`)).data, enabled: !!id });
+  const recoveries = data?.data || [];
+  const groups = useMemo(() => recoveries.reduce((result: Record<string, any[]>, item: any) => { (result[item.documentType] ||= []).push(item); return result; }, {}), [recoveries]);
+  const restoreMutation = useMutation({ mutationFn: async (recoveryId: string) => (await api.post(`/students/${id}/document-recoveries/${recoveryId}/restore`)).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["student-document-recoveries", id] }); queryClient.invalidateQueries({ queryKey: ["student", id] }); } });
+  const preview = async (recoveryId: string) => { const response = await api.get(`/students/${id}/document-recoveries/${recoveryId}/preview`); window.open(response.data.url, "_blank", "noopener,noreferrer"); };
+  const student = studentData?.student;
+  return <div className="space-y-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><Link to={`/students/${id}`} className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900"><ArrowLeft className="mr-2 h-4 w-4" />Back to Student</Link><h1 className="mt-3 text-2xl font-bold text-gray-900">Document Recovery</h1><p className="mt-1 text-sm text-gray-500">{student ? `${student.firstName} ${student.lastName} · ` : ""}Choose an available historical version to restore. Recovery copies expire after 60 days.</p></div><Badge variant="info"><ShieldCheck className="mr-1 h-4 w-4" />60-day recovery window</Badge></div>{isLoading ? <Card><CardContent className="py-12 text-center text-gray-500">Loading document history...</CardContent></Card> : isError ? <Card><CardContent className="py-12 text-center text-red-600">Unable to load document recovery history.</CardContent></Card> : Object.keys(groups).length === 0 ? <Card><CardContent className="py-12 text-center"><FileClock className="mx-auto h-10 w-10 text-gray-300" /><p className="mt-3 font-medium">No recoverable document history</p><p className="mt-1 text-sm text-gray-500">Deleted or archived document versions will appear here until their recovery window expires.</p></CardContent></Card> : <div className="space-y-5">{Object.entries(groups).map(([type, items]) => <Card key={type}><CardHeader><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">{documentLabel(type)}</h2><p className="text-sm text-gray-500">{items.length} historical version{items.length === 1 ? "" : "s"}</p></div></div></CardHeader><CardContent><div className="divide-y">{items.map((item: any) => { const recoverable = item.recoverable; return <div key={item._id} className="flex flex-col gap-3 py-4 md:flex-row md:items-center"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="truncate font-medium">{item.originalName || documentLabel(type)}</p><Badge variant={recoverable ? "success" : "default"}>{recoverable ? "Available" : item.status}</Badge></div><p className="mt-1 text-sm text-gray-500">Deleted/archived {formatDate(item.deletedAt)} · {bytes(item.sizeBytes)} · expires {formatDate(item.expiresAt)}</p></div><div className="flex shrink-0 gap-2"><Button type="button" variant="outline" size="sm" disabled={!recoverable} onClick={() => preview(item._id)}><Eye className="mr-1 h-4 w-4" />Preview</Button><Button type="button" size="sm" disabled={!recoverable || restoreMutation.isPending} onClick={() => { if (window.confirm("Restore this version? If a current document of this type exists, it will first be archived for recovery before this version replaces it.")) restoreMutation.mutate(item._id); }}><RotateCcw className="mr-1 h-4 w-4" />{restoreMutation.isPending ? "Restoring..." : "Restore"}</Button></div></div>; })}</div></CardContent></Card>)}</div>}</div>;
+}
