@@ -2,13 +2,12 @@ import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware/index.js";
 import { upload } from "../middleware/upload.js";
 import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument, deleteStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController.js";
-import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery } from "../controllers/documentRecoveryController.js";
+import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery, runManualStorageBackup } from "../controllers/documentRecoveryController.js";
 import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, IdParamSchema, StudentDocumentParamSchema } from "../validators/index.js";
-
-const router = Router();
-router.use(authenticate);
+const router = Router(); router.use(authenticate);
 router.get("/", requirePermission("students:read"), validate(PaginationSchema, "query"), getStudents);
 router.get("/export", requirePermission("students:read"), exportStudents);
+router.post("/document-recoveries/backup", requirePermission("students:write"), runManualStorageBackup);
 router.get("/:id/documents/:documentId/url", requirePermission("students:read"), validate(StudentDocumentParamSchema, "params"), getStudentDocumentUrl);
 router.get("/:id/document-recoveries", requirePermission("students:read"), validate(IdParamSchema, "params"), getStudentDocumentRecoveryHistory);
 router.get("/:id/document-recoveries/:recoveryId/preview", requirePermission("students:read"), previewStudentDocumentRecovery);
