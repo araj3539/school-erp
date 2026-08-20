@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useUIStore } from "../../store/uiStore";
 import { cn } from "../../utils";
-import { LayoutDashboard, Users, UserCheck, Building2, Calendar, DollarSign, BarChart3, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Building2, Calendar, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore } from "lucide-react";
 import { useAuth } from "../../hooks";
 import api from "../../lib/api";
 
@@ -15,6 +15,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
   { label: "Students", path: "/students", icon: <Users className="w-5 h-5" />, permissions: ["students:read"] },
+  { label: "Document Recovery", path: "/document-recovery", icon: <ArchiveRestore className="w-5 h-5" />, permissions: ["students:read"] },
   { label: "Teachers", path: "/teachers", icon: <UserCheck className="w-5 h-5" />, permissions: ["teachers:read"] },
   { label: "Classes", path: "/classes", icon: <Building2 className="w-5 h-5" />, permissions: ["classes:read"] },
   { label: "Attendance", path: "/attendance", icon: <Calendar className="w-5 h-5" />, permissions: ["attendance:read"] },
