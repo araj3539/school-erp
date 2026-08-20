@@ -64,13 +64,15 @@ jobs:
           rclone lsd "r2:${R2_BUCKET_NAME}"
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
-      - name: Copy current R2 files to B2
+      - name: Sync current R2 files to B2 mirror
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          rclone copy "r2:${R2_BUCKET_NAME}" "b2:${B2_BUCKET_NAME}" \
+          # Only the current-file mirror is synchronized. Recovery snapshots and
+          # backup metadata are explicitly excluded so sync never deletes them.
+          rclone sync "r2:${R2_BUCKET_NAME}" "b2:${B2_BUCKET_NAME}" \
             --exclude "${RECOVERY_PREFIX}/**" \
             --exclude "metadata/**" \
             --fast-list \
@@ -105,7 +107,7 @@ jobs:
             "completedAt": "$NOW",
             "objectCount": $R2_COUNT,
             "bytes": $R2_BYTES,
-            "mode": "current-copy-plus-application-recovery",
+            "mode": "current-sync-plus-application-recovery",
             "recoveryPrefix": "$RECOVERY_PREFIX",
             "recoveryRetentionDays": $RECOVERY_RETENTION_DAYS
           }
@@ -119,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
-          echo "Backup completed: R2 remains current-only; B2 stores current backups and application-created recovery snapshots for 60 days."
+          echo "Backup completed: B2 current mirror matches R2; recovery snapshots are retained separately for 60 days."
 
       - name: Failure notice
         if: failure()
