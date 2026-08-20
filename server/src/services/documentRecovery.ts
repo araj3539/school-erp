@@ -1,4 +1,4 @@
-import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from "node:stream";
 import { env, assertR2Configured } from "../config/env.js";
@@ -14,9 +14,9 @@ function getR2Client(): S3Client {
   return new S3Client({ region: "auto", endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, credentials: { accessKeyId: env.R2_ACCESS_KEY_ID!, secretAccessKey: env.R2_SECRET_ACCESS_KEY! } });
 }
 
-export function buildRecoveryKey(storageKey: string, deletedAt: Date): string {
+export function buildRecoveryKey(storageKey: string, deletedAt = new Date()): string {
   const iso = deletedAt.toISOString().replace(/[:.]/g, "");
-  const nonce = Math.random().toString(36).slice(2, 10);
+  const nonce = Math.random().toString(36).slice(2, 12);
   return `recovery/r2-deleted/${iso}-${nonce}/${storageKey.replace(/^\/+/, "")}`;
 }
 
@@ -26,7 +26,7 @@ export async function copyR2ObjectToRecovery(storageKey: string, recoveryKey: st
   await getB2Client().send(new PutObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: recoveryKey, Body: source.Body as Readable, ContentType: source.ContentType, ContentLength: source.ContentLength, Metadata: { "school-erp-source-key": storageKey, "school-erp-source": "r2-deletion-recovery" } }));
 }
 
-/** Prefer the already-backed-up B2 object, but fall back to R2 so a file deleted before the next daily backup is still recoverable. */
+/** Prefer the current B2 mirror, but fall back to R2 for newly uploaded files. */
 export async function copyB2ObjectToRecovery(storageKey: string, recoveryKey: string): Promise<void> {
   try {
     const source = `${env.B2_BUCKET_NAME!}/${storageKey.split("/").map(encodeURIComponent).join("/")}`;
@@ -37,16 +37,28 @@ export async function copyB2ObjectToRecovery(storageKey: string, recoveryKey: st
   }
 }
 
+export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: number }> {
+  const r2 = getR2Client(); const b2 = getB2Client();
+  let continuationToken: string | undefined; let objectCount = 0; let bytes = 0;
+  do {
+    const page = await r2.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET_NAME!, ContinuationToken: continuationToken }));
+    for (const item of page.Contents || []) {
+      if (!item.Key) continue;
+      const source = await r2.send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: item.Key }));
+      if (!source.Body) continue;
+      await b2.send(new PutObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: item.Key, Body: source.Body as Readable, ContentType: source.ContentType, ContentLength: source.ContentLength }));
+      objectCount += 1; bytes += Number(source.ContentLength ?? item.Size ?? 0);
+    }
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return { objectCount, bytes };
+}
+
 export async function getB2Object(recoveryKey: string): Promise<{ body: Readable; contentType?: string; contentLength?: number }> {
   const result = await getB2Client().send(new GetObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: recoveryKey }));
   if (!result.Body) throw AppError.notFound("Recovery file not found");
   return { body: result.Body as Readable, contentType: result.ContentType, contentLength: result.ContentLength };
 }
 
-export async function getB2RecoverySignedUrl(recoveryKey: string, expiresIn = 600): Promise<string> {
-  return getSignedUrl(getB2Client(), new GetObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: recoveryKey }), { expiresIn });
-}
-
-export async function deleteB2RecoveryObject(recoveryKey: string): Promise<void> {
-  await getB2Client().send(new DeleteObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: recoveryKey }));
-}
+export async function getB2RecoverySignedUrl(recoveryKey: string, expiresIn = 600): Promise<string> { return getSignedUrl(getB2Client(), new GetObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: recoveryKey }), { expiresIn }); }
+export async function deleteB2RecoveryObject(recoveryKey: string): Promise<void> { await getB2Client().send(new DeleteObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: recoveryKey })); }
