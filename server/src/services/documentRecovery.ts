@@ -4,6 +4,9 @@ import { Readable } from "node:stream";
 import { env, assertR2Configured } from "../config/env.js";
 import { AppError } from "../utils/errors.js";
 
+const RECOVERY_PREFIX = "recovery/r2-deleted/";
+const METADATA_PREFIX = "metadata/";
+
 function getB2Client(): S3Client {
   if (!env.B2_ENDPOINT || !env.B2_KEY_ID || !env.B2_APPLICATION_KEY || !env.B2_BUCKET_NAME) throw AppError.internal("B2 recovery storage is not configured");
   return new S3Client({ region: "auto", endpoint: env.B2_ENDPOINT, credentials: { accessKeyId: env.B2_KEY_ID, secretAccessKey: env.B2_APPLICATION_KEY } });
@@ -14,10 +17,14 @@ function getR2Client(): S3Client {
   return new S3Client({ region: "auto", endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, credentials: { accessKeyId: env.R2_ACCESS_KEY_ID!, secretAccessKey: env.R2_SECRET_ACCESS_KEY! } });
 }
 
+function isProtectedB2Key(key: string): boolean {
+  return key.startsWith(RECOVERY_PREFIX) || key.startsWith(METADATA_PREFIX);
+}
+
 export function buildRecoveryKey(storageKey: string, deletedAt = new Date()): string {
   const iso = deletedAt.toISOString().replace(/[:.]/g, "");
   const nonce = Math.random().toString(36).slice(2, 12);
-  return `recovery/r2-deleted/${iso}-${nonce}/${storageKey.replace(/^\/+/, "")}`;
+  return `${RECOVERY_PREFIX}${iso}-${nonce}/${storageKey.replace(/^\/+/, "")}`;
 }
 
 export async function copyR2ObjectToRecovery(storageKey: string, recoveryKey: string): Promise<void> {
@@ -32,26 +39,50 @@ export async function copyB2ObjectToRecovery(storageKey: string, recoveryKey: st
     const source = `${env.B2_BUCKET_NAME!}/${storageKey.split("/").map(encodeURIComponent).join("/")}`;
     await getB2Client().send(new CopyObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: recoveryKey, CopySource: source, MetadataDirective: "REPLACE", Metadata: { "school-erp-source-key": storageKey, "school-erp-source": "b2-recovery-copy" } }));
   } catch (error) {
-    console.warn("[B2] Current backup copy unavailable; preserving recovery snapshot directly from R2", error);
+    console.warn("[B2] Current mirror copy unavailable; preserving recovery snapshot directly from R2", error);
     await copyR2ObjectToRecovery(storageKey, recoveryKey);
   }
 }
 
-export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: number }> {
-  const r2 = getR2Client(); const b2 = getB2Client();
-  let continuationToken: string | undefined; let objectCount = 0; let bytes = 0;
+/**
+ * Synchronize the current B2 mirror with R2. Recovery and metadata prefixes are
+ * protected and are never deleted by this operation.
+ */
+export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: number; deletedCount: number }> {
+  const r2 = getR2Client();
+  const b2 = getB2Client();
+  const currentKeys = new Set<string>();
+  let continuationToken: string | undefined;
+  let objectCount = 0;
+  let bytes = 0;
+
   do {
     const page = await r2.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET_NAME!, ContinuationToken: continuationToken }));
     for (const item of page.Contents || []) {
       if (!item.Key) continue;
+      currentKeys.add(item.Key);
       const source = await r2.send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: item.Key }));
       if (!source.Body) continue;
       await b2.send(new PutObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: item.Key, Body: source.Body as Readable, ContentType: source.ContentType, ContentLength: source.ContentLength }));
-      objectCount += 1; bytes += Number(source.ContentLength ?? item.Size ?? 0);
+      objectCount += 1;
+      bytes += Number(source.ContentLength ?? item.Size ?? 0);
     }
     continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (continuationToken);
-  return { objectCount, bytes };
+
+  let deletedCount = 0;
+  continuationToken = undefined;
+  do {
+    const page = await b2.send(new ListObjectsV2Command({ Bucket: env.B2_BUCKET_NAME!, ContinuationToken: continuationToken }));
+    for (const item of page.Contents || []) {
+      if (!item.Key || isProtectedB2Key(item.Key) || currentKeys.has(item.Key)) continue;
+      await b2.send(new DeleteObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: item.Key }));
+      deletedCount += 1;
+    }
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return { objectCount, bytes, deletedCount };
 }
 
 export async function getB2Object(recoveryKey: string): Promise<{ body: Readable; contentType?: string; contentLength?: number }> {
