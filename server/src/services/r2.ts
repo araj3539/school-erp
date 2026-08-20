@@ -1,5 +1,6 @@
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { Readable } from "node:stream";
 import { env, assertR2Configured } from "../config/env.js";
 
 function getR2Client(): S3Client {
@@ -16,11 +17,18 @@ function getR2Client(): S3Client {
 
 export async function uploadToR2(buffer: Buffer, key: string, contentType: string): Promise<{ key: string }> {
   const client = getR2Client();
+  await client.send(new PutObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: key, Body: buffer, ContentType: contentType }));
+  return { key };
+}
+
+export async function uploadStreamToR2(body: Readable, key: string, contentType?: string, contentLength?: number): Promise<{ key: string }> {
+  const client = getR2Client();
   await client.send(new PutObjectCommand({
     Bucket: env.R2_BUCKET_NAME!,
     Key: key,
-    Body: buffer,
-    ContentType: contentType,
+    Body: body,
+    ...(contentType ? { ContentType: contentType } : {}),
+    ...(typeof contentLength === "number" ? { ContentLength: contentLength } : {})
   }));
   return { key };
 }
