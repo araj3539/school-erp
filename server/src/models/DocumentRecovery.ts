@@ -41,5 +41,7 @@ const DocumentRecoverySchema = new Schema<IDocumentRecovery>({
 
 DocumentRecoverySchema.index({ schoolId: 1, studentId: 1, documentType: 1, status: 1, deletedAt: -1 });
 DocumentRecoverySchema.index({ expiresAt: 1, status: 1 });
+// MongoDB TTL monitor removes the metadata after the recovery window. B2 objects are independently cleaned by the backup workflow.
+DocumentRecoverySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const DocumentRecovery = mongoose.model<IDocumentRecovery>("DocumentRecovery", DocumentRecoverySchema);
