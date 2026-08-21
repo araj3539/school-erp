@@ -1,5 +1,7 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 import { PaymentMode } from "@school-erp/shared";
+import { Fee } from "./Fee.js";
+import { Student } from "./Student.js";
 
 export interface IPayment extends Document {
   feeId: Types.ObjectId;
@@ -25,6 +27,15 @@ const PaymentSchema = new Schema<IPayment>({
   collectedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   date: { type: Date, required: true }
 }, { timestamps: true });
+
+PaymentSchema.pre("validate", async function () {
+  const [fee, student] = await Promise.all([
+    Fee.exists({ _id: this.feeId, schoolId: this.schoolId, studentId: this.studentId }),
+    Student.exists({ _id: this.studentId, schoolId: this.schoolId })
+  ]);
+  if (!fee) throw new Error("Payment fee must belong to the selected student and school");
+  if (!student) throw new Error("Payment student must belong to the same school");
+});
 
 PaymentSchema.index({ schoolId: 1, feeId: 1 });
 PaymentSchema.index({ schoolId: 1, studentId: 1, date: 1 });
