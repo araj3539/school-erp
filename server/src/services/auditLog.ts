@@ -16,16 +16,13 @@ export async function createAuditLog(data: {
   const { session, schoolId, ...auditData } = data;
   try {
     let resolvedSchoolId = schoolId;
-
     if (!resolvedSchoolId) {
-      const userQuery = User.findById(data.userId).select("schoolId");
+      const userQuery = User.findById(data.userId).select("schoolId role");
       if (session) userQuery.session(session);
       const user = await userQuery.lean();
-      if (!user?.schoolId) throw new Error("Cannot create audit log without a schoolId");
-      resolvedSchoolId = user.schoolId.toString();
+      if (user?.schoolId) resolvedSchoolId = user.schoolId.toString();
     }
-
-    const record = { ...auditData, schoolId: resolvedSchoolId };
+    const record = { ...auditData, ...(resolvedSchoolId ? { schoolId: resolvedSchoolId } : {}) };
     if (session) await AuditLog.create([record], { session });
     else await AuditLog.create(record);
   } catch (error) {
@@ -53,10 +50,7 @@ export async function getAuditLogs(filters: {
     if (filters.startDate) (query.createdAt as Record<string, Date>).$gte = filters.startDate;
     if (filters.endDate) (query.createdAt as Record<string, Date>).$lte = filters.endDate;
   }
-
-  const page = filters.page || 1;
-  const limit = filters.limit || 20;
-  const skip = (page - 1) * limit;
+  const page = filters.page || 1, limit = filters.limit || 20, skip = (page - 1) * limit;
   const logs = await AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec();
   const total = await AuditLog.countDocuments(query);
   return { logs: logs as unknown as IAuditLog[], total };
