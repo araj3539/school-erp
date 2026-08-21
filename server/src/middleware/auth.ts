@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import { env } from "../config/index.js";
 import { UserRole } from "@school-erp/shared";
 
@@ -17,19 +18,35 @@ function getAccessToken(req: Request): string | undefined {
 function validatePayload(payload: AuthPayload): boolean {
   return payload.role === UserRole.SUPER_ADMIN ? !payload.schoolId : Boolean(payload.schoolId);
 }
+function resolveRequestContext(req: Request, payload: AuthPayload): AuthPayload {
+  if (payload.role !== UserRole.SUPER_ADMIN) return payload;
+  const selectedSchoolId = req.get("X-School-Id")?.trim();
+  if (!selectedSchoolId) return payload;
+  if (!mongoose.isValidObjectId(selectedSchoolId)) throw new Error("INVALID_SELECTED_SCHOOL");
+  // This is request-scoped tenant context, not a SUPER_ADMIN account membership.
+  return { ...payload, schoolId: selectedSchoolId };
+}
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const accessToken = getAccessToken(req);
   if (!accessToken) { res.status(401).json({ error: "Authentication required" }); return; }
   try {
     const payload = jwt.verify(accessToken, env.JWT_SECRET) as AuthPayload;
     if (!validatePayload(payload)) { res.status(401).json({ error: "Invalid authentication context" }); return; }
-    req.user = payload; next();
+    try {
+      req.user = resolveRequestContext(req, payload);
+    } catch {
+      res.status(400).json({ error: "Invalid selected school" }); return;
+    }
+    next();
   } catch { res.status(401).json({ error: "Invalid or expired token" }); }
 }
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
   const accessToken = getAccessToken(req);
   if (!accessToken) { next(); return; }
-  try { const payload = jwt.verify(accessToken, env.JWT_SECRET) as AuthPayload; if (validatePayload(payload)) req.user = payload; } catch {}
+  try {
+    const payload = jwt.verify(accessToken, env.JWT_SECRET) as AuthPayload;
+    if (validatePayload(payload)) req.user = resolveRequestContext(req, payload);
+  } catch {}
   next();
 }
 export function requireRole(...roles: UserRole[]) {
