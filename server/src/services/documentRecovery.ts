@@ -1,4 +1,4 @@
-import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client, _Object } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from "node:stream";
 import { env, assertR2Configured } from "../config/env.js";
@@ -44,10 +44,7 @@ export async function copyB2ObjectToRecovery(storageKey: string, recoveryKey: st
   }
 }
 
-/**
- * Synchronize the current B2 mirror with R2. Recovery and metadata prefixes are
- * protected and are never deleted by this operation.
- */
+/** Synchronize the current B2 mirror with R2. Recovery and metadata prefixes are never deleted. */
 export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: number; deletedCount: number }> {
   const r2 = getR2Client();
   const b2 = getB2Client();
@@ -57,7 +54,7 @@ export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: numb
   let bytes = 0;
 
   do {
-    const page = await r2.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET_NAME!, ContinuationToken: continuationToken }));
+    const page: { Contents?: _Object[]; IsTruncated?: boolean; NextContinuationToken?: string } = await r2.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET_NAME!, ContinuationToken: continuationToken }));
     for (const item of page.Contents || []) {
       if (!item.Key) continue;
       currentKeys.add(item.Key);
@@ -73,7 +70,7 @@ export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: numb
   let deletedCount = 0;
   continuationToken = undefined;
   do {
-    const page = await b2.send(new ListObjectsV2Command({ Bucket: env.B2_BUCKET_NAME!, ContinuationToken: continuationToken }));
+    const page: { Contents?: _Object[]; IsTruncated?: boolean; NextContinuationToken?: string } = await b2.send(new ListObjectsV2Command({ Bucket: env.B2_BUCKET_NAME!, ContinuationToken: continuationToken }));
     for (const item of page.Contents || []) {
       if (!item.Key || isProtectedB2Key(item.Key) || currentKeys.has(item.Key)) continue;
       await b2.send(new DeleteObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: item.Key }));
