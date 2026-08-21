@@ -24,4 +24,23 @@ const ClassSchema = new Schema<IClass>({
 
 ClassSchema.index({ schoolId: 1, name: 1 }, { unique: true });
 
+async function validateClassTeacher(schoolId: unknown, teacherId?: unknown) {
+  if (!teacherId) return;
+  const Teacher = mongoose.model("Teacher");
+  const teacher = await Teacher.exists({ _id: teacherId, schoolId });
+  if (!teacher) throw new mongoose.Error.ValidatorError({ path: "classTeacherId", message: "Class teacher must belong to the same school" });
+}
+
+ClassSchema.pre("validate", async function () {
+  await validateClassTeacher(this.schoolId, this.classTeacherId);
+});
+
+ClassSchema.pre("findOneAndUpdate", async function () {
+  const update: any = this.getUpdate() || {};
+  const data = update.$set ? { ...update, ...update.$set } : update;
+  const current: any = await this.model.findOne(this.getQuery()).select("schoolId classTeacherId").lean();
+  if (!current) return;
+  await validateClassTeacher(data.schoolId ?? current.schoolId, data.classTeacherId ?? current.classTeacherId);
+});
+
 export const Class = mongoose.model<IClass>("Class", ClassSchema);
