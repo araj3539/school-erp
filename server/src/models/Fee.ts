@@ -1,5 +1,7 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 import { FeeStatus } from "@school-erp/shared";
+import { Student } from "./Student.js";
+import { FeeStructure } from "./FeeStructure.js";
 
 export interface IFee extends Document {
   studentId: Types.ObjectId;
@@ -30,6 +32,15 @@ const FeeSchema = new Schema<IFee>({
   status: { type: String, enum: Object.values(FeeStatus), default: FeeStatus.PENDING },
   academicYear: { type: Schema.Types.ObjectId, ref: "AcademicYear", required: true }
 }, { timestamps: true });
+
+FeeSchema.pre("validate", async function () {
+  const [student, feeStructure] = await Promise.all([
+    Student.exists({ _id: this.studentId, schoolId: this.schoolId }),
+    FeeStructure.exists({ _id: this.feeStructureId, schoolId: this.schoolId, academicYear: this.academicYear })
+  ]);
+  if (!student) throw new Error("Fee student must belong to the same school");
+  if (!feeStructure) throw new Error("Fee structure must belong to the same school and academic year");
+});
 
 FeeSchema.index({ schoolId: 1, studentId: 1, academicYear: 1, status: 1 });
 FeeSchema.index({ schoolId: 1, feeStructureId: 1 });
