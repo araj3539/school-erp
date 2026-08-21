@@ -2,6 +2,7 @@ import { z } from "zod";
 import { UserRole, UserStatus, StudentStatus, TeacherStatus, AttendanceStatus, FeeType, FeeStatus, PaymentMode, Gender, BloodGroup, DocumentType } from "../constants";
 
 export const ObjectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
+export const SchoolCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,30}$/, "Invalid school code");
 
 // HTML date inputs produce YYYY-MM-DD. Student DOB and admission date are
 // calendar dates, not instants in time, so they must not use z.string().datetime().
@@ -18,38 +19,27 @@ export const PaginationSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc")
 });
 
-export const DateRangeSchema = z.object({
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional()
-});
-
+export const DateRangeSchema = z.object({ startDate: z.string().datetime().optional(), endDate: z.string().datetime().optional() });
 export const PaginationParams = PaginationSchema;
 
 export const UserSchema = z.object({
-  _id: ObjectIdSchema.optional(), email: z.string().email(), password: z.string().min(8).optional(), role: z.nativeEnum(UserRole), profileId: ObjectIdSchema.optional(), schoolId: ObjectIdSchema, isActive: z.boolean().default(true), lastLogin: z.string().datetime().optional(), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional()
+  _id: ObjectIdSchema.optional(), email: z.string().email(), password: z.string().min(8).optional(), role: z.nativeEnum(UserRole), profileId: ObjectIdSchema.optional(), schoolId: ObjectIdSchema.optional(), isActive: z.boolean().default(true), lastLogin: z.string().datetime().optional(), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional()
+}).superRefine((value, ctx) => {
+  if (value.role === UserRole.SUPER_ADMIN && value.schoolId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["schoolId"], message: "Super admin must not belong to a school" });
+  if (value.role !== UserRole.SUPER_ADMIN && !value.schoolId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["schoolId"], message: "School is required for this user" });
 });
 export const CreateUserSchema = UserSchema.omit({ _id: true, createdAt: true, updatedAt: true, lastLogin: true }).extend({ password: z.string().min(8) });
 export const UpdateUserSchema = CreateUserSchema.partial().omit({ password: true });
-export const LoginSchema = z.object({ email: z.string().email(), password: z.string().min(1) });
+export const LoginSchema = z.object({ email: z.string().email(), password: z.string().min(1), schoolCode: SchoolCodeSchema.optional() });
 export const ChangePasswordSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8) });
 export const RefreshTokenSchema = z.object({ refreshToken: z.string() });
 
-export const SchoolSchema = z.object({
-  _id: ObjectIdSchema.optional(), name: z.string().min(2).max(100), logo: z.string().url().optional(), address: z.string().max(500), phone: z.string().max(20), email: z.string().email(), session: z.string().max(20), academicYear: ObjectIdSchema, settings: z.record(z.unknown()).default({}), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional()
-});
+export const SchoolSchema = z.object({ _id: ObjectIdSchema.optional(), name: z.string().min(2).max(100), logo: z.string().url().optional(), address: z.string().max(500), phone: z.string().max(20), email: z.string().email(), session: z.string().max(20), academicYear: ObjectIdSchema, settings: z.record(z.unknown()).default({}), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateSchoolSchema = SchoolSchema.omit({ _id: true, createdAt: true, updatedAt: true });
 export const UpdateSchoolSchema = CreateSchoolSchema.partial();
 export const AcademicYearSchema = z.object({ _id: ObjectIdSchema.optional(), name: z.string().max(20), startDate: z.string().datetime(), endDate: z.string().datetime(), isCurrent: z.boolean().default(false), createdAt: z.string().datetime().optional() });
 
-export const StudentSchema = z.object({
-  _id: ObjectIdSchema.optional(), admissionNo: z.string().max(20), userId: ObjectIdSchema.optional(), classId: ObjectIdSchema.optional(), sectionId: ObjectIdSchema.optional(), firstName: z.string().min(1).max(50), lastName: z.string().min(1).max(50),
-  dob: DateOnlySchema,
-  gender: z.nativeEnum(Gender), bloodGroup: z.nativeEnum(BloodGroup).optional(), religion: z.string().max(50).optional(), category: z.string().max(50).optional(), fatherName: z.string().max(100), motherName: z.string().max(100), phone: z.string().max(20), address: z.string().max(500), guardianPhone: z.string().max(20).optional(), previousSchool: z.string().max(100).optional(), transportId: ObjectIdSchema.optional(),
-  documents: z.array(z.object({ type: z.nativeEnum(DocumentType), url: z.string().url(), publicId: z.string().max(300).optional(), uploadedAt: z.string().datetime() })).default([]),
-  status: z.nativeEnum(StudentStatus).default(StudentStatus.ACTIVE),
-  admissionDate: DateOnlySchema,
-  createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional()
-});
+export const StudentSchema = z.object({ _id: ObjectIdSchema.optional(), admissionNo: z.string().max(20), userId: ObjectIdSchema.optional(), classId: ObjectIdSchema.optional(), sectionId: ObjectIdSchema.optional(), firstName: z.string().min(1).max(50), lastName: z.string().min(1).max(50), dob: DateOnlySchema, gender: z.nativeEnum(Gender), bloodGroup: z.nativeEnum(BloodGroup).optional(), religion: z.string().max(50).optional(), category: z.string().max(50).optional(), fatherName: z.string().max(100), motherName: z.string().max(100), phone: z.string().max(20), address: z.string().max(500), guardianPhone: z.string().max(20).optional(), previousSchool: z.string().max(100).optional(), transportId: ObjectIdSchema.optional(), documents: z.array(z.object({ type: z.nativeEnum(DocumentType), url: z.string().url(), publicId: z.string().max(300).optional(), uploadedAt: z.string().datetime() })).default([]), status: z.nativeEnum(StudentStatus).default(StudentStatus.ACTIVE), admissionDate: DateOnlySchema, createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateStudentSchema = StudentSchema.omit({ _id: true, createdAt: true, updatedAt: true, documents: true });
 export const UpdateStudentSchema = CreateStudentSchema.partial();
 
@@ -60,81 +50,25 @@ export const UpdateTeacherSchema = CreateTeacherSchema.partial();
 export const ClassSchema = z.object({ _id: ObjectIdSchema.optional(), name: z.string().max(10), displayName: z.string().max(50), sectionIds: z.array(ObjectIdSchema).default([]), classTeacherId: ObjectIdSchema.optional(), roomNumber: z.string().max(20).optional(), capacity: z.number().int().positive().default(40), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateClassSchema = ClassSchema.omit({ _id: true, createdAt: true, updatedAt: true, sectionIds: true });
 export const UpdateClassSchema = CreateClassSchema.partial();
-
 export const SectionSchema = z.object({ _id: ObjectIdSchema.optional(), name: z.string().max(10), classId: ObjectIdSchema, capacity: z.number().int().positive().default(40), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateSectionSchema = SectionSchema.omit({ _id: true, createdAt: true, updatedAt: true });
 export const UpdateSectionSchema = CreateSectionSchema.partial();
-
 export const SubjectSchema = z.object({ _id: ObjectIdSchema.optional(), name: z.string().max(50), code: z.string().max(10), classIds: z.array(ObjectIdSchema).default([]), teacherId: ObjectIdSchema.optional(), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateSubjectSchema = SubjectSchema.omit({ _id: true, createdAt: true, updatedAt: true });
 export const UpdateSubjectSchema = CreateSubjectSchema.partial();
 
-export const AttendanceSchema = z.object({
-  _id: ObjectIdSchema.optional(),
-  date: z.string().datetime(),
-  classId: ObjectIdSchema,
-  sectionId: ObjectIdSchema,
-  records: z.array(z.object({
-    studentId: ObjectIdSchema,
-    status: z.nativeEnum(AttendanceStatus),
-    remark: z.string().max(200).optional()
-  })),
-  markedBy: ObjectIdSchema,
-  createdAt: z.string().datetime().optional(),
-  updatedAt: z.string().datetime().optional()
-});
+export const AttendanceSchema = z.object({ _id: ObjectIdSchema.optional(), date: z.string().datetime(), classId: ObjectIdSchema, sectionId: ObjectIdSchema, records: z.array(z.object({ studentId: ObjectIdSchema, status: z.nativeEnum(AttendanceStatus), remark: z.string().max(200).optional() })), markedBy: ObjectIdSchema, createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateAttendanceSchema = AttendanceSchema.omit({ _id: true, createdAt: true, updatedAt: true });
 export const UpdateAttendanceSchema = CreateAttendanceSchema.partial();
-export const MarkAttendanceSchema = z.object({
-  date: z.string().datetime(),
-  classId: ObjectIdSchema,
-  sectionId: ObjectIdSchema,
-  records: z.array(z.object({
-    studentId: ObjectIdSchema,
-    status: z.nativeEnum(AttendanceStatus),
-    remark: z.string().max(200).optional()
-  }))
-});
-
+export const MarkAttendanceSchema = z.object({ date: z.string().datetime(), classId: ObjectIdSchema, sectionId: ObjectIdSchema, records: z.array(z.object({ studentId: ObjectIdSchema, status: z.nativeEnum(AttendanceStatus), remark: z.string().max(200).optional() })) });
 export const FeeStructureSchema = z.object({ _id: ObjectIdSchema.optional(), classId: ObjectIdSchema, feeType: z.nativeEnum(FeeType), amount: z.number().min(0), dueDate: z.string().datetime().optional(), academicYear: ObjectIdSchema, createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateFeeStructureSchema = FeeStructureSchema.omit({ _id: true, createdAt: true, updatedAt: true });
 export const UpdateFeeStructureSchema = CreateFeeStructureSchema.partial();
-
 export const FeeSchema = z.object({ _id: ObjectIdSchema.optional(), studentId: ObjectIdSchema, feeStructureId: ObjectIdSchema, amount: z.number().min(0), discount: z.number().min(0).default(0), fine: z.number().min(0).default(0), totalDue: z.number().min(0), paidAmount: z.number().min(0).default(0), balance: z.number().min(0), status: z.nativeEnum(FeeStatus).default(FeeStatus.PENDING), academicYear: ObjectIdSchema, createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
 export const CreateFeeSchema = FeeSchema.omit({ _id: true, createdAt: true, updatedAt: true });
 export const UpdateFeeSchema = CreateFeeSchema.partial();
-
 export const PaymentSchema = z.object({ _id: ObjectIdSchema.optional(), feeId: ObjectIdSchema, studentId: ObjectIdSchema, amount: z.number().min(0), mode: z.nativeEnum(PaymentMode), transactionId: z.string().max(100).optional(), receiptNo: z.string().max(20), collectedBy: ObjectIdSchema, date: z.string().datetime(), createdAt: z.string().datetime().optional() });
 export const CreatePaymentSchema = PaymentSchema.omit({ _id: true, createdAt: true });
+export const AuditLogSchema = z.object({ _id: ObjectIdSchema.optional(), schoolId: ObjectIdSchema.optional(), userId: ObjectIdSchema, action: z.string(), entity: z.string(), entityId: ObjectIdSchema, before: z.record(z.unknown()).optional(), after: z.record(z.unknown()).optional(), ip: z.string().optional(), userAgent: z.string().optional(), createdAt: z.string().datetime().optional() });
 
-export const AuditLogSchema = z.object({ _id: ObjectIdSchema.optional(), userId: ObjectIdSchema, action: z.string(), entity: z.string(), entityId: ObjectIdSchema, before: z.record(z.unknown()).optional(), after: z.record(z.unknown()).optional(), ip: z.string().optional(), userAgent: z.string().optional(), createdAt: z.string().datetime().optional() });
-
-export type User = z.infer<typeof UserSchema>;
-export type CreateUser = z.infer<typeof CreateUserSchema>;
-export type UpdateUser = z.infer<typeof UpdateUserSchema>;
-export type Login = z.infer<typeof LoginSchema>;
-export type School = z.infer<typeof SchoolSchema>;
-export type AcademicYear = z.infer<typeof AcademicYearSchema>;
-export type Student = z.infer<typeof StudentSchema>;
-export type CreateStudent = z.infer<typeof CreateStudentSchema>;
-export type UpdateStudent = z.infer<typeof UpdateStudentSchema>;
-export type Teacher = z.infer<typeof TeacherSchema>;
-export type CreateTeacher = z.infer<typeof CreateTeacherSchema>;
-export type UpdateTeacher = z.infer<typeof UpdateTeacherSchema>;
-export type Class = z.infer<typeof ClassSchema>;
-export type CreateClass = z.infer<typeof CreateClassSchema>;
-export type UpdateClass = z.infer<typeof UpdateClassSchema>;
-export type Section = z.infer<typeof SectionSchema>;
-export type CreateSection = z.infer<typeof CreateSectionSchema>;
-export type UpdateSection = z.infer<typeof UpdateSectionSchema>;
-export type Subject = z.infer<typeof SubjectSchema>;
-export type CreateSubject = z.infer<typeof CreateSubjectSchema>;
-export type UpdateSubject = z.infer<typeof UpdateSubjectSchema>;
-export type Attendance = z.infer<typeof AttendanceSchema>;
-export type CreateAttendance = z.infer<typeof CreateAttendanceSchema>;
-export type MarkAttendance = z.infer<typeof MarkAttendanceSchema>;
-export type FeeStructure = z.infer<typeof FeeStructureSchema>;
-export type Fee = z.infer<typeof FeeSchema>;
-export type Payment = z.infer<typeof PaymentSchema>;
-export type AuditLog = z.infer<typeof AuditLogSchema>;
-export type PaginationParams = z.infer<typeof PaginationSchema>;
+export type User = z.infer<typeof UserSchema>; export type CreateUser = z.infer<typeof CreateUserSchema>; export type UpdateUser = z.infer<typeof UpdateUserSchema>; export type Login = z.infer<typeof LoginSchema>; export type School = z.infer<typeof SchoolSchema>; export type AcademicYear = z.infer<typeof AcademicYearSchema>; export type Student = z.infer<typeof StudentSchema>; export type CreateStudent = z.infer<typeof CreateStudentSchema>; export type UpdateStudent = z.infer<typeof UpdateStudentSchema>; export type Teacher = z.infer<typeof TeacherSchema>; export type CreateTeacher = z.infer<typeof CreateTeacherSchema>; export type UpdateTeacher = z.infer<typeof UpdateTeacherSchema>; export type Class = z.infer<typeof ClassSchema>; export type CreateClass = z.infer<typeof CreateClassSchema>; export type UpdateClass = z.infer<typeof UpdateClassSchema>; export type Section = z.infer<typeof SectionSchema>; export type CreateSection = z.infer<typeof CreateSectionSchema>; export type UpdateSection = z.infer<typeof UpdateSectionSchema>; export type Subject = z.infer<typeof SubjectSchema>; export type CreateSubject = z.infer<typeof CreateSubjectSchema>; export type UpdateSubject = z.infer<typeof UpdateSubjectSchema>; export type Attendance = z.infer<typeof AttendanceSchema>; export type CreateAttendance = z.infer<typeof CreateAttendanceSchema>; export type MarkAttendance = z.infer<typeof MarkAttendanceSchema>; export type FeeStructure = z.infer<typeof FeeStructureSchema>; export type Fee = z.infer<typeof FeeSchema>; export type Payment = z.infer<typeof PaymentSchema>; export type AuditLog = z.infer<typeof AuditLogSchema>; export type PaginationParams = z.infer<typeof PaginationSchema>;
