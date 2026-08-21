@@ -14,7 +14,7 @@ function normalizeSchoolCode(value: unknown): string | undefined {
 }
 function schoolCodeFromId(id: { toString(): string }) { return `SCH-${id.toString().slice(-8).toUpperCase()}`; }
 function tokenPayload(user: IUser) {
-  return { userId: user._id.toString(), email: user.email, role: user.role, ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}) };
+  return { userId: user._id.toString(), email: user.email, role: user.role, refreshTokenVersion: user.refreshTokenVersion ?? 0, ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}) };
 }
 function publicUser(user: IUser) { return { id: user._id, email: user.email, role: user.role, ...(user.schoolId ? { schoolId: user.schoolId } : {}), lastLogin: user.lastLogin }; }
 async function getTenantSchools() {
@@ -75,11 +75,12 @@ export async function refresh(req: Request, res: Response, next: NextFunction) {
   try {
     const refreshToken = req.cookies?.refresh_token ?? RefreshTokenSchema.parse(req.body ?? {}).refreshToken;
     const payload = verifyRefreshToken(refreshToken);
+    const expectedVersion = payload.refreshTokenVersion ?? 0;
     const filter = payload.role === UserRole.SUPER_ADMIN
-      ? { _id: payload.userId, role: UserRole.SUPER_ADMIN, schoolId: { $exists: false } }
-      : { _id: payload.userId, schoolId: payload.schoolId, role: { $ne: UserRole.SUPER_ADMIN } };
-    const user = await User.findOne(filter);
-    if (!user || !user.isActive) throw AppError.unauthorized("User not found or inactive");
+      ? { _id: payload.userId, role: UserRole.SUPER_ADMIN, schoolId: { $exists: false }, refreshTokenVersion: expectedVersion, isActive: true }
+      : { _id: payload.userId, schoolId: payload.schoolId, role: { $ne: UserRole.SUPER_ADMIN }, refreshTokenVersion: expectedVersion, isActive: true };
+    const user = await User.findOneAndUpdate(filter, { $inc: { refreshTokenVersion: 1 } }, { new: true });
+    if (!user) throw AppError.unauthorized("Refresh session is invalid or has already been rotated");
     const newPayload = tokenPayload(user), accessToken = generateAccessToken(newPayload), newRefreshToken = generateRefreshToken(newPayload);
     setAuthCookies(res, accessToken, newRefreshToken);
     res.json({ accessToken });
@@ -88,7 +89,10 @@ export async function refresh(req: Request, res: Response, next: NextFunction) {
 
 export async function logout(req: Request, res: Response, next: NextFunction) {
   try {
-    if (req.user) await createAuditLog({ ...(req.user.schoolId ? { schoolId: req.user.schoolId } : {}), userId: req.user.userId, action: "LOGOUT", entity: "User", entityId: req.user.userId });
+    if (req.user) {
+      await User.findByIdAndUpdate(req.user.userId, { $inc: { refreshTokenVersion: 1 } });
+      await createAuditLog({ ...(req.user.schoolId ? { schoolId: req.user.schoolId } : {}), userId: req.user.userId, action: "LOGOUT", entity: "User", entityId: req.user.userId });
+    }
     clearAuthCookies(res); res.json({ message: "Logged out successfully" });
   } catch (error) { next(error); }
 }
@@ -116,8 +120,9 @@ export async function changePassword(req: Request, res: Response, next: NextFunc
     const user = await User.findOne(filter).select("+passwordHash");
     if (!user) throw AppError.notFound("User not found");
     if (!(await comparePassword(data.currentPassword, user.passwordHash))) throw AppError.badRequest("Current password is incorrect");
-    user.passwordHash = await hashPassword(data.newPassword); await user.save();
+    user.passwordHash = await hashPassword(data.newPassword); user.refreshTokenVersion += 1; await user.save();
     await createAuditLog({ ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}), userId: user._id.toString(), action: "CHANGE_PASSWORD", entity: "User", entityId: user._id.toString() });
-    res.json({ message: "Password changed successfully" });
+    clearAuthCookies(res);
+    res.json({ message: "Password changed successfully; other refresh sessions have been revoked" });
   } catch (error) { next(error); }
 }
