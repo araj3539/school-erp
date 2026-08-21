@@ -1,2 +1,21 @@
-import { Router } from "express";import authRoutes from "./authRoutes.js";import studentRoutes from "./studentRoutes.js";import teacherRoutes from "./teacherRoutes.js";import classRoutes from "./classRoutes.js";import attendanceRoutes from "./attendanceRoutes.js";import feeRoutes from "./feeRoutes.js";import dashboardRoutes from "./dashboardRoutes.js";const router = Router();router.use("/auth", authRoutes);router.use("/students", studentRoutes);router.use("/teachers", teacherRoutes);router.use("/academics", classRoutes);router.use("/attendance", attendanceRoutes);router.use("/fees", feeRoutes);router.use("/dashboard", dashboardRoutes);router.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));export default router;
+import { Router } from "express";
+import authRoutes from "./authRoutes.js";
+import studentRoutes from "./studentRoutes.js";
+import teacherRoutes from "./teacherRoutes.js";
+import classRoutes from "./classRoutes.js";
+import attendanceRoutes from "./attendanceRoutes.js";
+import feeRoutes from "./feeRoutes.js";
+import dashboardRoutes from "./dashboardRoutes.js";
+import parentRoutes from "./parentRoutes.js";
 
+const router = Router();
+router.use("/auth", authRoutes);
+router.use("/students", studentRoutes);
+router.use("/teachers", teacherRoutes);
+router.use("/academics", classRoutes);
+router.use("/attendance", attendanceRoutes);
+router.use("/fees", feeRoutes);
+router.use("/dashboard", dashboardRoutes);
+router.use("/parents", parentRoutes);
+router.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
+export default router;
