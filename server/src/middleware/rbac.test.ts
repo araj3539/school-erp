@@ -59,6 +59,28 @@ describe("requirePermission", () => {
     expect(writeNext).toHaveBeenCalledOnce();
   });
 
+  it("allows a principal to read payments but not collect payments", () => {
+    const req = { user: principal() } as any;
+    const readRes = createResponse();
+    const readNext = vi.fn();
+    requirePermission("payments:read")(req, readRes, readNext);
+    expect(readNext).toHaveBeenCalledOnce();
+
+    const writeRes = createResponse();
+    const writeNext = vi.fn();
+    requirePermission("payments:write")(req, writeRes, writeNext);
+    expect(writeNext).not.toHaveBeenCalled();
+    expect(writeRes.status).toHaveBeenCalledWith(403);
+  });
+
+  it("allows an accountant to collect payments", () => {
+    const req = { user: { userId: "accountant-1", email: "accountant@example.com", role: UserRole.ACCOUNTANT, schoolId: "school-1" } } as any;
+    const res = createResponse();
+    const next = vi.fn();
+    requirePermission("payments:write")(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
   it("denies a teacher from managing users", () => {
     const req = { user: { userId: "teacher-1", email: "teacher@example.com", role: UserRole.TEACHER, schoolId: "school-1" } } as any;
     const res = createResponse();
