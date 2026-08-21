@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
 import { UserRole } from "@school-erp/shared";
 import { Student, User } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
@@ -48,7 +49,7 @@ export async function assignStudentParents(req: Request, res: Response, next: Ne
     }
 
     const previousParentIds = student.parentIds.map((parentId) => parentId.toString());
-    student.parentIds = parentIds.map((parentId) => new (student.parentIds[0]?.constructor || require("mongoose").Types.ObjectId)(parentId));
+    student.parentIds = parentIds.map((parentId) => new Types.ObjectId(parentId));
     await student.save();
 
     await createAuditLog({
