@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { UserRole } from "@school-erp/shared";
+import { ROLE_PERMISSIONS, UserRole } from "@school-erp/shared";
 import { requirePermission } from "./rbac.js";
 
 function createResponse() {
@@ -79,6 +79,39 @@ describe("requirePermission", () => {
     const next = vi.fn();
     requirePermission("payments:write")(req, res, next);
     expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("allows a teacher to read students but not student-management writes", () => {
+    const req = { user: { userId: "teacher-1", email: "teacher@example.com", role: UserRole.TEACHER, schoolId: "school-1" } } as any;
+    const readRes = createResponse();
+    const readNext = vi.fn();
+    requirePermission("students:read")(req, readRes, readNext);
+    expect(readNext).toHaveBeenCalledOnce();
+
+    const writeRes = createResponse();
+    const writeNext = vi.fn();
+    requirePermission("students:write")(req, writeRes, writeNext);
+    expect(writeNext).not.toHaveBeenCalled();
+    expect(writeRes.status).toHaveBeenCalledWith(403);
+  });
+
+  it("allows a student to use only the own-student permission", () => {
+    const req = { user: { userId: "student-1", email: "student@example.com", role: UserRole.STUDENT, schoolId: "school-1" } } as any;
+    const ownRes = createResponse();
+    const ownNext = vi.fn();
+    requirePermission("students:read:own")(req, ownRes, ownNext);
+    expect(ownNext).toHaveBeenCalledOnce();
+
+    const broadRes = createResponse();
+    const broadNext = vi.fn();
+    requirePermission("students:read")(req, broadRes, broadNext);
+    expect(broadNext).not.toHaveBeenCalled();
+    expect(broadRes.status).toHaveBeenCalledWith(403);
+  });
+
+  it("keeps parent-child student permission distinct from broad student reads", () => {
+    expect(ROLE_PERMISSIONS[UserRole.PARENT]).toContain("students:read:child");
+    expect(ROLE_PERMISSIONS[UserRole.PARENT]).not.toContain("students:read");
   });
 
   it("denies a teacher from managing users", () => {
