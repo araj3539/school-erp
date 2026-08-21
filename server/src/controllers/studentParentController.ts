@@ -48,8 +48,8 @@ export async function assignStudentParents(req: Request, res: Response, next: Ne
       }
     }
 
-    const previousParentIds = student.parentIds.map((parentId) => parentId.toString());
-    student.parentIds = parentIds.map((parentId) => new Types.ObjectId(parentId));
+    const previousParentIds = student.parentIds.map((parentId: Types.ObjectId) => parentId.toString());
+    student.parentIds = parentIds.map((parentId: string) => new Types.ObjectId(parentId));
     await student.save();
 
     await createAuditLog({
