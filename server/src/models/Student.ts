@@ -76,6 +76,33 @@ const StudentSchema = new Schema<IStudent>({
 StudentSchema.index({ schoolId: 1, classId: 1, sectionId: 1, status: 1 });
 StudentSchema.index({ schoolId: 1, status: 1 });
 
+async function validateStudentRelations(schoolId: unknown, classId?: unknown, sectionId?: unknown) {
+  const Class = mongoose.model("Class");
+  const Section = mongoose.model("Section");
+  if (classId) {
+    const cls = await Class.exists({ _id: classId, schoolId });
+    if (!cls) throw new mongoose.Error.ValidatorError({ path: "classId", message: "Student class must belong to the same school" });
+  }
+  if (sectionId) {
+    const filter: any = { _id: sectionId, schoolId };
+    if (classId) filter.classId = classId;
+    const section = await Section.exists(filter);
+    if (!section) throw new mongoose.Error.ValidatorError({ path: "sectionId", message: "Student section must belong to the same school and selected class" });
+  }
+}
+
+StudentSchema.pre("validate", async function () {
+  await validateStudentRelations(this.schoolId, this.classId, this.sectionId);
+});
+
+StudentSchema.pre("findOneAndUpdate", async function () {
+  const update: any = this.getUpdate() || {};
+  const data = update.$set ? { ...update, ...update.$set } : update;
+  const current: any = await this.model.findOne(this.getQuery()).select("schoolId classId sectionId").lean();
+  if (!current) return;
+  await validateStudentRelations(data.schoolId ?? current.schoolId, data.classId ?? current.classId, data.sectionId ?? current.sectionId);
+});
+
 StudentSchema.virtual("fullName").get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
