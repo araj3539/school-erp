@@ -19,4 +19,22 @@ const SectionSchema = new Schema<ISection>({
 SectionSchema.index({ classId: 1, name: 1 }, { unique: true });
 SectionSchema.index({ schoolId: 1 });
 
+async function validateSectionClass(schoolId: unknown, classId: unknown) {
+  const Class = mongoose.model("Class");
+  const cls = await Class.exists({ _id: classId, schoolId });
+  if (!cls) throw new mongoose.Error.ValidatorError({ path: "classId", message: "Section class must belong to the same school" });
+}
+
+SectionSchema.pre("validate", async function () {
+  await validateSectionClass(this.schoolId, this.classId);
+});
+
+SectionSchema.pre("findOneAndUpdate", async function () {
+  const update: any = this.getUpdate() || {};
+  const data = update.$set ? { ...update, ...update.$set } : update;
+  const current: any = await this.model.findOne(this.getQuery()).select("schoolId classId").lean();
+  if (!current) return;
+  await validateSectionClass(data.schoolId ?? current.schoolId, data.classId ?? current.classId);
+});
+
 export const Section = mongoose.model<ISection>("Section", SectionSchema);
