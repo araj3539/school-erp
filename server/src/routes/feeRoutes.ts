@@ -13,10 +13,10 @@ router.delete("/structures/:id", requirePermission("fees:delete"), validate(IdPa
 router.get("/", requirePermission("fees:read"), validate(PaginationSchema, "query"), getFees);
 router.get("/student/:id", requirePermission("fees:read"), validate(IdParamSchema, "params"), getStudentFees);
 router.post("/generate", requirePermission("fees:write"), generateFees);
-router.post("/payments", requirePermission("fees:write"), validate(CreatePaymentSchema), collectPayment);
-router.get("/payments", requirePermission("fees:read"), validate(PaginationSchema, "query"), getPayments);
-router.get("/reports/daily", requirePermission("fees:read"), validate(DateRangeSchema, "query"), getDailyCollectionReport);
-router.get("/reports/monthly", requirePermission("fees:read"), getMonthlyCollectionReport);
-router.get("/receipt/:id", requirePermission("fees:read"), validate(IdParamSchema, "params"), getReceiptPDF);
+router.post("/payments", requirePermission("payments:write"), validate(CreatePaymentSchema), collectPayment);
+router.get("/payments", requirePermission("payments:read"), validate(PaginationSchema, "query"), getPayments);
+router.get("/reports/daily", requirePermission("reports:read"), validate(DateRangeSchema, "query"), getDailyCollectionReport);
+router.get("/reports/monthly", requirePermission("reports:read"), getMonthlyCollectionReport);
+router.get("/receipt/:id", requirePermission("payments:read"), validate(IdParamSchema, "params"), getReceiptPDF);
 
 export default router;
