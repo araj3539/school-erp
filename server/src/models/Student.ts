@@ -94,7 +94,7 @@ async function validateStudentRelations(schoolId: unknown, classId?: unknown, se
     if (!section) throw new mongoose.Error.ValidatorError({ path: "sectionId", message: "Student section must belong to the same school and selected class" });
   }
   if (parentIds.length) {
-    const uniqueParentIds = [...new Set(parentIds.map((id: unknown) => String(id)))];
+    const uniqueParentIds = [...new Set(parentIds.map((id) => id.toString()))];
     if (uniqueParentIds.length !== parentIds.length) throw new mongoose.Error.ValidatorError({ path: "parentIds", message: "Duplicate parent assignments are not allowed" });
     const parentCount = await User.countDocuments({ _id: { $in: parentIds }, schoolId, role: UserRole.PARENT, isActive: true });
     if (parentCount !== parentIds.length) throw new mongoose.Error.ValidatorError({ path: "parentIds", message: "Every assigned parent must be an active parent user in the same school" });
@@ -112,3 +112,5 @@ StudentSchema.pre("findOneAndUpdate", async function () {
   if (!current) return;
   await validateStudentRelations(data.schoolId ?? current.schoolId, data.classId ?? current.classId, data.sectionId ?? current.sectionId, data.parentIds ?? current.parentIds ?? []);
 });
+
+export const Student = mongoose.model<IStudent>("Student", StudentSchema);
