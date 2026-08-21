@@ -31,7 +31,7 @@ export default function LoginPage() {
     try {
       const schoolCode = data.schoolCode?.trim().toUpperCase();
       const response = await api.post("/auth/login", { email: data.email.trim().toLowerCase(), password: data.password, ...(schoolCode ? { schoolCode } : {}) });
-      login(response.data.user);
+      login(response.data.user, { activeSchoolId: response.data.activeSchoolId, schools: response.data.schools });
       addToast("Login successful", "success");
       navigate(from, { replace: true });
     } catch (error: any) {
