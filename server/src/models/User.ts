@@ -8,6 +8,7 @@ export interface IUser extends Document {
   profileId?: Types.ObjectId;
   schoolId?: Types.ObjectId;
   isActive: boolean;
+  refreshTokenVersion: number;
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -20,6 +21,7 @@ const UserSchema = new Schema<IUser>({
   profileId: { type: Schema.Types.ObjectId, refPath: "role" },
   schoolId: { type: Schema.Types.ObjectId, ref: "School", required: false },
   isActive: { type: Boolean, default: true },
+  refreshTokenVersion: { type: Number, default: 0 },
   lastLogin: { type: Date }
 }, { timestamps: true });
 

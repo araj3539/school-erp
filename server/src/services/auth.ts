@@ -9,6 +9,7 @@ export interface TokenPayload {
   email: string;
   role: UserRole;
   schoolId?: string;
+  refreshTokenVersion?: number;
 }
 
 export function generateAccessToken(payload: TokenPayload): string { return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRY as SignOptions["expiresIn"] }); }

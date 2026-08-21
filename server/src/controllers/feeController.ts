@@ -62,7 +62,7 @@ export async function getFees(req: Request, res: Response, next: NextFunction) {
     if (filters.status) dbQuery.status = filters.status;
     if (filters.classId) {
       const students = await Student.find({ schoolId: tenantId(req), classId: filters.classId }).select("_id").lean();
-      dbQuery.studentId = { $in: students.map((s) => s._id) };
+      dbQuery.studentId = { $in: students.map((s: { _id: mongoose.Types.ObjectId }) => s._id) };
     }
     if (filters.academicYear) dbQuery.academicYear = filters.academicYear;
     const sort: Record<string, 1 | -1> = {};
@@ -102,8 +102,8 @@ export async function generateFees(req: Request, res: Response, next: NextFuncti
       FeeStructure.find({ schoolId, classId, academicYear }).lean()
     ]);
     if (students.length === 0 || structures.length === 0) throw AppError.badRequest("No students or fee structures found");
-    const studentIds = students.map((s) => s._id);
-    const structureIds = structures.map((s) => s._id);
+    const studentIds = students.map((s: { _id: mongoose.Types.ObjectId }) => s._id);
+    const structureIds = structures.map((s: { _id: mongoose.Types.ObjectId }) => s._id);
     const existingFees = await Fee.find({ schoolId, studentId: { $in: studentIds }, feeStructureId: { $in: structureIds }, academicYear }).lean();
     const existingSet = new Set(existingFees.map((f) => `${f.studentId}-${f.feeStructureId}-${f.academicYear}`));
     const feesToCreate = [];
