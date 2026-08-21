@@ -8,56 +8,21 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: UserRole;
-  schoolId: string;
+  schoolId?: string;
 }
 
-export function generateAccessToken(payload: TokenPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRY as SignOptions["expiresIn"] });
-}
-
-export function generateRefreshToken(payload: TokenPayload): string {
-  return jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRY as SignOptions["expiresIn"] });
-}
-
-export function verifyAccessToken(token: string): TokenPayload {
-  return jwt.verify(token, env.JWT_SECRET) as TokenPayload;
-}
-
-export function verifyRefreshToken(token: string): TokenPayload {
-  return jwt.verify(token, env.JWT_REFRESH_SECRET) as TokenPayload;
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
-}
-
-export async function comparePassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
+export function generateAccessToken(payload: TokenPayload): string { return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRY as SignOptions["expiresIn"] }); }
+export function generateRefreshToken(payload: TokenPayload): string { return jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRY as SignOptions["expiresIn"] }); }
+export function verifyAccessToken(token: string): TokenPayload { return jwt.verify(token, env.JWT_SECRET) as TokenPayload; }
+export function verifyRefreshToken(token: string): TokenPayload { return jwt.verify(token, env.JWT_REFRESH_SECRET) as TokenPayload; }
+export async function hashPassword(password: string): Promise<string> { return bcrypt.hash(password, 12); }
+export async function comparePassword(password: string, hash: string): Promise<boolean> { return bcrypt.compare(password, hash); }
 
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
-
-const cookieOptions = {
-  httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  // Vercel and Render are different sites, so production auth cookies must
-  // be sent on cross-site requests. `lax` would prevent that.
-  sameSite: env.NODE_ENV === "production" ? "none" as const : "lax" as const,
-};
-
+const cookieOptions = { httpOnly: true, secure: env.NODE_ENV === "production", sameSite: env.NODE_ENV === "production" ? "none" as const : "lax" as const };
 export function setAuthCookies(res: any, accessToken: string, refreshToken: string): void {
-  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, {
-    ...cookieOptions,
-    maxAge: 15 * 60 * 1000,
-  });
-  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
-    ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 }
-
-export function clearAuthCookies(res: any): void {
-  res.clearCookie(ACCESS_TOKEN_COOKIE, cookieOptions);
-  res.clearCookie(REFRESH_TOKEN_COOKIE, cookieOptions);
-}
+export function clearAuthCookies(res: any): void { res.clearCookie(ACCESS_TOKEN_COOKIE, cookieOptions); res.clearCookie(REFRESH_TOKEN_COOKIE, cookieOptions); }
