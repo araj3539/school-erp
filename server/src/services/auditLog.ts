@@ -1,7 +1,8 @@
 import { ClientSession } from "mongoose";
-import { AuditLog, IAuditLog } from "../models/index.js";
+import { AuditLog, IAuditLog, User } from "../models/index.js";
 
 export async function createAuditLog(data: {
+  schoolId?: string;
   userId: string;
   action: string;
   entity: string;
@@ -12,10 +13,21 @@ export async function createAuditLog(data: {
   userAgent?: string;
   session?: ClientSession;
 }): Promise<void> {
-  const { session, ...auditData } = data;
+  const { session, schoolId, ...auditData } = data;
   try {
-    if (session) await AuditLog.create([auditData], { session });
-    else await AuditLog.create(auditData);
+    let resolvedSchoolId = schoolId;
+
+    if (!resolvedSchoolId) {
+      const userQuery = User.findById(data.userId).select("schoolId");
+      if (session) userQuery.session(session);
+      const user = await userQuery.lean();
+      if (!user?.schoolId) throw new Error("Cannot create audit log without a schoolId");
+      resolvedSchoolId = user.schoolId.toString();
+    }
+
+    const record = { ...auditData, schoolId: resolvedSchoolId };
+    if (session) await AuditLog.create([record], { session });
+    else await AuditLog.create(record);
   } catch (error) {
     console.error("Failed to create audit log:", error);
     if (session) throw error;
@@ -23,6 +35,7 @@ export async function createAuditLog(data: {
 }
 
 export async function getAuditLogs(filters: {
+  schoolId: string;
   userId?: string;
   entity?: string;
   entityId?: string;
@@ -31,15 +44,16 @@ export async function getAuditLogs(filters: {
   page?: number;
   limit?: number;
 }): Promise<{ logs: IAuditLog[]; total: number }> {
-  const query: any = {};
+  const query: Record<string, unknown> = { schoolId: filters.schoolId };
   if (filters.userId) query.userId = filters.userId;
   if (filters.entity) query.entity = filters.entity;
   if (filters.entityId) query.entityId = filters.entityId;
   if (filters.startDate || filters.endDate) {
     query.createdAt = {};
-    if (filters.startDate) query.createdAt.$gte = filters.startDate;
-    if (filters.endDate) query.createdAt.$lte = filters.endDate;
+    if (filters.startDate) (query.createdAt as Record<string, Date>).$gte = filters.startDate;
+    if (filters.endDate) (query.createdAt as Record<string, Date>).$lte = filters.endDate;
   }
+
   const page = filters.page || 1;
   const limit = filters.limit || 20;
   const skip = (page - 1) * limit;

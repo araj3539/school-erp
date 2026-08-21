@@ -11,6 +11,7 @@ import { Card, CardContent } from "../components/ui/Card";
 import { useUIStore } from "../store/uiStore";
 
 const loginSchema = z.object({
+  schoolCode: z.string().trim().min(3, "School code is required").max(30, "Invalid school code").regex(/^[A-Za-z0-9-]+$/, "Use only letters, numbers and hyphens"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required")
 });
@@ -31,7 +32,10 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      const response = await api.post("/auth/login", data);
+      const response = await api.post("/auth/login", {
+        ...data,
+        schoolCode: data.schoolCode.trim().toUpperCase()
+      });
       login(response.data.user);
       addToast("Login successful", "success");
       navigate(from, { replace: true });
@@ -49,10 +53,18 @@ export default function LoginPage() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
-        <p className="text-gray-500 mt-1">Sign in to your account</p>
+        <p className="text-gray-500 mt-1">Sign in to your school's account</p>
       </div>
       <Card>
         <CardContent className="space-y-4 p-6">
+          <Input
+            label="School Code"
+            type="text"
+            {...register("schoolCode")}
+            error={errors.schoolCode?.message}
+            placeholder="SCH-1234ABCD"
+            autoComplete="organization"
+          />
           <Input
             label="Email"
             type="email"
