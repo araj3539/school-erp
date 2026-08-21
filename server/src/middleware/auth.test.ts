@@ -17,14 +17,14 @@ describe("authentication tenant context", () => {
   beforeEach(() => next.mockReset());
 
   it("accepts a school user with a schoolId", () => {
-    const req = createRequest(sign({ userId: "user-1", email: "admin@school.com", role: UserRole.ADMIN, schoolId: "school-1" }));
+    const req = createRequest(sign({ userId: "user-1", email: "principal@school.com", role: UserRole.PRINCIPAL, schoolId: "school-1" }));
     const res = createResponse(); authenticate(req, res, next);
     expect(next).toHaveBeenCalledOnce();
-    expect(req.user).toMatchObject({ role: UserRole.ADMIN, schoolId: "school-1" });
+    expect(req.user).toMatchObject({ role: UserRole.PRINCIPAL, schoolId: "school-1" });
   });
 
   it("rejects a school user without a schoolId", () => {
-    const req = createRequest(sign({ userId: "user-1", email: "admin@school.com", role: UserRole.ADMIN }));
+    const req = createRequest(sign({ userId: "user-1", email: "principal@school.com", role: UserRole.PRINCIPAL }));
     const res = createResponse(); authenticate(req, res, next);
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
@@ -59,7 +59,7 @@ describe("authentication tenant context", () => {
   });
 
   it("does not attach an invalid tenant context in optional authentication", () => {
-    const req = createRequest(sign({ userId: "user-1", email: "admin@school.com", role: UserRole.ADMIN }));
+    const req = createRequest(sign({ userId: "user-1", email: "principal@school.com", role: UserRole.PRINCIPAL }));
     optionalAuth(req, createResponse(), next);
     expect(next).toHaveBeenCalledOnce();
     expect(req.user).toBeUndefined();
