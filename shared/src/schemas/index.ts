@@ -4,32 +4,28 @@ import { UserRole, UserStatus, StudentStatus, TeacherStatus, AttendanceStatus, F
 export const ObjectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
 export const SchoolCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,30}$/, "Invalid school code");
 
-// HTML date inputs produce YYYY-MM-DD. Student DOB and admission date are
-// calendar dates, not instants in time, so they must not use z.string().datetime().
 export const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").refine((value) => {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }, "Invalid date");
 
-export const PaginationSchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
-  sortBy: z.string().optional(),
-  sortOrder: z.enum(["asc", "desc"]).default("desc")
-});
-
+export const PaginationSchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(20), sortBy: z.string().optional(), sortOrder: z.enum(["asc", "desc"]).default("desc") });
 export const DateRangeSchema = z.object({ startDate: z.string().datetime().optional(), endDate: z.string().datetime().optional() });
 export const PaginationParams = PaginationSchema;
 
-export const UserSchema = z.object({
+const UserBaseSchema = z.object({
   _id: ObjectIdSchema.optional(), email: z.string().email(), password: z.string().min(8).optional(), role: z.nativeEnum(UserRole), profileId: ObjectIdSchema.optional(), schoolId: ObjectIdSchema.optional(), isActive: z.boolean().default(true), lastLogin: z.string().datetime().optional(), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional()
-}).superRefine((value, ctx) => {
+});
+
+const validateUserTenant = (value: { role: UserRole; schoolId?: string }, ctx: z.RefinementCtx) => {
   if (value.role === UserRole.SUPER_ADMIN && value.schoolId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["schoolId"], message: "Super admin must not belong to a school" });
   if (value.role !== UserRole.SUPER_ADMIN && !value.schoolId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["schoolId"], message: "School is required for this user" });
-});
-export const CreateUserSchema = UserSchema.omit({ _id: true, createdAt: true, updatedAt: true, lastLogin: true }).extend({ password: z.string().min(8) });
-export const UpdateUserSchema = CreateUserSchema.partial().omit({ password: true });
+};
+
+export const UserSchema = UserBaseSchema.superRefine(validateUserTenant);
+export const CreateUserSchema = UserBaseSchema.omit({ _id: true, createdAt: true, updatedAt: true, lastLogin: true }).extend({ password: z.string().min(8) }).superRefine(validateUserTenant);
+export const UpdateUserSchema = UserBaseSchema.omit({ _id: true, createdAt: true, updatedAt: true, lastLogin: true, password: true }).partial();
 export const LoginSchema = z.object({ email: z.string().email(), password: z.string().min(1), schoolCode: SchoolCodeSchema.optional() });
 export const ChangePasswordSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8) });
 export const RefreshTokenSchema = z.object({ refreshToken: z.string() });
