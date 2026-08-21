@@ -17,6 +17,10 @@ function tokenPayload(user: IUser) {
   return { userId: user._id.toString(), email: user.email, role: user.role, ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}) };
 }
 function publicUser(user: IUser) { return { id: user._id, email: user.email, role: user.role, ...(user.schoolId ? { schoolId: user.schoolId } : {}), lastLogin: user.lastLogin }; }
+async function getTenantSchools() {
+  const schools = await School.find({}).select("_id name code").sort({ name: 1 }).lean();
+  return schools.map((school: any) => ({ id: school._id.toString(), name: school.name, code: school.code }));
+}
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
@@ -39,7 +43,6 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
     let user: (IUser & { passwordHash: string }) | null;
     if (!schoolCode) {
-      // No school code is a platform-login path. It can authenticate only SUPER_ADMIN accounts.
       user = await User.findOne({ email: credentials.email, role: UserRole.SUPER_ADMIN, schoolId: { $exists: false } }).select("+passwordHash") as (IUser & { passwordHash: string }) | null;
     } else {
       let school = await School.findOne({ code: schoolCode }).select("_id code");
@@ -63,7 +66,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     const payload = tokenPayload(user), accessToken = generateAccessToken(payload), refreshToken = generateRefreshToken(payload);
     setAuthCookies(res, accessToken, refreshToken);
     await createAuditLog({ ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}), userId: user._id.toString(), action: "LOGIN", entity: "User", entityId: user._id.toString() });
-    res.json({ user: publicUser(user), accessToken });
+    const schools = user.role === UserRole.SUPER_ADMIN ? await getTenantSchools() : [];
+    res.json({ user: publicUser(user), accessToken, ...(schools.length ? { schools, activeSchoolId: schools.length === 1 ? schools[0].id : null } : {}) });
   } catch (error) { next(error); }
 }
 
@@ -97,7 +101,8 @@ export async function me(req: Request, res: Response, next: NextFunction) {
       : { _id: req.user.userId, schoolId: req.user.schoolId, role: { $ne: UserRole.SUPER_ADMIN } };
     const user = await User.findOne(filter).populate("schoolId");
     if (!user) throw AppError.notFound("User not found");
-    res.json({ user: publicUser(user) });
+    const schools = user.role === UserRole.SUPER_ADMIN ? await getTenantSchools() : [];
+    res.json({ user: publicUser(user), ...(schools.length ? { schools } : {}) });
   } catch (error) { next(error); }
 }
 
