@@ -11,6 +11,14 @@ const api = axios.create({
   timeout: 30_000,
 });
 
+api.interceptors.request.use((config) => {
+  const { user, activeSchoolId } = useAuthStore.getState();
+  if (user?.role === "super_admin" && activeSchoolId) {
+    config.headers.set("X-School-Id", activeSchoolId);
+  }
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
