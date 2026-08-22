@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   CreateUserSchema, UpdateUserSchema, LoginSchema, ChangePasswordSchema, RefreshTokenSchema,
-  CreateSchoolSchema, UpdateSchoolSchema, CreateStudentSchema, UpdateStudentSchema,
+  CreateSchoolSchema, UpdateSchoolSchema, UpdateSchoolSettingsSchema, CreateStudentSchema, UpdateStudentSchema,
   CreateTeacherSchema, UpdateTeacherSchema, CreateClassSchema, UpdateClassSchema,
   CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema,
   CreateAttendanceSchema, MarkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
@@ -10,7 +10,7 @@ import {
 
 export {
   CreateUserSchema, UpdateUserSchema, LoginSchema, ChangePasswordSchema, RefreshTokenSchema,
-  CreateSchoolSchema, UpdateSchoolSchema, CreateStudentSchema, UpdateStudentSchema,
+  CreateSchoolSchema, UpdateSchoolSchema, UpdateSchoolSettingsSchema, CreateStudentSchema, UpdateStudentSchema,
   CreateTeacherSchema, UpdateTeacherSchema, CreateClassSchema, UpdateClassSchema,
   CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema,
   CreateAttendanceSchema, MarkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
