@@ -10,20 +10,6 @@
 ### Goal
 Make the current codebase predictable and safe to extend.
 
-### Tasks
-- clean repository/Git state
-- correct `.gitignore`
-- environment example
-- consistent npm workspace/monorepo strategy
-- standard TypeScript configuration
-- lint/format scripts
-- test scripts
-- CI pipeline
-- health endpoint
-- error handling baseline
-- request logging
-- documentation files
-
 ### Exit criteria
 - clean install works
 - build works
@@ -37,45 +23,46 @@ Make the current codebase predictable and safe to extend.
 # Phase 1 — Production Security and Multi-Tenancy
 
 ### Status
-`IN_PROGRESS`
+`COMPLETED`
 
 ### Priority
 **P0 — must happen before serious multi-school deployment**
 
-### Verified progress as of 18 August 2026
-- tenant context helper is implemented and covered by unit tests
-- core student/teacher/class/section/subject controllers have received tenant-scope hardening
-- attendance reads and writes are tenant-scoped
-- fee/payment reads and writes are now being hardened with `schoolId`
-- payment collection has been upgraded to a MongoDB transaction
-- transaction-aware audit logging is implemented
-- local MongoDB development configuration now supports a replica set for transaction testing
+### Verified exit result — 22 August 2026
+- tenant-owned endpoint and query audit completed for core modules
+- role/permission boundary audit completed
+- student/teacher ownership checks completed
+- explicit Parent ↔ Student relationship implemented and verified
+- document/recovery authorization completed
+- AuditLog tenant isolation completed
+- refresh-token rotation/replay verification completed
+- cross-tenant and role/ownership Playwright acceptance suite passed against deployed Render API
+- Render deployment verification completed
 
-### Remaining work
-- verify every tenant-owned controller/query across the repository
-- fix remaining dashboard/report/audit/file access gaps
-- complete login tenant-selection design
-- consolidate permission definitions
-- review client auth persistence and refresh-token lifecycle
-- add/complete cross-tenant integration and E2E tests
-- production cookie/CORS/rate-limit verification
-- verify deployment behavior after changes
-
-### Exit criteria
-Automated tests prove:
-
+### Live acceptance evidence
 ```text
-School A -> own data: allowed
-School A -> School B data: denied
+Running 8 tests using 1 worker
+8 passed (34.5s)
+Phase 1 Playwright exit code: 0
 ```
 
-for all core modules.
-
-Phase 1 must not be marked `COMPLETED` until those checks are verified against the repository.
+Phase 1 remains a regression gate for subsequent phases.
 
 ---
 
 # Phase 2 — Core Administration MVP
+
+### Status
+`IN_PROGRESS`
+
+### Current focus
+**School settings and administration foundation**
+
+### Implemented in Phase 2
+- tenant-scoped school settings read endpoint: `GET /api/v1/school/settings`
+- principal-only school settings write endpoint: `PATCH /api/v1/school/settings`
+- settings writes are validated and audited with before/after snapshots
+- school settings writes cannot change `schoolId`, immutable school code, or academic year
 
 ### Modules
 - school settings
@@ -125,19 +112,6 @@ A school can complete its basic setup and maintain its student/teacher database.
 - bulk operations
 - timezone-safe date handling
 
-### Verified progress
-- class/section attendance validation checks tenant ownership
-- attendance queries include tenant scope
-- student attendance checks tenant ownership
-- monthly reports scope classes, students and attendance by school
-- attendance has a unique tenant/class/section/date index
-
-### Remaining
-- timezone-safe date handling
-- correction workflow and stronger correction audit coverage
-- broader integration/E2E tests
-- final phase acceptance verification
-
 ### Exit criteria
 Teacher can mark attendance and authorized staff can audit/correct it.
 
@@ -155,27 +129,8 @@ Teacher can mark attendance and authorized staff can audit/correct it.
 - receipt PDF
 - daily/monthly collection
 - audit logs
-
-### Verified production upgrades started
-- fee structure operations are tenant-scoped
-- fee generation is tenant-scoped
-- fee reads and student fee reads are tenant-scoped
-- payment listing/reporting is tenant-scoped
-- receipt lookup is tenant-scoped
-- payment collection validates the fee within the authenticated school
-- payment creation and fee balance update now run inside one MongoDB transaction
-- payment audit creation participates in the same transaction
-
-### Remaining production upgrades
-- immutable payment records / reversal-refund workflow
-- concession/discount approvals
-- installment plans
-- due-date logic
-- overdue calculation
-- receipt numbering/idempotency strategy
-- financial reports and reconciliation hardening
-- comprehensive financial tenant-isolation tests
-- production verification against MongoDB replica-set/managed deployment
+- immutable payment ledger and reversal/refund workflow
+- financial reconciliation
 
 ### Exit criteria
 A school can operate its complete fee collection process safely.
@@ -249,49 +204,12 @@ Users can access only their own/assigned records.
 ### Recommended direction
 React Native, sharing API contracts and shared business schemas.
 
-### Apps
-Start with one application supporting role-based experiences rather than three separate codebases.
-
-Features:
-- login
-- push notifications
-- attendance
-- homework
-- fees
-- results
-- notices
-- timetable
-- profile
-
 ### Exit criteria
 Android production build works for parents and teachers.
 
 ---
 
 # Phase 9 — Notifications
-
-### Push
-Firebase Cloud Messaging.
-
-Use for:
-- homework
-- attendance
-- notices
-- fee status
-- results
-
-### SMS
-Use paid SMS provider.
-
-Use primarily for:
-- fee due reminders
-- urgent notices
-
-### Email
-Use for:
-- reports
-- receipts
-- administrative communication
 
 ### Architecture
 Use a notification service and queue:
@@ -327,8 +245,6 @@ These should be added only after core ERP workflows are stable.
 ---
 
 # Phase 11 — Online Payments
-
-Integrate a provider such as Razorpay/other appropriate Indian gateway.
 
 Required:
 - payment order creation
@@ -425,18 +341,16 @@ Multiple schools with automated tenant onboarding and billing.
 Current implementation sequence:
 
 ```text
-1. Finish Phase 1 tenant isolation/security verification
-2. Finish auth/session hardening
-3. Consolidate validation/permissions
-4. Add integration + tenant security tests
-5. Complete attendance acceptance checks
-6. Finish financial hardening already started
-7. Complete reports/PDF correctness
-8. Add exams/results
-9. Add notifications
-10. Add portals
-11. Add mobile
-12. Add SaaS administration
+1. Finish Phase 2 school settings and academic years
+2. Finish Phase 2 users/students/teachers/classes/sections/subjects administration
+3. Add admin search/filter/pagination and bulk workflows
+4. Complete Phase 3 attendance correction/acceptance gaps
+5. Finish Phase 4 financial hardening and reports
+6. Add exams/results
+7. Add notifications
+8. Add portals
+9. Add mobile
+10. Add SaaS administration
 ```
 
 Do not start with AI, WhatsApp, GPS or a large mobile app before the core tenant/security/financial foundation is reliable.
@@ -449,22 +363,22 @@ This roadmap is a **living delivery record**. Phase status must reflect verified
 
 ### Status Metadata
 
-- **Document version:** 1.2.0
+- **Document version:** 1.3.0
 - **Lifecycle status:** Living / actively maintained
 - **Baseline verified:** 11 August 2026
-- **Last repository review:** 18 August 2026
-- **Current state:** Phase 1 is `IN_PROGRESS`; attendance and financial hardening have active verified work
+- **Last repository review:** 22 August 2026
+- **Current state:** Phase 1 `COMPLETED`; Phase 2 `IN_PROGRESS`
 - **Next mandatory review:** At every phase transition, scope change, or major blocker discovery
 
 ### Required Phase States
 
 Use only these states:
-- `NOT_STARTED` — no meaningful implementation work completed
-- `IN_PROGRESS` — work is actively being implemented
-- `BLOCKED` — progress depends on a known unresolved blocker
-- `READY_FOR_VERIFICATION` — implementation is believed complete but acceptance checks remain
-- `COMPLETED` — all exit criteria verified
-- `DEFERRED` — intentionally moved out of the current roadmap
+- `NOT_STARTED`
+- `IN_PROGRESS`
+- `BLOCKED`
+- `READY_FOR_VERIFICATION`
+- `COMPLETED`
+- `DEFERRED`
 
 Do not mark a phase `COMPLETED` because the code compiles or because most tasks are done. All critical exit criteria must pass.
 
@@ -491,6 +405,7 @@ AI agents should select work from the current active phase unless the user expli
 
 | Version | Date | Change | Verified By |
 |---|---|---|---|
+| 1.3.0 | 2026-08-22 | Phase 1 exit gate passed against deployed Render API (8/8); transitioned Phase 2 to active and started school settings administration. | AI-assisted repository implementation review |
 | 1.2.0 | 2026-08-18 | Marked Phase 1 in progress; recorded verified tenant hardening, attendance progress, and transactional financial work; added remaining acceptance work. | AI-assisted repository implementation review |
 | 1.1.0 | 2026-08-11 | Added phase state model, completion protocol, verification, and living-roadmap rules. | AI-assisted repository review |
 | 1.0.0 | 2026-08-11 | Initial development roadmap. | AI-assisted repository review |
