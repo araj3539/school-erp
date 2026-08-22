@@ -96,25 +96,31 @@ test.describe("Phase 1 tenant isolation and ownership", () => {
 
 test.describe("Phase 1 refresh-token rotation", () => {
   test("a refresh token is single-use after successful rotation", async () => {
-    const api = await playwrightRequest.newContext({
+    const loginApi = await playwrightRequest.newContext({
       baseURL: process.env.E2E_API_URL,
       extraHTTPHeaders: { Accept: "application/json" },
     });
+    const refreshApi = await playwrightRequest.newContext({
+      baseURL: process.env.E2E_API_URL,
+      extraHTTPHeaders: { Accept: "application/json" },
+    });
+
     try {
-      const { refreshToken } = await login(api, emails.studentA);
+      const { refreshToken } = await login(loginApi, emails.studentA);
       expect(refreshToken).toBeTruthy();
 
-      const first = await api.post("/api/v1/auth/refresh", {
+      const first = await refreshApi.post("/api/v1/auth/refresh", {
         data: { refreshToken },
       });
       expect(first.status()).toBe(200);
 
-      const second = await api.post("/api/v1/auth/refresh", {
+      const second = await refreshApi.post("/api/v1/auth/refresh", {
         data: { refreshToken },
       });
       expect([401, 403]).toContain(second.status());
     } finally {
-      await api.dispose();
+      await loginApi.dispose();
+      await refreshApi.dispose();
     }
   });
 });
