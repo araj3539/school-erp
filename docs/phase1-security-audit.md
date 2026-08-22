@@ -14,12 +14,20 @@ Phase state: `IN_PROGRESS`
 | 4 | Design explicit Parent ↔ Student relationship | IMPLEMENTED | `Student.parentIds` is a same-school active-parent relationship, validated at the model layer; parent portal queries use `schoolId + parentIds`. |
 | 5 | Complete document/recovery authorization | IMPLEMENTED | Student, teacher and parent reads are ownership-scoped; recovery records use `schoolId + studentId`; restore is restricted to authorized school-management roles. |
 | 6 | Complete AuditLog isolation | IMPLEMENTED | Audit writes inherit tenant context where appropriate and tenant-scoped reads require `schoolId`; isolation tests are present. |
-| 7 | Complete session/security verification | IN PROGRESS | HttpOnly/Secure/SameSite cookies, CSRF checks, rate limits and proxy trust are present. Refresh-token rotation/revocation uses per-user `refreshTokenVersion`; live replay/logout/password-change acceptance remains. |
+| 7 | Complete session/security verification | IN_PROGRESS | HttpOnly/Secure/SameSite cookies, CSRF checks, rate limits and proxy trust are present. Refresh-token rotation/revocation uses per-user `refreshTokenVersion`; live replay/logout/password-change acceptance remains. |
 | 8 | Build cross-tenant integration tests | IMPLEMENTED (HARNESS) | Playwright API E2E harness covers School A/School B isolation. Live execution requires dedicated test credentials/data. |
 | 9 | Build role/ownership E2E tests | IMPLEMENTED (HARNESS) | Student, teacher, principal, parent and role-boundary scenarios are defined. Live execution requires dedicated test credentials/data. |
-| 10 | Deployment verification | IMPLEMENTED | Render deployment for commit `4357f9852c5f9d8a337aeb6b7b8a4b0985596a9b` is `live`; Vercel production for the same commit is `READY`. |
-| 11 | Synchronize documentation | IN PROGRESS | This audit, roadmap and implementation notes are being updated as verification advances. |
+| 10 | Deployment verification | IMPLEMENTED | Render deployment for commit `4357f9852c5f9d8a337aeb6b7b8a4b0985596a9b` was confirmed `live`; subsequent financial-hardening commits are being redeployed automatically. |
+| 11 | Synchronize documentation | IN PROGRESS | This audit, roadmap and financial architecture notes are being updated as verification advances. |
 | 12 | Phase 1 exit verification | NOT READY | Authenticated deployed School A own-data / School B denial matrix plus session replay/revocation verification remain. |
+
+## Production financial safeguards added during Phase 4 hardening
+
+- Payment records are immutable ledger entries; corrections use reversal/refund records.
+- Payment collection supports tenant-scoped idempotency keys and unique external transaction IDs.
+- Payment reversal/refund is atomic with fee balance correction and produces an audit event.
+- Financial reconciliation compares lifetime fee `paidAmount` against gross payments minus reversals and reports fee-level mismatches.
+- Reconciliation reports expose optional date-filtered collection summaries separately from all-time ledger integrity so period totals cannot be incorrectly compared with lifetime balances.
 
 ## Deployment failure root causes found and fixed
 
@@ -30,7 +38,7 @@ The Render failures were traced to:
 3. Document-recovery implicit `any` callback typing.
 4. Fee-controller callbacks inferred as implicit `any` while the Student model imports were broken.
 
-The corrected code is now merged to `main` and the production Render deployment is live.
+The corrected code is now merged to `main` and the production Render deployment has been healthy since the security release; later feature commits continue through automatic deployment.
 
 ## Security decisions now recorded in code
 
@@ -44,6 +52,7 @@ The corrected code is now merged to `main` and the production Render deployment 
 - Refresh token rotation is enforced with `refreshTokenVersion`; a used refresh token becomes invalid after successful rotation, and logout/password change revoke refresh sessions.
 - Attendance calendar dates are normalized to UTC midnight to avoid local timezone drift.
 - Attendance corrections are explicitly audited with before/after record snapshots.
+- Payment ledger entries are immutable; reversal/refund is the only correction mechanism.
 
 ## Phase 1 exit gate
 
