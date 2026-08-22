@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware/index.js";
-import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, collectPayment, getPayments, getDailyCollectionReport, getMonthlyCollectionReport, getReceiptPDF } from "../controllers/feeController.js";
-import { CreateFeeStructureSchema, CreatePaymentSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators/index.js";
+import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, getDailyCollectionReport, getMonthlyCollectionReport } from "../controllers/feeController.js";
+import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
+import { CreateFeeStructureSchema, CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.get("/student/:id", requirePermission("fees:read"), validate(IdParamSchem
 router.post("/generate", requirePermission("fees:write"), generateFees);
 router.post("/payments", requirePermission("payments:write"), validate(CreatePaymentSchema), collectPayment);
 router.get("/payments", requirePermission("payments:read"), validate(PaginationSchema, "query"), getPayments);
+router.post("/payments/:id/reverse", requirePermission("payments:reverse"), validate(IdParamSchema, "params"), validate(PaymentReversalSchema), reversePayment);
 router.get("/reports/daily", requirePermission("reports:read"), validate(DateRangeSchema, "query"), getDailyCollectionReport);
 router.get("/reports/monthly", requirePermission("reports:read"), getMonthlyCollectionReport);
 router.get("/receipt/:id", requirePermission("payments:read"), validate(IdParamSchema, "params"), getReceiptPDF);
