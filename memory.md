@@ -2,8 +2,8 @@
 
 > **Purpose:** Compact operational memory for AI coding agents. Verify important claims against the repository before relying on them.
 
-**Last verified:** 18 August 2026
-**Repository status:** actively developed; incomplete; not production-ready.
+**Last verified:** 22 August 2026
+**Repository status:** actively developed; Phase 1 security gate completed; Phase 2 Core Administration MVP in progress.
 
 ---
 
@@ -94,6 +94,8 @@ Backend groups:
 /api/v1/attendance
 /api/v1/fees
 /api/v1/dashboard
+/api/v1/parents
+/api/v1/school
 /api/v1/health
 ```
 
@@ -116,9 +118,27 @@ AuditLog
 
 ---
 
-## 4. Security Baseline — Verified 18 Aug 2026
+## 4. Phase 1 Security Baseline — COMPLETED 22 Aug 2026
 
-Implemented:
+The deployed acceptance gate passed all 8 checks against Render:
+```text
+8 passed (34.5s)
+Phase 1 Playwright exit code: 0
+```
+
+Verified:
+- School A student can access own record
+- School A cannot access School B student data
+- teacher cross-tenant/class ownership is denied
+- principal cross-tenant fee access is denied
+- parent access to an unlinked child is denied
+- student access to teacher-only attendance management is denied
+- principal can access tenant-owned student data
+- refresh-token replay after rotation is denied
+
+Phase 1 is now a regression gate for future changes.
+
+Security implemented and verified includes:
 - JWT access + refresh tokens
 - HttpOnly auth cookies
 - production `SameSite=None` cookies for separate SPA/API hosting
@@ -133,11 +153,13 @@ Implemented:
 - bounded multipart uploads
 - MIME restrictions for uploads
 - escaped Mongo regex search input
-- hardcoded demo password removed from seed and login UI
-- Excel import/export migrated away from SheetJS `xlsx`
-- spreadsheet import row cap (5,000)
-
-The frontend no longer persists access tokens in localStorage. Authentication is now cookie-authoritative and the app restores the session through `/auth/me`.
+- no browser localStorage access-token persistence
+- tenant-scoped core controllers and reporting
+- explicit Parent ↔ Student ownership through `Student.parentIds`
+- refresh-token rotation/revocation using `refreshTokenVersion`
+- super-admin selected-school validation against the live `School` collection
+- immutable payment ledger with reversal/refund workflow
+- tenant-scoped financial reconciliation
 
 ---
 
@@ -150,25 +172,15 @@ Core tenant-owned CRUD/reporting controllers currently scope database queries us
 - attendance
 - fees/payments
 - dashboard
+- parent access
+- school settings
 
 The fee payment workflow uses a MongoDB transaction so Payment creation and Fee balance/status updates are atomic.
 
-### Remaining P0/P1 tenant work
-
-#### P0 — Login tenant selection
-Login still searches by email alone while user uniqueness is `(email, schoolId)`.
-
-Required future design:
-- explicit tenant identifier such as school code/slug/subdomain
-- login must resolve the tenant first and then query `{ email, schoolId }`
-
-Do not remove the composite uniqueness constraint.
-
-#### P1 — Audit log tenant metadata
-AuditLog currently lacks an explicit `schoolId` field. Add tenant metadata and tenant-scoped audit querying before exposing audit logs to school users.
-
-#### P1 — School configuration
-School model needs a stable public tenant identifier (for example code/slug) before tenant-aware login can be completed cleanly.
+### Remaining security-sensitive follow-up
+- sensitive document delivery should move from permanent Cloudinary URLs to private/authenticated delivery
+- dashboard chart queries should be batched before larger deployments
+- standardize school timezone/reporting timezone
 
 ---
 
@@ -200,9 +212,39 @@ Server RBAC and frontend permission checks should consume the shared definition.
 
 Do not duplicate role-permission maps in the client.
 
+Principal has `settings:read` and `settings:write` permissions for school administration.
+
 ---
 
-## 8. File Uploads
+## 8. School Settings — Phase 2 Started
+
+Implemented:
+```text
+GET   /api/v1/school/settings
+PATCH /api/v1/school/settings
+```
+
+Rules:
+- authentication required
+- `settings:read` for reads
+- `settings:write` for writes
+- school is resolved only from authenticated `req.user.schoolId`
+- school code is immutable
+- academic year cannot be changed through settings endpoint
+- update schema allows only school profile/settings fields
+- updates create before/after AuditLog records
+
+Phase 2 next focus:
+- academic-year administration
+- users
+- students
+- teachers
+- classes/sections/subjects
+- administration search/filter/pagination
+
+---
+
+## 9. File Uploads
 
 Current flow:
 ```text
@@ -220,7 +262,7 @@ Student/teacher documents currently store Cloudinary secure URLs. Before product
 
 ---
 
-## 9. PDF / Reports
+## 10. PDF / Reports
 
 Server-side PDFKit is used for fee receipts and ID cards.
 
@@ -232,7 +274,7 @@ Remaining work:
 
 ---
 
-## 10. Performance / Correctness Work Remaining
+## 11. Performance / Correctness Work Remaining
 
 Dashboard chart generation is tenant-safe but currently performs repeated queries in loops. Replace with batched aggregation queries before larger deployments.
 
@@ -242,10 +284,10 @@ Progressively remove business-critical `any` usage; avoid giant unrelated type r
 
 ---
 
-## 11. Feature Gaps
+## 12. Feature Gaps
 
 Not fully implemented:
-- parent portal
+- parent portal UI
 - student portal
 - teacher portal
 - exams/marks/results
@@ -269,30 +311,28 @@ Transport is referenced by Student but no complete Transport module exists yet. 
 
 ---
 
-## 12. Immediate Development Order
+## 13. Immediate Development Order
 
 Continue in this order:
 
 ```text
-1. Tenant-aware login + School public identifier
-2. AuditLog tenant isolation
-3. Production-critical security/tenant tests
-4. Sensitive document access hardening
-5. PDF/School configuration correctness
-6. Dashboard aggregation + timezone standardization
-7. Core admin correctness
-8. Exams/results
-9. Notifications
-10. Portals
-11. SaaS administration
-12. Mobile
+1. Finish Phase 2 school settings and academic years
+2. Finish Phase 2 users/students/teachers/classes/sections/subjects administration
+3. Add admin search/filter/pagination and bulk workflows
+4. Complete Phase 3 attendance correction/acceptance gaps
+5. Finish Phase 4 financial hardening and reports
+6. Add exams/results
+7. Add notifications
+8. Add portals
+9. Add SaaS administration
+10. Add mobile
 ```
 
 Do not prioritize microservices, Kubernetes, complex AI/ML, GPS tracking, WhatsApp automation, or large-scale caching before the core ERP is correct.
 
 ---
 
-## 13. AI Coding Contract
+## 14. AI Coding Contract
 
 Before coding, inspect:
 ```text
