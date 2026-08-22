@@ -80,7 +80,7 @@ export async function getFees(req: Request, res: Response, next: NextFunction) {
 export async function getStudentFees(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const { academicYear } = req.validatedQuery as any;
+    const { academicYear } = req.query;
     const student = await Student.findOne({ _id: id, schoolId: tenantId(req) }).select("_id").lean();
     if (!student) throw AppError.notFound("Student not found");
     const dbQuery: Record<string, unknown> = { schoolId: tenantId(req), studentId: id };
