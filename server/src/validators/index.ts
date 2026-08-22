@@ -5,7 +5,7 @@ import {
   CreateTeacherSchema, UpdateTeacherSchema, CreateClassSchema, UpdateClassSchema,
   CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema,
   CreateAttendanceSchema, MarkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
-  CreatePaymentSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema,
+  CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema,
 } from "@school-erp/shared";
 
 export {
@@ -14,7 +14,7 @@ export {
   CreateTeacherSchema, UpdateTeacherSchema, CreateClassSchema, UpdateClassSchema,
   CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema,
   CreateAttendanceSchema, MarkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
-  CreatePaymentSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema,
+  CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema,
 };
 
 export const IdParamSchema = z.object({ id: ObjectIdSchema });
