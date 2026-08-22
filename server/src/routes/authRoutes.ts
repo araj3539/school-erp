@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { authenticate, requirePermission, requireRole, validate } from "../middleware/index.js";
 import { register, login, refresh, logout, me, changePassword } from "../controllers/authController.js";
+import { bootstrapPhase1Fixtures } from "../controllers/phase1BootstrapController.js";
 import { getUsers, getUserById, createUser, updateUser, deleteUser } from "../controllers/userController.js";
 import { CreateUserSchema, UpdateTenantUserSchema, IdParamSchema } from "../validators/index.js";
 import { UserRole } from "@school-erp/shared";
 
 const router = Router();
 
+router.post("/phase1/bootstrap", bootstrapPhase1Fixtures);
 router.post("/register", authenticate, requireRole(UserRole.SUPER_ADMIN), register);
 router.post("/login", login);
 router.post("/refresh", refresh);
