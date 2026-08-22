@@ -35,6 +35,4 @@ const SchoolSchema = new Schema<ISchool>({
   settings: { type: Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 
-SchoolSchema.index({ code: 1 }, { unique: true });
-
 export const School = mongoose.model<ISchool>("School", SchoolSchema);
