@@ -39,6 +39,22 @@ PaymentSchema.pre("validate", async function () {
   if (!student) throw new Error("Payment student must belong to the same school");
 });
 
+// Financial ledger entries are immutable. Corrections must be represented by
+// a reversal/refund record rather than mutating or deleting the original payment.
+const rejectPaymentMutation = function (next: (error?: Error) => void) {
+  next(new Error("Payment records are immutable; create a reversal or refund instead"));
+};
+PaymentSchema.pre("save", function (next) {
+  if (!this.isNew && this.isModified()) return rejectPaymentMutation(next);
+  next();
+});
+PaymentSchema.pre("findOneAndUpdate", rejectPaymentMutation);
+PaymentSchema.pre("updateOne", rejectPaymentMutation);
+PaymentSchema.pre("updateMany", rejectPaymentMutation);
+PaymentSchema.pre("findOneAndDelete", rejectPaymentMutation);
+PaymentSchema.pre("deleteOne", rejectPaymentMutation);
+PaymentSchema.pre("deleteMany", rejectPaymentMutation);
+
 PaymentSchema.index({ schoolId: 1, feeId: 1 });
 PaymentSchema.index({ schoolId: 1, studentId: 1, date: 1 });
 PaymentSchema.index({ schoolId: 1, date: 1 });
