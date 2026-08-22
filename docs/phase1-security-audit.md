@@ -14,10 +14,10 @@ Phase state: `IN_PROGRESS`
 | 4 | Design explicit Parent ↔ Student relationship | IMPLEMENTED | `Student.parentIds` is a same-school active-parent relationship, validated at the model layer; parent portal queries use `schoolId + parentIds`. |
 | 5 | Complete document/recovery authorization | IMPLEMENTED | Student, teacher and parent reads are ownership-scoped; recovery records use `schoolId + studentId`; restore is restricted to authorized school-management roles. |
 | 6 | Complete AuditLog isolation | IMPLEMENTED | Audit writes inherit tenant context where appropriate and tenant-scoped reads require `schoolId`; isolation tests are present. |
-| 7 | Complete session/security verification | IN_PROGRESS | HttpOnly/Secure/SameSite cookies, CSRF checks, rate limits and proxy trust are present. Refresh-token rotation/revocation uses per-user `refreshTokenVersion`; live replay/logout/password-change acceptance remains. |
+| 7 | Complete session/security verification | IN_PROGRESS | HttpOnly/Secure/SameSite cookies, CSRF checks, rate limits and proxy trust are present. Refresh-token rotation/revocation uses per-user `refreshTokenVersion`; live replay/logout/password-change acceptance remains. Super-admin selected-school context is now validated against an existing school. |
 | 8 | Build cross-tenant integration tests | IMPLEMENTED (HARNESS) | Playwright API E2E harness covers School A/School B isolation. Live execution requires dedicated test credentials/data. |
 | 9 | Build role/ownership E2E tests | IMPLEMENTED (HARNESS) | Student, teacher, principal, parent and role-boundary scenarios are defined. Live execution requires dedicated test credentials/data. |
-| 10 | Deployment verification | IMPLEMENTED | Render deployment for commit `6da3a623d02ec33d954d618e135a73390cbd2068` was confirmed `live`; subsequent test/CI/runtime-alignment commits are being redeployed automatically. |
+| 10 | Deployment verification | IMPLEMENTED | Render deployment for the corrected validation middleware/runtime release was confirmed `live`; subsequent auth-test commits are being redeployed automatically. |
 | 11 | Synchronize documentation | IN_PROGRESS | This audit, roadmap and financial/authorization notes are being updated as verification advances. |
 | 12 | Phase 1 exit verification | NOT READY | Authenticated deployed School A own-data / School B denial matrix plus session replay/revocation verification remain. |
 
@@ -37,6 +37,7 @@ Phase state: `IN_PROGRESS`
 - `PUT /auth/users/:id` now validates both the path identifier and update body before reaching the controller.
 - User updates now record a before/after audit snapshot and prevent duplicate tenant email addresses.
 - Regression tests cover tenant reassignment stripping and super-admin promotion rejection.
+- `X-School-Id` request context for super admins is accepted only when the selected school exists; invalid and unknown school IDs are rejected.
 
 ## Verification and deployment hardening
 
@@ -57,12 +58,13 @@ The Render failures were traced to:
 5. Payment controller tenant-context and `FeeStatus` enum typing errors.
 6. Refined Zod schemas being rejected by a middleware typed only for `AnyZodObject`.
 
-The corrected code is now merged to `main` and the production Render deployment returned to `live` after the validation middleware correction; later test/CI/runtime-alignment commits continue through automatic deployment.
+The corrected code is now merged to `main` and the production Render deployment returned to `live` after the validation middleware correction; later test/CI/runtime-alignment/auth commits continue through automatic deployment.
 
 ## Security decisions now recorded in code
 
 - School users derive tenant context from their authenticated JWT.
 - Super admins require an explicit selected school for school-owned operations.
+- A super admin's selected school must exist in the database before request-scoped tenant context is attached.
 - Client-supplied `schoolId` values are ignored when creating or updating tenant-owned user records.
 - School users cannot promote accounts to `super_admin`; platform-level creation remains restricted to the super-admin context.
 - Parent access is based on explicit `Student.parentIds`, never on name, phone, class, or admission metadata.
