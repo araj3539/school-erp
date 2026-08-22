@@ -12,11 +12,7 @@ const required = [
   "E2E_API_URL",
   "E2E_SCHOOL_A_STUDENT_ID",
   "E2E_SCHOOL_B_STUDENT_ID",
-  "E2E_PRINCIPAL_A_TOKEN",
-  "E2E_TEACHER_A_TOKEN",
-  "E2E_STUDENT_A_TOKEN",
-  "E2E_PARENT_A_TOKEN",
-  "E2E_REFRESH_TOKEN",
+  "E2E_FIXTURE_PASSWORD",
 ];
 
 const missing = required.filter((name) => !process.env[name]);
