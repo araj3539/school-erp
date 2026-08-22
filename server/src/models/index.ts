@@ -22,6 +22,8 @@ export { Fee } from "./Fee.js";
 export type { IFee } from "./Fee.js";
 export { Payment } from "./Payment.js";
 export type { IPayment } from "./Payment.js";
+export { PaymentReversal } from "./PaymentReversal.js";
+export type { IPaymentReversal, PaymentReversalType } from "./PaymentReversal.js";
 export { AuditLog } from "./AuditLog.js";
 export type { IAuditLog } from "./AuditLog.js";
 export { DocumentRecovery } from "./DocumentRecovery.js";
