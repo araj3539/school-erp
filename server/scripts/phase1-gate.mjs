@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const serverDir = resolve(scriptDir, "..");
+const workspaceRoot = resolve(serverDir, "..");
 config({ path: resolve(serverDir, ".env") });
 
 const required = [
@@ -29,14 +30,15 @@ console.log(`Phase 1 live verification target: ${process.env.E2E_API_URL}`);
 console.log(`Phase 1 environment: all ${required.length} required variables loaded from server/.env`);
 console.log("Starting Playwright Phase 1 security suite...\n");
 
-const playwrightCli = resolve(serverDir, "node_modules", "@playwright", "test", "cli.js");
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const result = spawnSync(
-  process.execPath,
-  [playwrightCli, "test", "e2e/phase1-security.spec.ts"],
+  npmCommand,
+  ["exec", "--workspace", "server", "playwright", "--", "test", "e2e/phase1-security.spec.ts"],
   {
-    cwd: serverDir,
+    cwd: workspaceRoot,
     stdio: "inherit",
     env: process.env,
+    shell: process.platform === "win32",
   },
 );
 
