@@ -17,7 +17,7 @@ Phase state: `IN_PROGRESS`
 | 7 | Complete session/security verification | IN_PROGRESS | HttpOnly/Secure/SameSite cookies, CSRF checks, rate limits and proxy trust are present. Refresh-token rotation/revocation uses per-user `refreshTokenVersion`; live replay/logout/password-change acceptance remains. |
 | 8 | Build cross-tenant integration tests | IMPLEMENTED (HARNESS) | Playwright API E2E harness covers School A/School B isolation. Live execution requires dedicated test credentials/data. |
 | 9 | Build role/ownership E2E tests | IMPLEMENTED (HARNESS) | Student, teacher, principal, parent and role-boundary scenarios are defined. Live execution requires dedicated test credentials/data. |
-| 10 | Deployment verification | IMPLEMENTED | Render deployment for commit `4357f9852c5f9d8a337aeb6b7b8a4b0985596a9b` was confirmed `live`; subsequent financial and authorization hardening commits are being redeployed automatically. |
+| 10 | Deployment verification | IMPLEMENTED | Render deployment for commit `6da3a623d02ec33d954d618e135a73390cbd2068` was confirmed `live`; subsequent test/CI/runtime-alignment commits are being redeployed automatically. |
 | 11 | Synchronize documentation | IN_PROGRESS | This audit, roadmap and financial/authorization notes are being updated as verification advances. |
 | 12 | Phase 1 exit verification | NOT READY | Authenticated deployed School A own-data / School B denial matrix plus session replay/revocation verification remain. |
 
@@ -38,6 +38,14 @@ Phase state: `IN_PROGRESS`
 - User updates now record a before/after audit snapshot and prevent duplicate tenant email addresses.
 - Regression tests cover tenant reassignment stripping and super-admin promotion rejection.
 
+## Verification and deployment hardening
+
+- Phase 1 CI now runs on pushes to `main` and pull requests targeting `main`.
+- CI builds the monorepo, runs shared and server unit tests, and executes Playwright E2E discovery so the security suite cannot silently disappear from the build.
+- Refresh-token replay is covered by the Phase 1 E2E suite.
+- Production and CI Node runtime targets are aligned to Node 22 through the root package `engines` declaration.
+- The previously observed duplicate `School.code` warning was traced to older startup logs; the current `School` schema contains a single unique index declaration and no database index mutation was performed blindly.
+
 ## Deployment failure root causes found and fixed
 
 The Render failures were traced to:
@@ -47,8 +55,9 @@ The Render failures were traced to:
 3. Document-recovery implicit `any` callback typing.
 4. Fee-controller callbacks inferred as implicit `any` while the Student model imports were broken.
 5. Payment controller tenant-context and `FeeStatus` enum typing errors.
+6. Refined Zod schemas being rejected by a middleware typed only for `AnyZodObject`.
 
-The corrected code is now merged to `main` and the production Render deployment has subsequently returned to `live` on the corrected payment-controller commit; later feature commits continue through automatic deployment.
+The corrected code is now merged to `main` and the production Render deployment returned to `live` after the validation middleware correction; later test/CI/runtime-alignment commits continue through automatic deployment.
 
 ## Security decisions now recorded in code
 
