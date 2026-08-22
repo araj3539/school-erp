@@ -35,10 +35,20 @@ async function login(api: any, email: string, schoolCode = schoolACode) {
   return { accessToken: token, refreshToken };
 }
 
+async function getWith502Retry(api: any, path: string, options: any, attempts = 3) {
+  let response;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    response = await api.get(path, options);
+    if (response.status() !== 502 || attempt === attempts) return response;
+    await new Promise((resolve) => setTimeout(resolve, 750 * attempt));
+  }
+  return response!;
+}
+
 test.describe("Phase 1 tenant isolation and ownership", () => {
   test("school A student can read its own record", async ({ request }) => {
     const { accessToken } = await login(request, emails.studentA);
-    const response = await request.get(`/api/v1/students/${ids.schoolAStudent}`, {
+    const response = await getWith502Retry(request, `/api/v1/students/${ids.schoolAStudent}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(response.status()).toBe(200);
@@ -100,7 +110,11 @@ test.describe("Phase 1 refresh-token rotation", () => {
       baseURL: process.env.E2E_API_URL,
       extraHTTPHeaders: { Accept: "application/json" },
     });
-    const refreshApi = await playwrightRequest.newContext({
+    const firstRefreshApi = await playwrightRequest.newContext({
+      baseURL: process.env.E2E_API_URL,
+      extraHTTPHeaders: { Accept: "application/json" },
+    });
+    const replayApi = await playwrightRequest.newContext({
       baseURL: process.env.E2E_API_URL,
       extraHTTPHeaders: { Accept: "application/json" },
     });
@@ -109,18 +123,19 @@ test.describe("Phase 1 refresh-token rotation", () => {
       const { refreshToken } = await login(loginApi, emails.studentA);
       expect(refreshToken).toBeTruthy();
 
-      const first = await refreshApi.post("/api/v1/auth/refresh", {
+      const first = await firstRefreshApi.post("/api/v1/auth/refresh", {
         data: { refreshToken },
       });
       expect(first.status()).toBe(200);
 
-      const second = await refreshApi.post("/api/v1/auth/refresh", {
+      const second = await replayApi.post("/api/v1/auth/refresh", {
         data: { refreshToken },
       });
       expect([401, 403]).toContain(second.status());
     } finally {
       await loginApi.dispose();
-      await refreshApi.dispose();
+      await firstRefreshApi.dispose();
+      await replayApi.dispose();
     }
   });
 });
