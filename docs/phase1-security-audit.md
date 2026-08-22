@@ -14,12 +14,12 @@ Phase state: `IN_PROGRESS`
 | 4 | Design explicit Parent ↔ Student relationship | IMPLEMENTED | `Student.parentIds` is a same-school active-parent relationship, validated at the model layer; parent portal queries use `schoolId + parentIds`. |
 | 5 | Complete document/recovery authorization | IMPLEMENTED | Student, teacher and parent reads are ownership-scoped; recovery records use `schoolId + studentId`; restore is restricted to authorized school-management roles. |
 | 6 | Complete AuditLog isolation | IMPLEMENTED | Audit writes inherit tenant context where appropriate and tenant-scoped reads require `schoolId`; isolation tests are present. |
-| 7 | Complete session/security verification | IN_PROGRESS | HttpOnly/Secure/SameSite cookies, CSRF checks, rate limits and proxy trust are present. Refresh-token rotation/revocation uses per-user `refreshTokenVersion`; live replay/logout/password-change acceptance remains. Super-admin selected-school context is now validated against an existing school. |
-| 8 | Build cross-tenant integration tests | IMPLEMENTED (HARNESS) | Playwright API E2E harness covers School A/School B isolation. Live execution requires dedicated test credentials/data. |
-| 9 | Build role/ownership E2E tests | IMPLEMENTED (HARNESS) | Student, teacher, principal, parent and role-boundary scenarios are defined. Live execution requires dedicated test credentials/data. |
-| 10 | Deployment verification | IMPLEMENTED | Render deployment for the corrected validation middleware/runtime release was confirmed `live`; subsequent auth-test commits are being redeployed automatically. |
+| 7 | Complete session/security verification | IN_PROGRESS | HttpOnly/Secure/SameSite cookies, CSRF checks, rate limits and proxy trust are present. Refresh-token rotation/revocation uses per-user `refreshTokenVersion`; the dedicated live gate now verifies refresh replay and documents the remaining logout/password-change acceptance. |
+| 8 | Build cross-tenant integration tests | IMPLEMENTED (HARNESS) | Playwright API E2E harness covers School A/School B isolation. Dedicated `test:e2e:phase1` gate now fails closed when live credentials/data are missing. |
+| 9 | Build role/ownership E2E tests | IMPLEMENTED (HARNESS) | Student, teacher, principal, parent and role-boundary scenarios are defined. The live gate prevents accidental sign-off without configured credentials. |
+| 10 | Deployment verification | IMPLEMENTED | Render deployments have returned to `live`; Vercel checks are successful for recent production commits. |
 | 11 | Synchronize documentation | IN_PROGRESS | This audit, roadmap and financial/authorization notes are being updated as verification advances. |
-| 12 | Phase 1 exit verification | NOT READY | Authenticated deployed School A own-data / School B denial matrix plus session replay/revocation verification remain. |
+| 12 | Phase 1 exit verification | NOT READY | Run `npm run test:e2e:phase1` with the dedicated School A/School B credentials and verify the complete acceptance matrix against the deployed application. |
 
 ## Production financial safeguards added during Phase 4 hardening
 
@@ -37,7 +37,7 @@ Phase state: `IN_PROGRESS`
 - `PUT /auth/users/:id` now validates both the path identifier and update body before reaching the controller.
 - User updates now record a before/after audit snapshot and prevent duplicate tenant email addresses.
 - Regression tests cover tenant reassignment stripping and super-admin promotion rejection.
-- `X-School-Id` request context for super admins is accepted only when the selected school exists; invalid and unknown school IDs are rejected.
+- Super-admin request-scoped `X-School-Id` context is only accepted when the selected school exists in MongoDB.
 
 ## Verification and deployment hardening
 
@@ -46,6 +46,7 @@ Phase state: `IN_PROGRESS`
 - Refresh-token replay is covered by the Phase 1 E2E suite.
 - Production and CI Node runtime targets are aligned to Node 22 through the root package `engines` declaration.
 - The previously observed duplicate `School.code` warning was traced to older startup logs; the current `School` schema contains a single unique index declaration and no database index mutation was performed blindly.
+- `npm run test:e2e:phase1` is a fail-closed live acceptance gate. It refuses to run when required deployed-test credentials or cross-tenant test IDs are missing, preventing a false Phase 1 sign-off from skipped tests.
 
 ## Deployment failure root causes found and fixed
 
@@ -58,13 +59,10 @@ The Render failures were traced to:
 5. Payment controller tenant-context and `FeeStatus` enum typing errors.
 6. Refined Zod schemas being rejected by a middleware typed only for `AnyZodObject`.
 
-The corrected code is now merged to `main` and the production Render deployment returned to `live` after the validation middleware correction; later test/CI/runtime-alignment/auth commits continue through automatic deployment.
-
 ## Security decisions now recorded in code
 
 - School users derive tenant context from their authenticated JWT.
 - Super admins require an explicit selected school for school-owned operations.
-- A super admin's selected school must exist in the database before request-scoped tenant context is attached.
 - Client-supplied `schoolId` values are ignored when creating or updating tenant-owned user records.
 - School users cannot promote accounts to `super_admin`; platform-level creation remains restricted to the super-admin context.
 - Parent access is based on explicit `Student.parentIds`, never on name, phone, class, or admission metadata.
@@ -72,9 +70,33 @@ The corrected code is now merged to `main` and the production Render deployment 
 - Teacher access to student records is bound to assigned classes.
 - Document recovery keys and records are tenant/student scoped.
 - Refresh token rotation is enforced with `refreshTokenVersion`; a used refresh token becomes invalid after successful rotation, and logout/password change revoke refresh sessions.
+- Super-admin selected-school context is validated against the live `School` collection before becoming request-scoped tenant context.
 - Attendance calendar dates are normalized to UTC midnight to avoid local timezone drift.
 - Attendance corrections are explicitly audited with before/after record snapshots.
 - Payment ledger entries are immutable; reversal/refund is the only correction mechanism.
+
+## Phase 1 live verification command
+
+From the repository root:
+
+```bash
+npm run test:e2e:phase1
+```
+
+The command requires the following dedicated test environment values:
+
+```text
+E2E_API_URL
+E2E_SCHOOL_A_STUDENT_ID
+E2E_SCHOOL_B_STUDENT_ID
+E2E_PRINCIPAL_A_TOKEN
+E2E_TEACHER_A_TOKEN
+E2E_STUDENT_A_TOKEN
+E2E_PARENT_A_TOKEN
+E2E_REFRESH_TOKEN
+```
+
+The command fails with exit code `2` when any required value is missing; it never treats a skipped E2E suite as a passing Phase 1 verification.
 
 ## Phase 1 exit gate
 
