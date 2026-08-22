@@ -29,8 +29,9 @@ export async function getParentStudents(req: Request, res: Response, next: NextF
 export async function getParentStudentById(req: Request, res: Response, next: NextFunction) {
   try {
     assertParent(req);
+    const { id } = req.validatedParams as { id: string };
     const student = await Student.findOne({
-      _id: req.validatedParams.id,
+      _id: id,
       schoolId: getTenantId(req),
       parentIds: req.user!.userId,
     }).populate("classId sectionId userId");
@@ -42,7 +43,7 @@ export async function getParentStudentById(req: Request, res: Response, next: Ne
 export async function getParentStudentDocumentUrl(req: Request, res: Response, next: NextFunction) {
   try {
     assertParent(req);
-    const { id, documentId } = req.validatedParams as any;
+    const { id, documentId } = req.validatedParams as { id: string; documentId: string };
     const student = await Student.findOne({
       _id: id,
       schoolId: getTenantId(req),
