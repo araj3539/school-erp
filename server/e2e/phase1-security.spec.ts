@@ -22,8 +22,16 @@ async function login(request: any, email: string, schoolCode = schoolACode) {
   const body = await response.json().catch(() => ({}));
   expect(response.status(), `Login failed for ${email}: ${JSON.stringify(body)}`).toBe(200);
   const token = body.accessToken ?? body.data?.accessToken;
-  const refreshToken = body.refreshToken ?? body.data?.refreshToken;
   expect(token, `No access token returned for ${email}`).toBeTruthy();
+
+  const refreshToken = response
+    .headersArray()
+    .filter((header) => header.name.toLowerCase() === "set-cookie")
+    .map((header) => header.value)
+    .map((value) => value.split(";")[0])
+    .find((value) => value.startsWith("refresh_token="))
+    ?.slice("refresh_token=".length);
+
   return { accessToken: token, refreshToken };
 }
 
