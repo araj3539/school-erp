@@ -29,11 +29,15 @@ console.log(`Phase 1 live verification target: ${process.env.E2E_API_URL}`);
 console.log(`Phase 1 environment: all ${required.length} required variables loaded from server/.env`);
 console.log("Starting Playwright Phase 1 security suite...\n");
 
-const command = process.platform === "win32" ? "npx.cmd" : "npx";
+const playwrightCli = resolve(serverDir, "node_modules", "@playwright", "test", "cli.js");
 const result = spawnSync(
-  command,
-  ["playwright", "test", "e2e/phase1-security.spec.ts"],
-  { stdio: "inherit", env: process.env, cwd: serverDir },
+  process.execPath,
+  [playwrightCli, "test", "e2e/phase1-security.spec.ts"],
+  {
+    cwd: serverDir,
+    stdio: "inherit",
+    env: process.env,
+  },
 );
 
 if (result.error) {
@@ -41,6 +45,5 @@ if (result.error) {
   process.exit(1);
 }
 
-const exitCode = result.status ?? (result.signal ? 1 : 0);
-console.log(`\nPhase 1 Playwright exit code: ${exitCode}`);
-process.exit(exitCode);
+console.log(`\nPhase 1 Playwright exit code: ${result.status ?? 1}`);
+process.exit(result.status ?? 1);
