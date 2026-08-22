@@ -3,11 +3,15 @@ import mongoose from "mongoose";
 import { Fee, Payment, PaymentReversal } from "../models/index.js";
 import { PaymentQuerySchema, CreatePaymentSchema, PaymentReversalSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
-import { generateReceiptNumber } from "@school-erp/shared";
+import { FeeStatus, generateReceiptNumber } from "@school-erp/shared";
 import { generateReceiptPDF } from "../services/pdf.js";
 import { AppError } from "../utils/errors.js";
 
-function schoolId(req: Request): string { return req.user!.schoolId; }
+function schoolId(req: Request): string {
+  const tenant = req.user?.schoolId;
+  if (!tenant) throw AppError.forbidden("A school context is required for payment operations");
+  return tenant;
+}
 
 function samePaymentRequest(payment: any, data: any): boolean {
   return payment.feeId.toString() === data.feeId
@@ -37,6 +41,7 @@ export async function collectPayment(req: Request, res: Response, next: NextFunc
     await session.withTransaction(async () => {
       const fee = await Fee.findOne({ _id: data.feeId, schoolId: tenant }).session(session);
       if (!fee) throw AppError.notFound("Fee not found");
+      if (data.amount <= 0) throw AppError.badRequest("Payment amount must be greater than zero");
       if (data.amount > fee.balance) throw AppError.badRequest("Payment amount exceeds balance");
       if (fee.balance <= 0) throw AppError.badRequest("Fee has no outstanding balance");
 
@@ -53,7 +58,7 @@ export async function collectPayment(req: Request, res: Response, next: NextFunc
 
       fee.paidAmount += data.amount;
       fee.balance = Math.max(0, fee.totalDue - fee.paidAmount);
-      fee.status = fee.balance === 0 ? "paid" : "partial";
+      fee.status = fee.balance === 0 ? FeeStatus.PAID : FeeStatus.PARTIAL;
       await fee.save({ session });
 
       await createAuditLog({
@@ -121,7 +126,11 @@ export async function reversePayment(req: Request, res: Response, next: NextFunc
       if (!fee) throw AppError.notFound("Fee not found");
       fee.paidAmount = Math.max(0, fee.paidAmount - data.amount);
       fee.balance = Math.max(0, fee.totalDue - fee.paidAmount);
-      fee.status = fee.balance === 0 ? "paid" : fee.paidAmount > 0 ? "partial" : "pending";
+      fee.status = fee.balance === 0
+        ? FeeStatus.PAID
+        : fee.paidAmount > 0
+          ? FeeStatus.PARTIAL
+          : FeeStatus.PENDING;
       await fee.save({ session });
 
       await createAuditLog({
@@ -130,7 +139,7 @@ export async function reversePayment(req: Request, res: Response, next: NextFunc
         action: data.type === "refund" ? "REFUND_PAYMENT" : "REVERSE_PAYMENT",
         entity: "Payment",
         entityId: payment._id.toString(),
-        before: { paidAmount: fee.paidAmount + data.amount, balance: fee.balance - data.amount },
+        before: { paidAmount: fee.paidAmount + data.amount, balance: Math.max(0, fee.totalDue - (fee.paidAmount + data.amount)) },
         after: { reversalId: reversal._id.toString(), amount: data.amount, reason: data.reason, type: data.type, feeId: fee._id.toString() },
         session,
       });
@@ -150,7 +159,7 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
   try {
     const query = PaymentQuerySchema.parse(req.query);
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
-    const dbQuery: Record<string, unknown> = { schoolId: tenantId(req) };
+    const dbQuery: Record<string, unknown> = { schoolId: schoolId(req) };
     if (filters.studentId) dbQuery.studentId = filters.studentId;
     if (filters.feeId) dbQuery.feeId = filters.feeId;
     if (filters.startDate || filters.endDate) {
@@ -172,7 +181,8 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
 export async function getReceiptPDF(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const payment = await Payment.findOne({ _id: id, schoolId: tenantId(req) }).populate({ path: "feeId", populate: { path: "feeStructureId studentId" } }).lean();
+    const tenant = schoolId(req);
+    const payment = await Payment.findOne({ _id: id, schoolId: tenant }).populate({ path: "feeId", populate: { path: "feeStructureId studentId" } }).lean();
     if (!payment) throw AppError.notFound("Payment not found");
     const pdf = await generateReceiptPDF({ ...payment, fee: { ...(payment.feeId as any), feeStructure: (payment.feeId as any).feeStructureId, student: (payment.feeId as any).studentId }, collectedBy: { fullName: (payment.collectedBy as any)?.email || "Unknown" } } as any);
     res.setHeader("Content-Type", "application/pdf");
@@ -180,5 +190,3 @@ export async function getReceiptPDF(req: Request, res: Response, next: NextFunct
     res.send(pdf);
   } catch (error) { next(error); }
 }
-
-function tenantId(req: Request): string { return req.user!.schoolId; }
