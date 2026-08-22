@@ -8,6 +8,7 @@ import feeRoutes from "./feeRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 import parentRoutes from "./parentRoutes.js";
 import schoolRoutes from "./schoolRoutes.js";
+import auditLogRoutes from "./auditLogRoutes.js";
 
 const router = Router();
 router.use("/auth", authRoutes);
@@ -19,5 +20,6 @@ router.use("/fees", feeRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/parents", parentRoutes);
 router.use("/school", schoolRoutes);
+router.use("/audit-logs", auditLogRoutes);
 router.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
 export default router;
