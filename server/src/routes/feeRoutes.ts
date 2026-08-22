@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware/index.js";
 import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, getDailyCollectionReport, getMonthlyCollectionReport } from "../controllers/feeController.js";
 import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
+import { getFinancialReconciliation } from "../controllers/reconciliationController.js";
 import { CreateFeeStructureSchema, CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
@@ -19,6 +20,7 @@ router.get("/payments", requirePermission("payments:read"), validate(PaginationS
 router.post("/payments/:id/reverse", requirePermission("payments:reverse"), validate(IdParamSchema, "params"), validate(PaymentReversalSchema), reversePayment);
 router.get("/reports/daily", requirePermission("reports:read"), validate(DateRangeSchema, "query"), getDailyCollectionReport);
 router.get("/reports/monthly", requirePermission("reports:read"), getMonthlyCollectionReport);
+router.get("/reports/reconciliation", requirePermission("reports:read"), validate(DateRangeSchema, "query"), getFinancialReconciliation);
 router.get("/receipt/:id", requirePermission("payments:read"), validate(IdParamSchema, "params"), getReceiptPDF);
 
 export default router;
