@@ -24,12 +24,12 @@ if (missing.length > 0) {
 
 console.log(`Phase 1 live verification target: ${process.env.E2E_API_URL}`);
 console.log(`Phase 1 environment: all ${required.length} required variables loaded from server/.env`);
-console.log("Starting Playwright Phase 1 security suite...\n");
+console.log("Starting Playwright Phase 1 security suite with 1 worker...\n");
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const result = spawnSync(
   npmCommand,
-  ["exec", "--workspace", "server", "playwright", "--", "test", "e2e/phase1-security.spec.ts"],
+  ["exec", "--workspace", "server", "playwright", "--", "test", "e2e/phase1-security.spec.ts", "--workers=1"],
   {
     cwd: workspaceRoot,
     stdio: "inherit",
