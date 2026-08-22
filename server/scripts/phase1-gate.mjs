@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-config({ path: resolve(scriptDir, "../.env") });
+const serverDir = resolve(scriptDir, "..");
+config({ path: resolve(serverDir, ".env") });
 
 const required = [
   "E2E_API_URL",
@@ -24,10 +25,22 @@ if (missing.length > 0) {
   process.exit(2);
 }
 
+console.log(`Phase 1 live verification target: ${process.env.E2E_API_URL}`);
+console.log(`Phase 1 environment: all ${required.length} required variables loaded from server/.env`);
+console.log("Starting Playwright Phase 1 security suite...\n");
+
+const command = process.platform === "win32" ? "npx.cmd" : "npx";
 const result = spawnSync(
-  process.platform === "win32" ? "npx.cmd" : "npx",
+  command,
   ["playwright", "test", "e2e/phase1-security.spec.ts"],
-  { stdio: "inherit", env: process.env },
+  { stdio: "inherit", env: process.env, cwd: serverDir },
 );
 
-process.exit(result.status ?? 1);
+if (result.error) {
+  console.error(`\nFailed to start Playwright: ${result.error.message}`);
+  process.exit(1);
+}
+
+const exitCode = result.status ?? (result.signal ? 1 : 0);
+console.log(`\nPhase 1 Playwright exit code: ${exitCode}`);
+process.exit(exitCode);
