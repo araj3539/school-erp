@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AnyZodObject, ZodError } from "zod";
+import { ZodError, ZodTypeAny } from "zod";
 import { AppError } from "../utils/errors.js";
 
 declare global {
@@ -14,7 +14,7 @@ declare global {
 
 export type ValidationTarget = "body" | "query" | "params";
 
-export function validate(schema: AnyZodObject, target: ValidationTarget = "body") {
+export function validate(schema: ZodTypeAny, target: ValidationTarget = "body") {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const parsed = await schema.parseAsync(req[target]);
@@ -32,4 +32,3 @@ export function validate(schema: AnyZodObject, target: ValidationTarget = "body"
     }
   };
 }
-
