@@ -1,6 +1,7 @@
 {
   "name": "school-erp",
   "private": true,
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix shared\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run build --prefix shared && npm run build --prefix server && npm run build --prefix client",
