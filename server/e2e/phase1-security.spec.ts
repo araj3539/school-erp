@@ -6,7 +6,7 @@ const ids = {
 };
 
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
-
+const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const emails = {
   principalA: "principal.a@phase1.example.com",
   teacherA: "teacher.a@phase1.example.com",
@@ -14,13 +14,13 @@ const emails = {
   parentA: "parent.a@phase1.example.com",
 };
 
-async function login(request: any, email: string) {
+async function login(request: any, email: string, schoolCode = schoolACode) {
   if (!fixturePassword) throw new Error("E2E_FIXTURE_PASSWORD is required");
   const response = await request.post("/api/v1/auth/login", {
-    data: { email, password: fixturePassword },
+    data: { email, password: fixturePassword, schoolCode },
   });
-  expect(response.status(), `Login failed for ${email}`).toBe(200);
-  const body = await response.json();
+  const body = await response.json().catch(() => ({}));
+  expect(response.status(), `Login failed for ${email}: ${JSON.stringify(body)}`).toBe(200);
   const token = body.accessToken ?? body.data?.accessToken;
   const refreshToken = body.refreshToken ?? body.data?.refreshToken;
   expect(token, `No access token returned for ${email}`).toBeTruthy();
