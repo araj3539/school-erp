@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, request as playwrightRequest } from "@playwright/test";
 
 const ids = {
   schoolAStudent: process.env.E2E_SCHOOL_A_STUDENT_ID,
@@ -14,9 +14,9 @@ const emails = {
   parentA: "parent.a@phase1.example.com",
 };
 
-async function login(request: any, email: string, schoolCode = schoolACode) {
+async function login(api: any, email: string, schoolCode = schoolACode) {
   if (!fixturePassword) throw new Error("E2E_FIXTURE_PASSWORD is required");
-  const response = await request.post("/api/v1/auth/login", {
+  const response = await api.post("/api/v1/auth/login", {
     data: { email, password: fixturePassword, schoolCode },
   });
   const body = await response.json().catch(() => ({}));
@@ -95,18 +95,26 @@ test.describe("Phase 1 tenant isolation and ownership", () => {
 });
 
 test.describe("Phase 1 refresh-token rotation", () => {
-  test("a refresh token is single-use after successful rotation", async ({ request }) => {
-    const { refreshToken } = await login(request, emails.studentA);
-    expect(refreshToken).toBeTruthy();
-
-    const first = await request.post("/api/v1/auth/refresh", {
-      data: { refreshToken },
+  test("a refresh token is single-use after successful rotation", async () => {
+    const api = await playwrightRequest.newContext({
+      baseURL: process.env.E2E_API_URL,
+      extraHTTPHeaders: { Accept: "application/json" },
     });
-    expect(first.status()).toBe(200);
+    try {
+      const { refreshToken } = await login(api, emails.studentA);
+      expect(refreshToken).toBeTruthy();
 
-    const second = await request.post("/api/v1/auth/refresh", {
-      data: { refreshToken },
-    });
-    expect([401, 403]).toContain(second.status());
+      const first = await api.post("/api/v1/auth/refresh", {
+        data: { refreshToken },
+      });
+      expect(first.status()).toBe(200);
+
+      const second = await api.post("/api/v1/auth/refresh", {
+        data: { refreshToken },
+      });
+      expect([401, 403]).toContain(second.status());
+    } finally {
+      await api.dispose();
+    }
   });
 });
