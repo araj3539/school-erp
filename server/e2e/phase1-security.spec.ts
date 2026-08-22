@@ -9,12 +9,22 @@ const tokens = {
   teacherA: process.env.E2E_TEACHER_A_TOKEN,
   studentA: process.env.E2E_STUDENT_A_TOKEN,
   parentA: process.env.E2E_PARENT_A_TOKEN,
+  refresh: process.env.E2E_REFRESH_TOKEN,
 };
 
-const configured = Object.values(ids).every(Boolean) && Object.values(tokens).every(Boolean);
+const configured = [
+  ids.schoolAStudent,
+  ids.schoolBStudent,
+  tokens.principalA,
+  tokens.teacherA,
+  tokens.studentA,
+  tokens.parentA,
+].every(Boolean);
+
+const refreshConfigured = Boolean(tokens.refresh);
 
 test.describe("Phase 1 tenant isolation and ownership", () => {
-  test.skip(!configured, "Set E2E_API_URL and Phase 1 test tokens/IDs to run authenticated isolation checks");
+  test.skip(!configured, "Set Phase 1 test tokens/IDs to run authenticated isolation checks");
 
   test("school A student can read its own record", async ({ request }) => {
     const response = await request.get(`/api/v1/students/${ids.schoolAStudent}`, {
@@ -64,5 +74,21 @@ test.describe("Phase 1 tenant isolation and ownership", () => {
       headers: { Authorization: `Bearer ${tokens.principalA}` },
     });
     expect(response.status()).toBe(200);
+  });
+});
+
+test.describe("Phase 1 refresh-token rotation", () => {
+  test.skip(!refreshConfigured, "Set E2E_REFRESH_TOKEN to run refresh replay verification");
+
+  test("a refresh token is single-use after successful rotation", async ({ request }) => {
+    const first = await request.post("/api/v1/auth/refresh", {
+      data: { refreshToken: tokens.refresh },
+    });
+    expect(first.status()).toBe(200);
+
+    const second = await request.post("/api/v1/auth/refresh", {
+      data: { refreshToken: tokens.refresh },
+    });
+    expect([401, 403]).toContain(second.status());
   });
 });
