@@ -1,4 +1,10 @@
 import { spawnSync } from "node:child_process";
+import { config } from "dotenv";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(scriptDir, "../.env") });
 
 const required = [
   "E2E_API_URL",
