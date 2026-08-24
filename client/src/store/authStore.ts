@@ -19,6 +19,12 @@ type AuthState = {
   hasAnyPermission: (permissions: string[]) => boolean;
 };
 
+function resolveActiveSchoolId(user: User, schools: TenantSchool[], requested?: string | null) {
+  if (user.schoolId) return String(user.schoolId);
+  if (requested && schools.some((school) => school.id === requested)) return requested;
+  return schools[0]?.id ?? null;
+}
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
@@ -28,7 +34,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   login: (user, tenant) => {
     const schools = tenant?.schools || [];
-    const activeSchoolId = user.schoolId ? String(user.schoolId) : (tenant?.activeSchoolId || (schools.length === 1 ? schools[0].id : null));
+    const activeSchoolId = resolveActiveSchoolId(user, schools, tenant?.activeSchoolId);
     set({ user, isAuthenticated: true, hasHydrated: true, activeSchoolId, availableSchools: schools });
   },
 
@@ -37,10 +43,20 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   setUser: (user) => {
-    set({ user, isAuthenticated: Boolean(user), hasHydrated: true, activeSchoolId: user?.schoolId ? String(user.schoolId) : get().activeSchoolId });
+    const { availableSchools, activeSchoolId } = get();
+    set({
+      user,
+      isAuthenticated: Boolean(user),
+      hasHydrated: true,
+      activeSchoolId: user ? resolveActiveSchoolId(user, availableSchools, activeSchoolId) : null,
+    });
   },
 
-  setActiveSchoolId: (schoolId) => set({ activeSchoolId: schoolId }),
+  setActiveSchoolId: (schoolId) => {
+    const { user, availableSchools } = get();
+    if (!user || user.role !== "super_admin") return;
+    if (!schoolId || availableSchools.some((school) => school.id === schoolId)) set({ activeSchoolId: schoolId });
+  },
 
   initializeAuth: async () => {
     try {
@@ -48,7 +64,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       const response = await api.get("/auth/me");
       const user = response.data.user as User;
       const schools = (response.data.schools || []) as TenantSchool[];
-      const activeSchoolId = user.schoolId ? String(user.schoolId) : (schools.length === 1 ? schools[0].id : null);
+      const activeSchoolId = resolveActiveSchoolId(user, schools);
       set({ user, isAuthenticated: true, hasHydrated: true, activeSchoolId, availableSchools: schools });
     } catch {
       set({ user: null, isAuthenticated: false, hasHydrated: true, activeSchoolId: null, availableSchools: [] });
