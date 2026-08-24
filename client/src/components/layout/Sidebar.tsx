@@ -3,6 +3,7 @@ import { useUIStore } from "../../store/uiStore";
 import { cn } from "../../utils";
 import { LayoutDashboard, Users, UserCheck, Building2, Calendar, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore } from "lucide-react";
 import { useAuth } from "../../hooks";
+import { useAuthStore } from "../../store/authStore";
 import api from "../../lib/api";
 
 interface NavItem {
@@ -28,6 +29,7 @@ export function Sidebar() {
   const location = useLocation();
   const { sidebarOpen, toggleSidebar } = useUIStore();
   const { user, hasPermission, logout } = useAuth();
+  const { activeSchoolId, availableSchools, setActiveSchoolId } = useAuthStore();
   const filteredItems = NAV_ITEMS.filter((item) =>
     !item.permissions || item.permissions.some((p) => hasPermission(p))
   );
@@ -61,6 +63,25 @@ export function Sidebar() {
               <LayoutDashboard className="w-6 h-6" />
             </button>
           </div>
+          {user?.role === "super_admin" && availableSchools.length > 0 && (
+            <div className="px-4 py-3 border-b border-gray-200">
+              <label htmlFor="active-school" className="block text-xs font-medium text-gray-500 mb-1">
+                Active School
+              </label>
+              <select
+                id="active-school"
+                value={activeSchoolId ?? ""}
+                onChange={(event) => setActiveSchoolId(event.target.value || null)}
+                className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              >
+                {availableSchools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name} ({school.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <nav className="flex-1 overflow-y-auto p-4 space-y-1">
             {filteredItems.map((item) => (
               <NavLink
