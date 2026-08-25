@@ -4,8 +4,10 @@ const apiUrl = process.env.E2E_API_URL;
 const password = process.env.E2E_FIXTURE_PASSWORD;
 const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const principalEmail = "principal.a@phase1.example.com";
+const cachedPrincipalToken = process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN;
 
 async function login(request: any, email: string) {
+  if (cachedPrincipalToken) return cachedPrincipalToken;
   if (!apiUrl || !password) throw new Error("E2E_API_URL and E2E_FIXTURE_PASSWORD are required");
   const response = await request.post("/api/v1/auth/login", {
     data: { email, password, schoolCode },
