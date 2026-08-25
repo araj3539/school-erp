@@ -31,7 +31,7 @@ router.get("/:id", parentOnly, requirePermission("students:read:child"), validat
 router.get("/:id", requireAnyPermission("students:read", "students:read:own"), validate(IdParamSchema, "params"), getStudentById);
 router.post("/", requirePermission("students:write"), validate(CreateStudentSchema), createStudent);
 router.put("/:id", requirePermission("students:write"), validate(IdParamSchema, "params"), validate(UpdateStudentSchema), updateStudent);
-router.delete("/:id", requirePermission("students:delete"), validate(StudentDocumentParamSchema, "params"), deleteStudent);
+router.delete("/:id", requirePermission("students:delete"), validate(IdParamSchema, "params"), deleteStudent);
 router.post("/bulk-import", requirePermission("students:write"), upload.single("file"), bulkImportStudents);
 router.post("/:id/documents", requirePermission("students:write"), validate(IdParamSchema, "params"), upload.single("file"), validateUploadedFileSignature, uploadStudentDocument);
 router.delete("/:id/documents/:documentId", requirePermission("students:write"), validate(StudentDocumentParamSchema, "params"), deleteStudentDocument);
