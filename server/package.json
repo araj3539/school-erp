@@ -16,7 +16,8 @@
     "test:e2e:phase2:documents": "node scripts/phase2-documents-gate.mjs",
     "test:e2e:phase2:payments": "node scripts/phase2-payments-gate.mjs",
     "test:e2e:phase2:audit": "node scripts/phase2-audit-gate.mjs",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "test:e2e:phase2:roles": "node scripts/phase2-roles-gate.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.879.0",
