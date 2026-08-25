@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
-import { upload, validateUploadedFileSignature } from "../middleware/upload.js";
+import { upload, validateStudentDocumentUpload } from "../middleware/upload.js";
 import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument, deleteStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController.js";
 import { getStudentParents, assignStudentParents } from "../controllers/studentParentController.js";
 import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery, runManualStorageBackup } from "../controllers/documentRecoveryController.js";
@@ -33,6 +33,6 @@ router.post("/", requirePermission("students:write"), validate(CreateStudentSche
 router.put("/:id", requirePermission("students:write"), validate(IdParamSchema, "params"), validate(UpdateStudentSchema), updateStudent);
 router.delete("/:id", requirePermission("students:delete"), validate(IdParamSchema, "params"), deleteStudent);
 router.post("/bulk-import", requirePermission("students:write"), upload.single("file"), bulkImportStudents);
-router.post("/:id/documents", requirePermission("students:write"), validate(IdParamSchema, "params"), upload.single("file"), validateUploadedFileSignature, uploadStudentDocument);
+router.post("/:id/documents", requirePermission("students:write"), validate(IdParamSchema, "params"), upload.single("file"), validateStudentDocumentUpload, uploadStudentDocument);
 router.delete("/:id/documents/:documentId", requirePermission("students:write"), validate(StudentDocumentParamSchema, "params"), deleteStudentDocument);
 export default router;
