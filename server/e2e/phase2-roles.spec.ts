@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, request as playwrightRequest } from "@playwright/test";
 
 const apiUrl = process.env.E2E_API_URL;
 const password = process.env.E2E_FIXTURE_PASSWORD;
@@ -21,9 +21,22 @@ function tokenUserId(token: string) {
 }
 
 test.describe("Phase 2 role boundaries", () => {
-  test("principal cannot create another principal", async ({ request }) => {
-    const token = await login(request, principalEmail);
-    const response = await request.post("/api/v1/auth/users", {
+  let api: any;
+  let token: string;
+  let userId: string;
+
+  test.beforeAll(async () => {
+    api = await playwrightRequest.newContext({ baseURL: apiUrl });
+    token = await login(api, principalEmail);
+    userId = tokenUserId(token);
+  });
+
+  test.afterAll(async () => {
+    await api?.dispose();
+  });
+
+  test("principal cannot create another principal", async () => {
+    const response = await api.post("/api/v1/auth/users", {
       headers: { Authorization: `Bearer ${token}` },
       data: {
         email: `phase2-${Date.now()}@example.com`,
@@ -34,10 +47,8 @@ test.describe("Phase 2 role boundaries", () => {
     expect([400, 403]).toContain(response.status());
   });
 
-  test("principal cannot change their own role", async ({ request }) => {
-    const token = await login(request, principalEmail);
-    const userId = tokenUserId(token);
-    const response = await request.put(`/api/v1/auth/users/${userId}`, {
+  test("principal cannot change their own role", async () => {
+    const response = await api.put(`/api/v1/auth/users/${userId}`, {
       headers: { Authorization: `Bearer ${token}` },
       data: { role: "teacher" },
     });
