@@ -7,6 +7,12 @@ const ids = {
 
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
 const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
+const cachedTokens: Record<string, string | undefined> = {
+  "principal.a@phase1.example.com": process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN,
+  "teacher.a@phase1.example.com": process.env.E2E_TEACHER_A_ACCESS_TOKEN,
+  "student.a@phase1.example.com": process.env.E2E_STUDENT_A_ACCESS_TOKEN,
+  "parent.a@phase1.example.com": process.env.E2E_PARENT_A_ACCESS_TOKEN,
+};
 const emails = {
   principalA: "principal.a@phase1.example.com",
   teacherA: "teacher.a@phase1.example.com",
@@ -15,6 +21,14 @@ const emails = {
 };
 
 async function login(api: any, email: string, schoolCode = schoolACode) {
+  const cached = cachedTokens[email];
+  if (cached) {
+    return {
+      accessToken: cached,
+      refreshToken: email === emails.studentA ? process.env.E2E_STUDENT_A_REFRESH_TOKEN : undefined,
+    };
+  }
+
   if (!fixturePassword) throw new Error("E2E_FIXTURE_PASSWORD is required");
   const response = await api.post("/api/v1/auth/login", {
     data: { email, password: fixturePassword, schoolCode },
