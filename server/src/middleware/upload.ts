@@ -41,26 +41,33 @@ function looksLikeWebp(buffer: Buffer): boolean {
     buffer.subarray(8, 12).toString("ascii") === "WEBP";
 }
 
-function validateStudentDocumentSignature(req: Express.Request, file: Express.Multer.File): void {
-  // This middleware is also used for Excel imports. Restrict signature checks to
-  // the student-document endpoint so spreadsheet uploads keep their own policy.
-  if (!/^\/[^/]+\/documents(?:\/|$)/.test(req.url)) return;
+const fileSignatures: Record<string, (buffer: Buffer) => boolean> = {
+  "application/pdf": looksLikePdf,
+  "image/jpeg": looksLikeJpeg,
+  "image/png": looksLikePng,
+  "image/gif": looksLikeGif,
+  "image/webp": looksLikeWebp,
+};
 
-  const signatures: Record<string, (buffer: Buffer) => boolean> = {
-    "application/pdf": looksLikePdf,
-    "image/jpeg": looksLikeJpeg,
-    "image/png": looksLikePng,
-    "image/gif": looksLikeGif,
-    "image/webp": looksLikeWebp,
-  };
-
-  const validator = signatures[file.mimetype];
+export function validateUploadedFileSignature(file: Express.Multer.File): void {
+  const validator = fileSignatures[file.mimetype];
   if (validator && !validator(file.buffer)) {
     throw new AppError("Uploaded file contents do not match the declared file type", 400, "INVALID_FILE_SIGNATURE");
   }
 }
 
-const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+export function validateStudentDocumentUpload(req: Express.Request, _res: Express.Response, next: Express.NextFunction): void {
+  try {
+    const file = (req as Express.Request & { file?: Express.Multer.File }).file;
+    if (!file) throw new AppError("Document file is required", 400, "FILE_REQUIRED");
+    validateUploadedFileSignature(file);
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+const fileFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -91,7 +98,3 @@ export const uploadMultiple = multer({
   },
   fileFilter,
 });
-
-export function validateUploadedFileSignature(req: Express.Request, file: Express.Multer.File): void {
-  validateStudentDocumentSignature(req, file);
-}
