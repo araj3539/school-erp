@@ -81,8 +81,14 @@ export async function getStudentFees(req: Request, res: Response, next: NextFunc
   try {
     const { id } = req.validatedParams as { id: string };
     const { academicYear } = req.query;
-    const student = await Student.findOne({ _id: id, schoolId: tenantId(req) }).select("_id").lean();
+    const student = await Student.findOne({ _id: id, schoolId: tenantId(req) }).select("_id userId parentIds").lean();
     if (!student) throw AppError.notFound("Student not found");
+    if (req.user!.role === "student" && student.userId?.toString() !== req.user!.userId) {
+      throw AppError.forbidden("Students can only access their own fees");
+    }
+    if (req.user!.role === "parent" && !student.parentIds.some((parentId) => parentId.toString() === req.user!.userId)) {
+      throw AppError.forbidden("Parents can only access fees for linked children");
+    }
     const dbQuery: Record<string, unknown> = { schoolId: tenantId(req), studentId: id };
     if (academicYear) dbQuery.academicYear = academicYear;
     const fees = await Fee.find(dbQuery).populate("feeStructureId").lean();
