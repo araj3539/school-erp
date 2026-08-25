@@ -44,7 +44,7 @@ function looksLikeWebp(buffer: Buffer): boolean {
 function validateStudentDocumentSignature(req: Express.Request, file: Express.Multer.File): void {
   // This middleware is also used for Excel imports. Restrict signature checks to
   // the student-document endpoint so spreadsheet uploads keep their own policy.
-  if (!/\/students\/[^/]+\/documents(?:\/|$)/.test(req.originalUrl)) return;
+  if (!/^\/[^/]+\/documents(?:\/|$)/.test(req.url)) return;
 
   const signatures: Record<string, (buffer: Buffer) => boolean> = {
     "application/pdf": looksLikePdf,
