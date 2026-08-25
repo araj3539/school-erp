@@ -14,8 +14,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.PRINCIPAL]: ["students:read", "students:write", "students:delete", "teachers:read", "teachers:write", "teachers:delete", "classes:read", "classes:write", "classes:delete", "attendance:read", "attendance:write", "fees:read", "fees:write", "fees:delete", "payments:read", "payments:reverse", "reports:read", "reports:export", "settings:read", "settings:write", "users:read", "users:write", "audit:read"],
   [UserRole.ACCOUNTANT]: ["fees:read", "fees:write", "payments:read", "payments:write", "payments:reverse", "expenses:read", "expenses:write", "salary:read", "salary:write", "reports:read", "reports:export"],
   [UserRole.TEACHER]: ["attendance:read", "attendance:write", "homework:read", "homework:write", "marks:read", "marks:write", "students:read", "notices:read"],
-  [UserRole.STUDENT]: ["students:read:own", "attendance:read:own", "homework:read:own", "marks:read:own", "fees:read:own", "notices:read"],
-  [UserRole.PARENT]: ["students:read:child", "attendance:read:child", "homework:read:child", "marks:read:child", "fees:read:child", "notices:read"],
+  [UserRole.STUDENT]: ["students:read:own", "attendance:read:own", "homework:read:own", "marks:read:own", "fees:read:own", "payments:read:own", "notices:read"],
+  [UserRole.PARENT]: ["students:read:child", "attendance:read:child", "homework:read:child", "marks:read:child", "fees:read:child", "payments:read:child", "notices:read"],
 };
 export const FEE_TYPE_LABELS: Record<FeeType, string> = { [FeeType.ADMISSION]: "Admission Fee", [FeeType.MONTHLY]: "Monthly Fee", [FeeType.EXAM]: "Exam Fee", [FeeType.TRANSPORT]: "Transport Fee", [FeeType.HOSTEL]: "Hostel Fee", [FeeType.FINE]: "Fine", [FeeType.OTHER]: "Other" };
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = { [AttendanceStatus.PRESENT]: "Present", [AttendanceStatus.ABSENT]: "Absent", [AttendanceStatus.LATE]: "Late", [AttendanceStatus.HALF_DAY]: "Half Day", [AttendanceStatus.ON_LEAVE]: "On Leave" };
