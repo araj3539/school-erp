@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { authenticate, requirePermission, validate } from "../middleware/index.js";
+import { authenticate, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
+import { requireStudentFeeOwnership } from "../middleware/feeOwnership.js";
 import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, getDailyCollectionReport, getMonthlyCollectionReport } from "../controllers/feeController.js";
 import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
 import { getFinancialReconciliation } from "../controllers/reconciliationController.js";
@@ -13,7 +14,7 @@ router.post("/structures", requirePermission("fees:write"), validate(CreateFeeSt
 router.put("/structures/:id", requirePermission("fees:write"), validate(IdParamSchema, "params"), validate(CreateFeeStructureSchema), updateFeeStructure);
 router.delete("/structures/:id", requirePermission("fees:delete"), validate(IdParamSchema, "params"), deleteFeeStructure);
 router.get("/", requirePermission("fees:read"), validate(PaginationSchema, "query"), getFees);
-router.get("/student/:id", requirePermission("fees:read"), validate(IdParamSchema, "params"), getStudentFees);
+router.get("/student/:id", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), requireStudentFeeOwnership, getStudentFees);
 router.post("/generate", requirePermission("fees:write"), generateFees);
 router.post("/payments", requirePermission("payments:write"), validate(CreatePaymentSchema), collectPayment);
 router.get("/payments", requirePermission("payments:read"), validate(PaginationSchema, "query"), getPayments);
