@@ -94,6 +94,7 @@ export const uploadMultiple = multer({
   limits: {
     fileSize: MAX_FILE_SIZE,
     files: 10,
+    fields: MAX_FIELDS,
     fieldNestingDepth: FIELD_NESTING_DEPTH,
   },
   fileFilter,
