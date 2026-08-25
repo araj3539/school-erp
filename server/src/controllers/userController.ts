@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { UserRole } from "@school-erp/shared";
 import { User } from "../models/index.js";
 import { CreateUserSchema, UpdateTenantUserSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
@@ -37,6 +38,9 @@ export async function createUser(req: Request, res: Response, next: NextFunction
   try {
     const schoolId = req.user!.schoolId;
     const data = CreateUserSchema.parse({ ...req.body, schoolId });
+    if (req.user!.role !== UserRole.SUPER_ADMIN && data.role === UserRole.PRINCIPAL) {
+      throw AppError.forbidden("Only super admin can create a principal");
+    }
     const existingUser = await User.findOne({ email: data.email, schoolId });
     if (existingUser) throw AppError.conflict("Email already registered");
     const passwordHash = await hashPassword(data.password);
@@ -51,8 +55,14 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
     const { id } = req.validatedParams as { id: string };
     const schoolId = req.user!.schoolId;
     const data = UpdateTenantUserSchema.parse(req.body);
+    if (req.user!.role !== UserRole.SUPER_ADMIN && data.role === UserRole.PRINCIPAL) {
+      throw AppError.forbidden("Only super admin can assign the principal role");
+    }
     const before = await User.findOne({ _id: id, schoolId }).lean();
     if (!before) throw AppError.notFound("User not found");
+    if (id === req.user!.userId && data.role && data.role !== before.role) {
+      throw AppError.badRequest("You cannot change your own role");
+    }
     if (data.email && data.email !== before.email) {
       const duplicate = await User.findOne({ _id: { $ne: id }, schoolId, email: data.email }).select("_id").lean();
       if (duplicate) throw AppError.conflict("Email already registered");
@@ -68,6 +78,7 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
   try {
     const { id } = req.validatedParams as { id: string };
     const schoolId = req.user!.schoolId;
+    if (id === req.user!.userId) throw AppError.badRequest("You cannot deactivate your own account");
     const user = await User.findOneAndUpdate({ _id: id, schoolId }, { isActive: false }, { new: true }).lean();
     if (!user) throw AppError.notFound("User not found");
     await createAuditLog({ userId: req.user!.userId, schoolId, action: "DELETE", entity: "User", entityId: id, before: { isActive: true }, after: { isActive: false } });
