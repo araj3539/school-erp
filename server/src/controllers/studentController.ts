@@ -47,7 +47,9 @@ async function assertStudentReadAccess(req: Request, studentId: string): Promise
     return;
   }
   if (req.user!.role === UserRole.PARENT) {
-    throw AppError.forbidden("Parent-child access is not configured yet");
+    const linkedChild = await Student.exists({ _id: studentId, schoolId, parentIds: req.user!.userId });
+    if (!linkedChild) throw AppError.forbidden("Parents can only access their linked children");
+    return;
   }
   if (req.user!.role === UserRole.TEACHER) {
     const student = await Student.findOne({ _id: studentId, schoolId }).select("classId").lean();
@@ -66,7 +68,7 @@ export async function getStudents(req: Request, res: Response, next: NextFunctio
     if (req.user!.role === UserRole.STUDENT) {
       dbQuery.userId = req.user!.userId;
     } else if (req.user!.role === UserRole.PARENT) {
-      throw AppError.forbidden("Parent-child access is not configured yet");
+      dbQuery.parentIds = req.user!.userId;
     } else if (req.user!.role === UserRole.TEACHER) {
       const classIds = await getTeacherClassIds(req);
       if (!classIds?.length) {
