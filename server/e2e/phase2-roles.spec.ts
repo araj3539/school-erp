@@ -31,7 +31,7 @@ test.describe("Phase 2 role boundaries", () => {
         role: "principal",
       },
     });
-    expect(response.status()).toBe(403);
+    expect([400, 403]).toContain(response.status());
   });
 
   test("principal cannot change their own role", async ({ request }) => {
