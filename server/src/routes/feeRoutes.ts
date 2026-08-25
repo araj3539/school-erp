@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
+import { authenticate, enforcePaymentListOwnership, enforcePaymentOwnership, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
 import { requireStudentFeeOwnership } from "../middleware/feeOwnership.js";
 import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, getDailyCollectionReport, getMonthlyCollectionReport } from "../controllers/feeController.js";
 import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
@@ -17,11 +17,11 @@ router.get("/", requirePermission("fees:read"), validate(PaginationSchema, "quer
 router.get("/student/:id", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), requireStudentFeeOwnership, getStudentFees);
 router.post("/generate", requirePermission("fees:write"), generateFees);
 router.post("/payments", requirePermission("payments:write"), validate(CreatePaymentSchema), collectPayment);
-router.get("/payments", requirePermission("payments:read"), validate(PaginationSchema, "query"), getPayments);
+router.get("/payments", requireAnyPermission("payments:read", "payments:read:own", "payments:read:child"), enforcePaymentListOwnership, validate(PaginationSchema, "query"), getPayments);
 router.post("/payments/:id/reverse", requirePermission("payments:reverse"), validate(IdParamSchema, "params"), validate(PaymentReversalSchema), reversePayment);
 router.get("/reports/daily", requirePermission("reports:read"), validate(DateRangeSchema, "query"), getDailyCollectionReport);
 router.get("/reports/monthly", requirePermission("reports:read"), getMonthlyCollectionReport);
 router.get("/reports/reconciliation", requirePermission("reports:read"), validate(DateRangeSchema, "query"), getFinancialReconciliation);
-router.get("/receipt/:id", requirePermission("payments:read"), validate(IdParamSchema, "params"), getReceiptPDF);
+router.get("/receipt/:id", requireAnyPermission("payments:read", "payments:read:own", "payments:read:child"), validate(IdParamSchema, "params"), enforcePaymentOwnership, getReceiptPDF);
 
 export default router;
