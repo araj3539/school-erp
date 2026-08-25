@@ -1,4 +1,5 @@
 import multer from "multer";
+import { NextFunction, Request, Response } from "express";
 import { AppError } from "../utils/errors.js";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -56,9 +57,9 @@ export function validateUploadedFileSignature(file: Express.Multer.File): void {
   }
 }
 
-export function validateStudentDocumentUpload(req: Express.Request, _res: Express.Response, next: Express.NextFunction): void {
+export function validateStudentDocumentUpload(req: Request, _res: Response, next: NextFunction): void {
   try {
-    const file = (req as Express.Request & { file?: Express.Multer.File }).file;
+    const file = (req as Request & { file?: Express.Multer.File }).file;
     if (!file) throw new AppError("Document file is required", 400, "FILE_REQUIRED");
     validateUploadedFileSignature(file);
     next();
@@ -67,7 +68,7 @@ export function validateStudentDocumentUpload(req: Express.Request, _res: Expres
   }
 }
 
-const fileFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -93,7 +94,6 @@ export const uploadMultiple = multer({
   limits: {
     fileSize: MAX_FILE_SIZE,
     files: 10,
-    fields: MAX_FIELDS,
     fieldNestingDepth: FIELD_NESTING_DEPTH,
   },
   fileFilter,
