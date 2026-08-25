@@ -1,5 +1,8 @@
 import { config } from "dotenv";
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 
 config({ path: resolve(process.cwd(), ".env") });
 
@@ -45,17 +48,14 @@ async function login(email) {
 }
 
 try {
+  const tokens = {};
   for (const [role, email] of Object.entries(fixtures)) {
-    const token = await login(email);
-    process.env[`E2E_${role.toUpperCase()}_ACCESS_TOKEN`] = token.accessToken;
-    if (role === "studentA" && token.refreshToken) {
-      process.env.E2E_STUDENT_A_REFRESH_TOKEN = token.refreshToken;
-    }
+    tokens[role] = await login(email);
   }
 
-  for (const [key, value] of Object.entries(process.env)) {
-    if (key.startsWith("E2E_") && value) console.log(`${key}=${value}`);
-  }
+  const outputPath = resolve(tmpdir(), `school-erp-phase2-${randomUUID()}.json`);
+  writeFileSync(outputPath, JSON.stringify(tokens), { encoding: "utf8" });
+  console.log(outputPath);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
