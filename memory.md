@@ -2,8 +2,8 @@
 
 > **Purpose:** Compact operational memory for AI coding agents. Verify important claims against the repository before relying on them.
 
-**Last verified:** 22 August 2026
-**Repository status:** actively developed; Phase 1 security gate completed; Phase 2 Core Administration MVP in progress.
+**Last verified:** 26 August 2026
+**Repository status:** actively developed; Phase 1 security baseline completed; Phase 2 Core Administration MVP completed; Phase 3 Attendance in progress.
 
 ---
 
@@ -214,11 +214,15 @@ Do not duplicate role-permission maps in the client.
 
 Principal has `settings:read` and `settings:write` permissions for school administration.
 
+For attendance:
+- teachers retain `attendance:write` for marking attendance in their assigned classes
+- corrections to an existing attendance record are restricted in the controller to `principal` and `super_admin`
+
 ---
 
-## 8. School Settings — Phase 2 Started
+## 8. School Settings and Academic Years — Phase 2 COMPLETED
 
-Implemented:
+Implemented and verified:
 ```text
 GET   /api/v1/school/settings
 PATCH /api/v1/school/settings
@@ -234,17 +238,34 @@ Rules:
 - update schema allows only school profile/settings fields
 - updates create before/after AuditLog records
 
-Phase 2 next focus:
-- academic-year administration
-- users
-- students
-- teachers
-- classes/sections/subjects
-- administration search/filter/pagination
+Phase 2 has exited. Remaining administration polish continues only where it is a dependency for later phases.
 
 ---
 
-## 9. File Uploads
+## 9. Attendance — Phase 3 IN PROGRESS
+
+Current attendance behavior:
+- attendance remains tenant-scoped by authenticated `schoolId`
+- teacher access remains class-teacher scoped through `Teacher.classTeacherOf`
+- student attendance remains self-only
+- parent attendance remains linked-child-only
+- attendance creation validates class/section ownership and active student membership
+- duplicate students within one submission are rejected
+- school/class/section/date uniqueness is enforced by a MongoDB unique index
+- attendance creation/correction is restricted to the school-configured current academic year
+- existing attendance records are now corrected only by principal/super-admin
+- attendance corrections produce explicit `CORRECT` audit events
+- monthly reports are restricted to the current academic year and return the academic-year name
+
+Remaining Phase 3 work:
+- explicit E2E coverage for teacher correction denial and principal correction success
+- duplicate-date and out-of-academic-year acceptance coverage
+- timezone-safe attendance/reporting semantics
+- bulk correction/import workflows
+
+---
+
+## 10. File Uploads
 
 Current flow:
 ```text
@@ -262,7 +283,7 @@ Student/teacher documents currently store Cloudinary secure URLs. Before product
 
 ---
 
-## 10. PDF / Reports
+## 11. PDF / Reports
 
 Server-side PDFKit is used for fee receipts and ID cards.
 
@@ -274,7 +295,7 @@ Remaining work:
 
 ---
 
-## 11. Performance / Correctness Work Remaining
+## 12. Performance / Correctness Work Remaining
 
 Dashboard chart generation is tenant-safe but currently performs repeated queries in loops. Replace with batched aggregation queries before larger deployments.
 
@@ -284,7 +305,7 @@ Progressively remove business-critical `any` usage; avoid giant unrelated type r
 
 ---
 
-## 12. Feature Gaps
+## 13. Feature Gaps
 
 Not fully implemented:
 - parent portal UI
@@ -311,28 +332,29 @@ Transport is referenced by Student but no complete Transport module exists yet. 
 
 ---
 
-## 13. Immediate Development Order
+## 14. Immediate Development Order
 
 Continue in this order:
 
 ```text
-1. Finish Phase 2 school settings and academic years
-2. Finish Phase 2 users/students/teachers/classes/sections/subjects administration
-3. Add admin search/filter/pagination and bulk workflows
-4. Complete Phase 3 attendance correction/acceptance gaps
-5. Finish Phase 4 financial hardening and reports
-6. Add exams/results
-7. Add notifications
-8. Add portals
-9. Add SaaS administration
-10. Add mobile
+1. Complete Phase 3 attendance E2E coverage and timezone hardening
+2. Complete Phase 3 bulk attendance workflows
+3. Finish administration search/filter/pagination and bulk workflows where needed
+4. Finish sensitive document private/authenticated delivery
+5. Batch dashboard aggregations and standardize reporting timezone
+6. Finish Phase 4 financial hardening and reports
+7. Add exams/results
+8. Add notifications
+9. Add portals
+10. Add SaaS administration
+11. Add mobile
 ```
 
 Do not prioritize microservices, Kubernetes, complex AI/ML, GPS tracking, WhatsApp automation, or large-scale caching before the core ERP is correct.
 
 ---
 
-## 14. AI Coding Contract
+## 15. AI Coding Contract
 
 Before coding, inspect:
 ```text
