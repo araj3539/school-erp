@@ -106,20 +106,30 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
   }
 }
 
-function applyStudentExportFilters(query: any, input: any): void {
+async function applyStudentExportFilters(query: any, input: any): Promise<void> {
   const { search, status, classId, sectionId } = input;
   if (classId) query.classId = classId;
   if (sectionId) query.sectionId = sectionId;
   if (status) query.status = status;
-  if (search) {
-    const escaped = escapeRegex(String(search).trim());
-    query.$or = [
-      { firstName: { $regex: escaped, $options: "i" } },
-      { lastName: { $regex: escaped, $options: "i" } },
-      { admissionNo: { $regex: escaped, $options: "i" } },
-      { phone: { $regex: escaped, $options: "i" } },
-    ];
+
+  const searchText = String(search ?? "").trim();
+  if (!searchText) return;
+
+  // Exact admission-number searches are common in exports and should be
+  // deterministic rather than relying on a regex against an identifier.
+  const exactAdmissionMatch = await Student.exists({ schoolId: query.schoolId, admissionNo: searchText });
+  if (exactAdmissionMatch) {
+    query.admissionNo = searchText;
+    return;
   }
+
+  const escaped = escapeRegex(searchText);
+  query.$or = [
+    { firstName: { $regex: escaped, $options: "i" } },
+    { lastName: { $regex: escaped, $options: "i" } },
+    { admissionNo: { $regex: escaped, $options: "i" } },
+    { phone: { $regex: escaped, $options: "i" } },
+  ];
 }
 
 export async function exportStudentsHardened(req: Request, res: Response, next: NextFunction) {
@@ -133,12 +143,12 @@ export async function exportStudentsHardened(req: Request, res: Response, next: 
       const classIds = await getTeacherClassIds(req);
       if (!classIds?.length) return sendStudentWorkbook(res, []);
       query.classId = { $in: classIds };
-      if (queryInput.classId) {
-        if (!classIds.includes(String(queryInput.classId))) throw AppError.forbidden("You are not assigned to this class");
+      if (queryInput.classId && !classIds.includes(String(queryInput.classId))) {
+        throw AppError.forbidden("You are not assigned to this class");
       }
     }
 
-    applyStudentExportFilters(query, queryInput);
+    await applyStudentExportFilters(query, queryInput);
 
     const sort: any = sortBy ? { [sortBy]: sortOrder === "asc" ? 1 : -1 } : { createdAt: -1 };
     const skip = page && limit ? (page - 1) * limit : 0;
