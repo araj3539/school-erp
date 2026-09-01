@@ -1,4 +1,8 @@
+import { config } from "dotenv";
+import { resolve } from "node:path";
 import { test, expect } from "@playwright/test";
+
+config({ path: resolve(process.cwd(), ".env") });
 
 const apiUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
