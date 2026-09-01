@@ -20,6 +20,8 @@
     "test:e2e:phase2": "node scripts/phase2-gate.mjs",
     "test:e2e:phase3:attendance": "playwright test e2e/phase3-attendance.spec.ts",
     "test:e2e:phase3:attendance:gate": "node scripts/phase3-attendance-gate.mjs",
+    "test:e2e:phase3:bulk": "playwright test e2e/phase3-attendance-bulk.spec.ts --workers=1",
+    "test:e2e:phase3": "node scripts/phase3-gate.mjs",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
@@ -44,6 +46,7 @@
   "devDependencies": {
     "@playwright/test": "^1.46.0",
     "@types/bcryptjs": "^2.4.0",
+    "@types/cookie-parser": "^1.4.0",
     "@types/cookie-parser": "^1.4.0",
     "@types/cors": "^2.8.0",
     "@types/express": "^4.17.0",
