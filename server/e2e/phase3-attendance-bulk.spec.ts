@@ -18,9 +18,14 @@ function apiUrl(path: string): string {
 
 function normalizeObjectId(value: unknown): string | undefined {
   if (typeof value === "string" && /^[a-f\d]{24}$/i.test(value)) return value;
-  if (value && typeof value === "object" && "$oid" in value) {
-    const oid = (value as { $oid?: unknown }).$oid;
-    if (typeof oid === "string" && /^[a-f\d]{24}$/i.test(oid)) return oid;
+  if (value && typeof value === "object") {
+    if ("$oid" in value) {
+      const oid = (value as { $oid?: unknown }).$oid;
+      if (typeof oid === "string" && /^[a-f\d]{24}$/i.test(oid)) return oid;
+    }
+    if ("_id" in value) {
+      return normalizeObjectId((value as { _id?: unknown })._id);
+    }
   }
   return undefined;
 }
