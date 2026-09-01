@@ -2,7 +2,7 @@
 
 > **Purpose:** Compact operational memory for AI coding agents. Verify important claims against the repository before relying on them.
 
-**Last verified:** 26 August 2026
+**Last verified:** 2026-09-01
 **Repository status:** actively developed; Phase 1 security baseline completed; Phase 2 Core Administration MVP completed; Phase 3 Attendance in progress.
 
 ---
@@ -256,6 +256,8 @@ Current attendance behavior:
 - existing attendance records are now corrected only by principal/super-admin
 - attendance corrections produce explicit `CORRECT` audit events
 - monthly reports are restricted to the current academic year and return the academic-year name
+- attendance write/query date inputs use strict `YYYY-MM-DD` calendar-date semantics to match server-side UTC calendar parsing
+- student attendance date ranges use an attendance-specific calendar-date validator rather than generic ISO datetime validation
 
 Remaining Phase 3 work:
 - explicit E2E coverage for teacher correction denial and principal correction success
