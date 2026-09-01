@@ -21,6 +21,7 @@
     "test:e2e:phase3:attendance": "playwright test e2e/phase3-attendance.spec.ts",
     "test:e2e:phase3:attendance:gate": "node scripts/phase3-attendance-gate.mjs",
     "test:e2e:phase3:bulk": "playwright test e2e/phase3-attendance-bulk.spec.ts --workers=1",
+    "test:e2e:phase3:students": "playwright test e2e/phase3-student-search.spec.ts --workers=1",
     "test:e2e:phase3": "node scripts/phase3-gate.mjs",
     "lint": "eslint src --ext .ts"
   },
@@ -33,6 +34,7 @@
     "express": "^4.19.0",
     "express-rate-limit": "^7.4.0",
     "helmet": "^7.1.0",
+    "express-rate-limit": "^7.4.0",
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^8.5.0",
     "multer": "^2.2.0",
