@@ -14,8 +14,7 @@ if (missing.length) {
 }
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-
-const bootstrap = spawnSync(process.execPath, [resolve(serverRoot, "scripts/phase2-token-bootstrap.mjs")], {
+const bootstrap = spawnSync(process.execPath, [resolve(serverRoot, "scripts/phase3-token-bootstrap.mjs")], {
   cwd: serverRoot,
   encoding: "utf8",
   env: process.env,
