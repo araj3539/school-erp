@@ -43,6 +43,7 @@ const env = {
 const suites = [
   ["attendance", ["run", "test:e2e:phase3:attendance"]],
   ["bulk", ["run", "test:e2e:phase3:bulk"]],
+  ["students", ["run", "test:e2e:phase3:students"]],
 ];
 
 let failed = false;
