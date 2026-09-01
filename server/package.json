@@ -18,6 +18,8 @@
     "test:e2e:phase2:audit": "node scripts/phase2-audit-gate.mjs",
     "test:e2e:phase2:roles": "node scripts/phase2-roles-gate.mjs",
     "test:e2e:phase2": "node scripts/phase2-gate.mjs",
+    "test:e2e:phase3:attendance": "playwright test e2e/phase3-attendance.spec.ts",
+    "test:e2e:phase3:attendance:gate": "node scripts/phase3-attendance-gate.mjs",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
@@ -26,7 +28,6 @@
     "bcryptjs": "^2.4.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.0",
     "express": "^4.19.0",
     "express-rate-limit": "^7.4.0",
     "helmet": "^7.1.0",
