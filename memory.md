@@ -261,19 +261,29 @@ Current attendance behavior:
 - attendance collection filters are validated by `AttendanceQuerySchema`, preserving class/section/date/date-range filters
 - student attendance views use the shared `getTenantId()` helper, including super-admin selected-school context
 
-Phase 3 acceptance coverage added:
-- teacher correction denial
-- principal correction success
-- out-of-academic-year attendance rejection
-- attendance list class/section/date filtering
+### Bulk attendance workflow
+`POST /api/v1/attendance/bulk` is implemented for bounded multi-day create/correction.
 
-A dedicated Playwright gate exists at `server/scripts/phase3-attendance-gate.mjs` and `npm run test:e2e:phase3:attendance:gate`. Live execution requires the configured E2E fixture environment.
+Rules:
+- 1–31 entries per request
+- maximum 5000 student records total
+- duplicate class/section/day entries in one request are rejected
+- every class, section, and active student is validated against the resolved tenant
+- every teacher entry is checked against `Teacher.classTeacherOf`
+- every date is checked against the current academic year
+- existing attendance days are corrections and require principal/super-admin
+- all changes and audit events run in one MongoDB transaction
+
+Regression coverage exists for bulk payload bounds and duplicate day detection.
+
+### Phase 3 acceptance
+A dedicated Playwright attendance gate exists at `server/scripts/phase3-attendance-gate.mjs` with `npm run test:e2e:phase3:attendance:gate`.
 
 Remaining Phase 3 work:
-- run the new attendance E2E gate against the live fixture environment
-- duplicate-date live acceptance coverage
-- timezone-safe attendance/reporting semantics
-- bulk correction/import workflows
+- run/complete the live attendance acceptance gate against the deployed bulk workflow
+- harden timezone-safe reporting semantics if a persisted school timezone is required
+- add spreadsheet import/export on top of the bulk service
+- keep student/teacher attendance views tenant- and ownership-scoped
 
 ---
 
@@ -350,8 +360,8 @@ Continue in this order:
 
 ```text
 1. Run Phase 3 attendance E2E gate and resolve live failures
-2. Complete Phase 3 attendance timezone hardening
-3. Complete Phase 3 bulk attendance workflows
+2. Harden Phase 3 attendance timezone/reporting semantics
+3. Add spreadsheet import/export on top of the bulk attendance service
 4. Finish administration search/filter/pagination and bulk workflows where needed
 5. Finish sensitive document private/authenticated delivery
 6. Batch dashboard aggregations and standardize reporting timezone
