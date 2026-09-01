@@ -18,9 +18,7 @@ function normalizeDateOnly(value: unknown): string {
 }
 
 function formatValidationError(error: any): string {
-  if (error?.issues?.length) {
-    return error.issues.map((issue: any) => `${issue.path?.join(".") || "row"}: ${issue.message}`).join("; ");
-  }
+  if (error?.issues?.length) return error.issues.map((issue: any) => `${issue.path?.join(".") || "row"}: ${issue.message}`).join("; ");
   return error instanceof Error ? error.message : "Invalid student data";
 }
 
@@ -52,13 +50,7 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
       seenAdmissionNumbers.add(admissionNo);
       admissionNumbers.push(admissionNo);
       try {
-        const parsed = CreateStudentSchema.parse({
-          ...row,
-          admissionNo,
-          schoolId,
-          dob: normalizeDateOnly(row.dob),
-          admissionDate: normalizeDateOnly(row.admissionDate),
-        });
+        const parsed = CreateStudentSchema.parse({ ...row, admissionNo, schoolId, dob: normalizeDateOnly(row.dob), admissionDate: normalizeDateOnly(row.admissionDate) });
         documents.push({ ...parsed, schoolId, documents: [] });
       } catch (error) {
         validationErrors.push({ row: rowNumber, message: formatValidationError(error) });
@@ -73,9 +65,7 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
       });
     }
 
-    if (validationErrors.length) {
-      return res.status(400).json({ error: "Student import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
-    }
+    if (validationErrors.length) return res.status(400).json({ error: "Student import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
 
     const session = await mongoose.startSession();
     let created: any[] = [];
@@ -85,28 +75,19 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
         for (const student of docs) await student.validate();
         created = await Student.create(documents, { session });
         for (const student of created) {
-          await createAuditLog({
-            userId: req.user!.userId,
-            schoolId,
-            action: "CREATE",
-            entity: "Student",
-            entityId: student._id.toString(),
-            after: { admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}`, source: "bulk-import" },
-            session,
-          });
+          await createAuditLog({ userId: req.user!.userId, schoolId, action: "CREATE", entity: "Student", entityId: student._id.toString(), after: { admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}`, source: "bulk-import" }, session });
         }
       });
     } finally {
       await session.endSession();
     }
-
     return res.status(200).json({ imported: created.length, errors: [] });
   } catch (error) {
     next(error);
   }
 }
 
-async function applyStudentExportFilters(query: any, input: any): Promise<void> {
+function applyStudentExportFilters(query: any, input: any): void {
   const { search, status, classId, sectionId } = input;
   if (classId) query.classId = classId;
   if (sectionId) query.sectionId = sectionId;
@@ -115,6 +96,7 @@ async function applyStudentExportFilters(query: any, input: any): Promise<void> 
   const searchText = String(search ?? "").trim();
   if (!searchText) return;
 
+  // Keep export search semantics identical to GET /students.
   const escaped = escapeRegex(searchText);
   query.$or = [
     { firstName: { $regex: escaped, $options: "i" } },
@@ -135,12 +117,10 @@ export async function exportStudentsHardened(req: Request, res: Response, next: 
       const classIds = await getTeacherClassIds(req);
       if (!classIds?.length) return sendStudentWorkbook(res, []);
       query.classId = { $in: classIds };
-      if (queryInput.classId && !classIds.includes(String(queryInput.classId))) {
-        throw AppError.forbidden("You are not assigned to this class");
-      }
+      if (queryInput.classId && !classIds.includes(String(queryInput.classId))) throw AppError.forbidden("You are not assigned to this class");
     }
 
-    await applyStudentExportFilters(query, queryInput);
+    applyStudentExportFilters(query, queryInput);
 
     const sort: any = sortBy ? { [sortBy]: sortOrder === "asc" ? 1 : -1 } : { createdAt: -1 };
     const skip = page && limit ? (page - 1) * limit : 0;
@@ -154,17 +134,7 @@ export async function exportStudentsHardened(req: Request, res: Response, next: 
 }
 
 async function sendStudentWorkbook(res: Response, students: any[]): Promise<void> {
-  const data = students.map((student: any) => ({
-    admissionNo: student.admissionNo,
-    firstName: student.firstName,
-    lastName: student.lastName,
-    class: student.classId?.displayName ?? "",
-    section: student.sectionId?.name ?? "",
-    gender: student.gender,
-    phone: student.phone,
-    status: student.status,
-  }));
-
+  const data = students.map((student: any) => ({ admissionNo: student.admissionNo, firstName: student.firstName, lastName: student.lastName, class: student.classId?.displayName ?? "", section: student.sectionId?.name ?? "", gender: student.gender, phone: student.phone, status: student.status }));
   const workbookData = data.length > 0 ? data : [{ admissionNo: "", firstName: "", lastName: "", class: "", section: "", gender: "", phone: "", status: "" }];
   const buffer = await generateExcelFile(workbookData, "Students");
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
