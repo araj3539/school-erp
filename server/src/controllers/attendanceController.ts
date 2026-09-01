@@ -3,6 +3,7 @@ import { Attendance, Student, Class, Section, Teacher, AcademicYear, School } fr
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
+import { getTenantId } from "../utils/tenant.js";
 import { UserRole } from "@school-erp/shared";
 import { Types } from "mongoose";
 
@@ -45,7 +46,7 @@ export async function getAttendance(req: Request, res: Response, next: NextFunct
   try {
     const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
-    const dbQuery: any = { schoolId: req.user!.schoolId };
+    const dbQuery: any = { schoolId: getTenantId(req) };
     const teacherClassIds = await getTeacherClassIds(req);
     if (teacherClassIds) {
       if (teacherClassIds.length === 0) return res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
@@ -78,9 +79,10 @@ export async function getAttendance(req: Request, res: Response, next: NextFunct
 export async function markAttendance(req: Request, res: Response, next: NextFunction) {
   try {
     const data = req.validatedBody as any;
-    const schoolId = req.user!.schoolId;
+    const schoolId = getTenantId(req);
+    const schoolObjectId = new Types.ObjectId(schoolId);
     const date = parseCalendarDate(String(data.date));
-    await assertAttendanceDateInCurrentAcademicYear(schoolId, date);
+    await assertAttendanceDateInCurrentAcademicYear(schoolObjectId, date);
     await assertTeacherClassAccess(req, data.classId);
     const [cls, section] = await Promise.all([
       Class.findOne({ _id: data.classId, schoolId }).select("_id"),
@@ -100,7 +102,7 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
       existing.markedBy = new Types.ObjectId(req.user!.userId);
       await existing.save();
       await createAuditLog({
-        schoolId: schoolId.toString(),
+        schoolId,
         userId: req.user!.userId,
         action: "CORRECT",
         entity: "Attendance",
@@ -112,7 +114,7 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
     }
     const attendance = await Attendance.create({ ...data, records, date, schoolId, markedBy: new Types.ObjectId(req.user!.userId) });
     await createAuditLog({
-      schoolId: schoolId.toString(),
+      schoolId,
       userId: req.user!.userId,
       action: "CREATE",
       entity: "Attendance",
@@ -160,7 +162,7 @@ export async function getMonthlyAttendanceReport(req: Request, res: Response, ne
     await assertTeacherClassAccess(req, classId.toString());
     const startDate = new Date(Date.UTC(numericYear, numericMonth - 1, 1));
     const endDate = new Date(Date.UTC(numericYear, numericMonth, 1));
-    const schoolId = req.user!.schoolId;
+    const schoolId = getTenantId(req);
     const school = await School.findById(schoolId).select("academicYear").lean();
     if (!school?.academicYear) throw AppError.conflict("School does not have a current academic year configured");
     const academicYear = await AcademicYear.findOne({ _id: school.academicYear, schoolId }).select("startDate endDate name").lean();
