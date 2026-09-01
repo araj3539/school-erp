@@ -33,7 +33,7 @@ async function getTeacherClassIds(req: Request): Promise<string[] | null> {
 export async function bulkImportStudentsHardened(req: MulterRequest, res: Response, next: NextFunction) {
   try {
     if (!req.file) throw AppError.badRequest("No file uploaded", "FILE_REQUIRED");
-    const schoolId = getTenantId(req).toString();
+    const schoolId = getTenantId(req);
     const rows = await parseExcelFile(req.file.buffer);
     if (rows.length === 0) throw AppError.badRequest("Excel file contains no data rows", "EMPTY_IMPORT");
 
@@ -44,7 +44,7 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
 
     for (const [index, row] of rows.entries()) {
       const rowNumber = index + 2;
-      const admissionNo = String(row.admissionNo ?? generateAdmissionNumber()).trim();
+      const admissionNo = String(row.admissionNo ?? "").trim() || generateAdmissionNumber();
       if (seenAdmissionNumbers.has(admissionNo)) {
         validationErrors.push({ row: rowNumber, message: `Duplicate admissionNo in import: ${admissionNo}` });
         continue;
@@ -55,16 +55,17 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
         const parsed = CreateStudentSchema.parse({
           ...row,
           admissionNo,
+          schoolId,
           dob: normalizeDateOnly(row.dob),
           admissionDate: normalizeDateOnly(row.admissionDate),
         });
-        documents.push({ ...parsed, schoolId: new mongoose.Types.ObjectId(schoolId), documents: [] });
+        documents.push({ ...parsed, schoolId, documents: [] });
       } catch (error) {
         validationErrors.push({ row: rowNumber, message: formatValidationError(error) });
       }
     }
 
-    const existing = await Student.find({ admissionNo: { $in: admissionNumbers } }).select("admissionNo").lean();
+    const existing = await Student.find({ admissionNo: { $in: admissionNumbers }, schoolId }).select("admissionNo").lean();
     if (existing.length) {
       const existingSet = new Set(existing.map((student) => student.admissionNo));
       admissionNumbers.forEach((admissionNo, index) => {
@@ -73,11 +74,7 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
     }
 
     if (validationErrors.length) {
-      return res.status(400).json({
-        error: "Student import validation failed",
-        code: "VALIDATION_ERROR",
-        errors: validationErrors,
-      });
+      return res.status(400).json({ error: "Student import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
     }
 
     const session = await mongoose.startSession();
@@ -109,66 +106,67 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
   }
 }
 
+function applyStudentExportFilters(query: any, input: any): void {
+  const { search, status, classId, sectionId } = input;
+  if (classId) query.classId = classId;
+  if (sectionId) query.sectionId = sectionId;
+  if (status) query.status = status;
+  if (search) {
+    const escaped = escapeRegex(String(search).trim());
+    query.$or = [
+      { firstName: { $regex: escaped, $options: "i" } },
+      { lastName: { $regex: escaped, $options: "i" } },
+      { admissionNo: { $regex: escaped, $options: "i" } },
+      { phone: { $regex: escaped, $options: "i" } },
+    ];
+  }
+}
+
 export async function exportStudentsHardened(req: Request, res: Response, next: NextFunction) {
   try {
-    const schoolId = getTenantId(req).toString();
+    const schoolId = getTenantId(req);
     const queryInput = req.validatedQuery as any;
-    const { page, limit, sortBy, sortOrder, search, status, classId, sectionId } = queryInput;
+    const { page, limit, sortBy, sortOrder } = queryInput;
     const query: any = { schoolId };
 
     if (req.user!.role === UserRole.TEACHER) {
       const classIds = await getTeacherClassIds(req);
-      if (!classIds?.length) {
-        const empty = await generateExcelFile([], "Students");
-        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        res.setHeader("Content-Disposition", "attachment; filename=students.xlsx");
-        return res.send(empty);
-      }
+      if (!classIds?.length) return sendStudentWorkbook(res, []);
       query.classId = { $in: classIds };
-      if (classId) {
-        if (!classIds.includes(String(classId))) throw AppError.forbidden("You are not assigned to this class");
-        query.classId = classId;
+      if (queryInput.classId) {
+        if (!classIds.includes(String(queryInput.classId))) throw AppError.forbidden("You are not assigned to this class");
       }
-    } else if (classId) {
-      query.classId = classId;
     }
 
-    if (sectionId) query.sectionId = sectionId;
-    if (status) query.status = status;
-    if (search) {
-      const escaped = escapeRegex(String(search));
-      query.$or = [
-        { firstName: { $regex: escaped, $options: "i" } },
-        { lastName: { $regex: escaped, $options: "i" } },
-        { admissionNo: { $regex: escaped, $options: "i" } },
-        { phone: { $regex: escaped, $options: "i" } },
-      ];
-    }
+    applyStudentExportFilters(query, queryInput);
 
-    const sort: any = {};
-    if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1;
-    else sort.createdAt = -1;
-
+    const sort: any = sortBy ? { [sortBy]: sortOrder === "asc" ? 1 : -1 } : { createdAt: -1 };
     const skip = page && limit ? (page - 1) * limit : 0;
     const studentsQuery = Student.find(query).populate("classId sectionId").sort(sort);
     if (limit) studentsQuery.skip(skip).limit(limit);
     const students = await studentsQuery.lean();
-
-    const data = students.map((student: any) => ({
-      admissionNo: student.admissionNo,
-      firstName: student.firstName,
-      lastName: student.lastName,
-      class: student.classId?.displayName,
-      section: student.sectionId?.name,
-      gender: student.gender,
-      phone: student.phone,
-      status: student.status,
-    }));
-    const buffer = await generateExcelFile(data, "Students");
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", "attachment; filename=students.xlsx");
-    return res.send(buffer);
+    return sendStudentWorkbook(res, students);
   } catch (error) {
     next(error);
   }
+}
+
+async function sendStudentWorkbook(res: Response, students: any[]): Promise<void> {
+  const data = students.map((student: any) => ({
+    admissionNo: student.admissionNo,
+    firstName: student.firstName,
+    lastName: student.lastName,
+    class: student.classId?.displayName ?? "",
+    section: student.sectionId?.name ?? "",
+    gender: student.gender,
+    phone: student.phone,
+    status: student.status,
+  }));
+
+  // Keep a stable schema even for an empty filtered result.
+  const workbookData = data.length > 0 ? data : [{ admissionNo: "", firstName: "", lastName: "", class: "", section: "", gender: "", phone: "", status: "" }];
+  const buffer = await generateExcelFile(workbookData, "Students");
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", "attachment; filename=students.xlsx");
+  res.send(buffer);
 }
