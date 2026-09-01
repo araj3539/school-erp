@@ -245,7 +245,7 @@ Phase 2 has exited. Remaining administration polish continues only where it is a
 ## 9. Attendance — Phase 3 IN PROGRESS
 
 Current attendance behavior:
-- attendance remains tenant-scoped by authenticated `schoolId`
+- attendance remains tenant-scoped by authenticated/resolved school context
 - teacher access remains class-teacher scoped through `Teacher.classTeacherOf`
 - student attendance remains self-only
 - parent attendance remains linked-child-only
@@ -257,11 +257,21 @@ Current attendance behavior:
 - attendance corrections produce explicit `CORRECT` audit events
 - monthly reports are restricted to the current academic year and return the academic-year name
 - attendance write/query date inputs use strict `YYYY-MM-DD` calendar-date semantics to match server-side UTC calendar parsing
-- student attendance date ranges use an attendance-specific calendar-date validator rather than generic ISO datetime validation
+- student attendance date ranges use an attendance-specific calendar-date validator
+- attendance collection filters are validated by `AttendanceQuerySchema`, preserving class/section/date/date-range filters
+- student attendance views use the shared `getTenantId()` helper, including super-admin selected-school context
+
+Phase 3 acceptance coverage added:
+- teacher correction denial
+- principal correction success
+- out-of-academic-year attendance rejection
+- attendance list class/section/date filtering
+
+A dedicated Playwright gate exists at `server/scripts/phase3-attendance-gate.mjs` and `npm run test:e2e:phase3:attendance:gate`. Live execution requires the configured E2E fixture environment.
 
 Remaining Phase 3 work:
-- explicit E2E coverage for teacher correction denial and principal correction success
-- duplicate-date and out-of-academic-year acceptance coverage
+- run the new attendance E2E gate against the live fixture environment
+- duplicate-date live acceptance coverage
 - timezone-safe attendance/reporting semantics
 - bulk correction/import workflows
 
@@ -339,17 +349,18 @@ Transport is referenced by Student but no complete Transport module exists yet. 
 Continue in this order:
 
 ```text
-1. Complete Phase 3 attendance E2E coverage and timezone hardening
-2. Complete Phase 3 bulk attendance workflows
-3. Finish administration search/filter/pagination and bulk workflows where needed
-4. Finish sensitive document private/authenticated delivery
-5. Batch dashboard aggregations and standardize reporting timezone
-6. Finish Phase 4 financial hardening and reports
-7. Add exams/results
-8. Add notifications
-9. Add portals
-10. Add SaaS administration
-11. Add mobile
+1. Run Phase 3 attendance E2E gate and resolve live failures
+2. Complete Phase 3 attendance timezone hardening
+3. Complete Phase 3 bulk attendance workflows
+4. Finish administration search/filter/pagination and bulk workflows where needed
+5. Finish sensitive document private/authenticated delivery
+6. Batch dashboard aggregations and standardize reporting timezone
+7. Finish Phase 4 financial hardening and reports
+8. Add exams/results
+9. Add notifications
+10. Add portals
+11. Add SaaS administration
+12. Add mobile
 ```
 
 Do not prioritize microservices, Kubernetes, complex AI/ML, GPS tracking, WhatsApp automation, or large-scale caching before the core ERP is correct.
