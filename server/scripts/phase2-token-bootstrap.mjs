@@ -48,9 +48,17 @@ async function login(email) {
 }
 
 try {
+  const requestedRoles = process.env.E2E_BOOTSTRAP_ROLES
+    ? process.env.E2E_BOOTSTRAP_ROLES.split(",").map((role) => role.trim()).filter(Boolean)
+    : Object.keys(fixtures);
+
+  for (const role of requestedRoles) {
+    if (!(role in fixtures)) throw new Error(`Unknown E2E bootstrap role: ${role}`);
+  }
+
   const tokens = {};
-  for (const [role, email] of Object.entries(fixtures)) {
-    tokens[role] = await login(email);
+  for (const role of requestedRoles) {
+    tokens[role] = await login(fixtures[role]);
   }
 
   const outputPath = resolve(tmpdir(), `school-erp-phase2-${randomUUID()}.json`);
