@@ -75,10 +75,17 @@ test("invalid student import is rejected atomically and filtered export remains 
   });
   expect(duplicateImport.status()).toBe(400);
 
-  const exportResponse = await request.get(apiUrl(`/api/v1/students/export?search=${encodeURIComponent(existing.admissionNo)}&status=${encodeURIComponent(existing.status)}&page=1&limit=10`), { headers });
-  expect(exportResponse.status()).toBe(200);
+  const exportParams = new URLSearchParams({
+    search: existing.admissionNo,
+    page: "1",
+    limit: "10",
+  });
+  if (existing.status) exportParams.set("status", String(existing.status));
+  const exportResponse = await request.get(apiUrl(`/api/v1/students/export?${exportParams.toString()}`), { headers });
+  const exportBody = await exportResponse.text();
+  expect(exportResponse.status(), `Filtered export response: ${exportBody}`).toBe(200);
   expect(exportResponse.headers()["content-type"]).toContain("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  const exportedRows = await readSheet(await exportResponse.body());
+  const exportedRows = await readSheet(Buffer.from(exportBody, "binary"));
   expect(exportedRows.length).toBeGreaterThanOrEqual(2);
   expect(String(exportedRows[1][0])).toBe(existing.admissionNo);
 });
