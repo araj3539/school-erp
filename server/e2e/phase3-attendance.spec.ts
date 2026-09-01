@@ -49,21 +49,21 @@ async function getFixtureContext(api: any, principalToken: string) {
   const studentResponse = await api.get(`/api/v1/students/${schoolAStudent}`, {
     headers: { Authorization: `Bearer ${principalToken}` },
   });
-  expect(studentResponse.status()).toBe(200);
   const studentBody = await studentResponse.json();
+  expect(studentResponse.status(), `Student lookup failed: ${JSON.stringify(studentBody)}`).toBe(200);
   const student = studentBody.student;
-  expect(student?.classId?.toString()).toBeTruthy();
-  expect(student?.sectionId?.toString()).toBeTruthy();
+  expect(student?.classId?.toString(), `Fixture student has no class: ${JSON.stringify(student)}`).toBeTruthy();
+  expect(student?.sectionId?.toString(), `Fixture student has no section: ${JSON.stringify(student)}`).toBeTruthy();
 
   const yearsResponse = await api.get("/api/v1/academic-years", {
     headers: { Authorization: `Bearer ${principalToken}` },
   });
-  expect(yearsResponse.status()).toBe(200);
   const yearsBody = await yearsResponse.json();
+  expect(yearsResponse.status(), `Academic year lookup failed: ${JSON.stringify(yearsBody)}`).toBe(200);
   const years = yearsBody.data ?? [];
   const current = years.find((year: any) => year.isCurrent);
-  expect(current?.startDate).toBeTruthy();
-  expect(current?.endDate).toBeTruthy();
+  expect(current?.startDate, `No current academic year: ${JSON.stringify(years)}`).toBeTruthy();
+  expect(current?.endDate, `Current academic year missing endDate: ${JSON.stringify(current)}`).toBeTruthy();
 
   return {
     studentId: schoolAStudent,
@@ -71,6 +71,13 @@ async function getFixtureContext(api: any, principalToken: string) {
     sectionId: student.sectionId.toString(),
     academicYear: current,
   };
+}
+
+async function expectStatus(response: any, expected: number | number[], label: string) {
+  const body = await response.json().catch(() => ({}));
+  const expectedCodes = Array.isArray(expected) ? expected : [expected];
+  expect(expectedCodes, `${label} response: ${JSON.stringify(body)}`).toContain(response.status());
+  return body;
 }
 
 test.describe("Phase 3 attendance acceptance", () => {
@@ -85,13 +92,13 @@ test.describe("Phase 3 attendance acceptance", () => {
       headers: { Authorization: `Bearer ${principalToken}` },
       data: { date, classId: context.classId, sectionId: context.sectionId, records },
     });
-    expect([201, 200]).toContain(create.status());
+    await expectStatus(create, [201, 200], "Initial attendance create");
 
     const teacherCorrection = await request.post("/api/v1/attendance", {
       headers: { Authorization: `Bearer ${teacherToken}` },
       data: { date, classId: context.classId, sectionId: context.sectionId, records: [{ ...records[0], status: "absent" }] },
     });
-    expect(teacherCorrection.status()).toBe(403);
+    await expectStatus(teacherCorrection, 403, "Teacher correction");
   });
 
   test("principal can correct an existing attendance record", async ({ request }) => {
@@ -104,14 +111,13 @@ test.describe("Phase 3 attendance acceptance", () => {
       headers: { Authorization: `Bearer ${principalToken}` },
       data: { date, classId: context.classId, sectionId: context.sectionId, records },
     });
-    expect([201, 200]).toContain(create.status());
+    await expectStatus(create, [201, 200], "Initial attendance create");
 
     const correction = await request.post("/api/v1/attendance", {
       headers: { Authorization: `Bearer ${principalToken}` },
       data: { date, classId: context.classId, sectionId: context.sectionId, records: [{ ...records[0], status: "late" }] },
     });
-    expect(correction.status()).toBe(200);
-    const body = await correction.json();
+    const body = await expectStatus(correction, 200, "Principal correction");
     expect(body.corrected).toBe(true);
   });
 
@@ -129,7 +135,7 @@ test.describe("Phase 3 attendance acceptance", () => {
         records: [{ studentId: context.studentId, status: "present" }],
       },
     });
-    expect(response.status()).toBe(400);
+    await expectStatus(response, 400, "Out-of-academic-year attendance");
   });
 
   test("attendance list preserves class, section and date filters", async ({ request }) => {
@@ -141,8 +147,7 @@ test.describe("Phase 3 attendance acceptance", () => {
       headers: { Authorization: `Bearer ${principalToken}` },
       params: { classId: context.classId, sectionId: context.sectionId, date },
     });
-    expect(response.status()).toBe(200);
-    const body = await response.json();
+    const body = await expectStatus(response, 200, "Attendance list filter");
     expect(body.data).toBeInstanceOf(Array);
     for (const item of body.data) {
       expect(item.classId?.toString()).toBe(context.classId);
