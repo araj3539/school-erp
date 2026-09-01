@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { authenticate, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
 import { upload, validateStudentDocumentUpload } from "../middleware/upload.js";
-import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument, deleteStudentDocument, bulkImportStudents, exportStudents } from "../controllers/studentController.js";
+import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument } from "../controllers/studentController.js";
+import { bulkImportStudentsHardened, exportStudentsHardened } from "../controllers/studentBulkOperationsController.js";
 import { getStudentParents, assignStudentParents } from "../controllers/studentParentController.js";
 import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery, runManualStorageBackup } from "../controllers/documentRecoveryController.js";
 import { getParentStudents, getParentStudentById, getParentStudentDocumentUrl } from "../controllers/parentStudentAccessController.js";
@@ -13,7 +14,7 @@ const parentOnly = (req: any, _res: any, next: any) => req.user?.role === UserRo
 
 router.get("/", parentOnly, requirePermission("students:read:child"), validate(PaginationSchema, "query"), getParentStudents);
 router.get("/", requireAnyPermission("students:read", "students:read:own"), validate(StudentQuerySchema, "query"), getStudents);
-router.get("/export", requirePermission("students:read"), exportStudents);
+router.get("/export", requirePermission("students:read"), validate(StudentQuerySchema, "query"), exportStudentsHardened);
 router.post("/document-recoveries/backup", requirePermission("settings:write"), runManualStorageBackup);
 router.get("/:id/parents", requirePermission("students:read"), validate(IdParamSchema, "params"), getStudentParents);
 router.put("/:id/parents", requirePermission("students:write"), validate(IdParamSchema, "params"), assignStudentParents);
@@ -32,7 +33,7 @@ router.get("/:id", requireAnyPermission("students:read", "students:read:own"), v
 router.post("/", requirePermission("students:write"), validate(CreateStudentSchema), createStudent);
 router.put("/:id", requirePermission("students:write"), validate(IdParamSchema, "params"), validate(UpdateStudentSchema), updateStudent);
 router.delete("/:id", requirePermission("students:delete"), validate(IdParamSchema, "params"), deleteStudent);
-router.post("/bulk-import", requirePermission("students:write"), upload.single("file"), bulkImportStudents);
+router.post("/bulk-import", requirePermission("students:write"), upload.single("file"), bulkImportStudentsHardened);
 router.post("/:id/documents", requirePermission("students:write"), validate(IdParamSchema, "params"), upload.single("file"), validateStudentDocumentUpload, uploadStudentDocument);
 router.delete("/:id/documents/:documentId", requirePermission("students:write"), validate(StudentDocumentParamSchema, "params"), deleteStudentDocument);
 export default router;
