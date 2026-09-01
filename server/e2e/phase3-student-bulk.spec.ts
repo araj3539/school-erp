@@ -86,7 +86,8 @@ test("invalid student import is rejected atomically and filtered export remains 
   const exportBody = await exportResponse.body();
   expect(exportResponse.status(), `Filtered export response status: ${exportResponse.status()}`).toBe(200);
   expect(exportResponse.headers()["content-type"]).toContain("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  const exportedRows = await readSheet(exportBody);
+  const exportedSheets = await readSheet(exportBody);
+  const exportedRows = exportedSheets[0]?.data ?? [];
   expect(exportedRows.length, `Export rows did not include the student; list response was ${JSON.stringify(listBody)}`).toBeGreaterThanOrEqual(2);
   expect(String(exportedRows[1][0])).toBe(existing.admissionNo);
 });
