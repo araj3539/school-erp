@@ -1,4 +1,4 @@
-# School ERP — Phase 3 Attendance Progress
+# School ERP — Phase 3 Attendance & Administration Progress
 
 Review date: 2026-09-01
 Branch: `main`
@@ -42,6 +42,19 @@ Rules:
 - creates/updates all attendance days and their audit events in one MongoDB transaction
 - rolls the whole request back if any entry fails validation or persistence
 
+### 9. Student administration query contract
+The student collection route now validates with `StudentQuerySchema`, so the existing controller search/filter logic is actually reachable by API clients.
+
+Supported filters include:
+- `search` across first name, last name, admission number, and phone
+- `status`
+- `classId`
+- `sectionId`
+- `page` / `limit`
+
+### 10. Teacher administration query contract
+The teacher collection route now validates with `TeacherQuerySchema`, so existing search/status filtering and pagination are reachable consistently.
+
 ## Existing safeguards retained
 
 - tenant scope through authenticated `schoolId` / resolved tenant context
@@ -53,30 +66,23 @@ Rules:
 - duplicate student protection within a single attendance submission
 - unique school/class/section/date index protection
 - existing pagination and date-range filtering
+- tenant-scoped student and teacher administration queries
 
 ## Verification status
 
-Source-level review completed for attendance controller, model, routes, shared schemas, server validators, and regression tests.
+Attendance acceptance gate: `4/4` passed.
 
-Regression coverage includes:
-- calendar date validation
-- strict attendance date-range validation
-- teacher correction denial
-- principal correction success
-- out-of-academic-year attendance rejection
-- attendance list class/section/date filtering
-- bulk entry size limits
-- duplicate class/section/day rejection
+Bulk attendance acceptance: `1/1` passed.
 
-A dedicated `phase3-attendance` Playwright gate and package scripts are present. Live E2E execution is still the acceptance gate for the current Phase 3 implementation.
-
-Render successfully deployed the prior type-safe tenant/date hardening. The latest bulk-attendance commits are deploying automatically on `main`; production acceptance remains pending until the new code is live.
+Student/teacher query contract changes are committed and awaiting live E2E verification against the latest Render deployment.
 
 The Phase 1 and Phase 2 security gates remain mandatory regression gates.
 
 ## Next Phase 3 work
 
-1. Run the live Phase 3 attendance E2E gate against the deployed bulk workflow.
-2. Fix any live acceptance failures before adding spreadsheet import/export.
-3. Harden monthly/reporting timezone semantics if school-local reporting requires an explicit timezone field.
-4. Keep student/teacher attendance views tenant- and ownership-scoped.
+1. Verify student search/status/class/section/pagination against the live API.
+2. Add teacher search/status/pagination acceptance coverage.
+3. Add administration bulk student import/export hardening and validation.
+4. Add admission/enrollment workflow safeguards.
+5. Complete class/section administration improvements.
+6. Harden monthly/reporting timezone semantics when school-local reporting needs an explicit timezone field.
