@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CreateStudentSchema, CreateTeacherSchema, CreateClassSchema, CreateSchoolSchema, LoginSchema, ObjectIdSchema } from "./index";
+import { CreateStudentSchema, CreateTeacherSchema, CreateClassSchema, CreateSchoolSchema, LoginSchema, ObjectIdSchema, MarkAttendanceSchema } from "./index";
 
 describe("Shared Schemas", () => {
   describe("ObjectIdSchema", () => {
@@ -157,6 +157,27 @@ describe("Shared Schemas", () => {
         password: ""
       });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("MarkAttendanceSchema", () => {
+    const validAttendance = {
+      date: "2026-08-26",
+      classId: "507f1f77bcf86cd799439011",
+      sectionId: "507f1f77bcf86cd799439012",
+      records: [],
+    };
+
+    it("should accept a valid school calendar date", () => {
+      expect(MarkAttendanceSchema.safeParse(validAttendance).success).toBe(true);
+    });
+
+    it("should reject invalid calendar dates", () => {
+      expect(MarkAttendanceSchema.safeParse({ ...validAttendance, date: "2026-02-30" }).success).toBe(false);
+    });
+
+    it("should reject datetime strings to avoid timezone drift", () => {
+      expect(MarkAttendanceSchema.safeParse({ ...validAttendance, date: "2026-08-26T00:00:00.000Z" }).success).toBe(false);
     });
   });
 });
