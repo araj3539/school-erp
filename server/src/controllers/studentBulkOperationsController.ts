@@ -115,14 +115,6 @@ async function applyStudentExportFilters(query: any, input: any): Promise<void> 
   const searchText = String(search ?? "").trim();
   if (!searchText) return;
 
-  // Exact admission-number searches are common in exports and should be
-  // deterministic rather than relying on a regex against an identifier.
-  const exactAdmissionMatch = await Student.exists({ schoolId: query.schoolId, admissionNo: searchText });
-  if (exactAdmissionMatch) {
-    query.admissionNo = searchText;
-    return;
-  }
-
   const escaped = escapeRegex(searchText);
   query.$or = [
     { firstName: { $regex: escaped, $options: "i" } },
@@ -173,7 +165,6 @@ async function sendStudentWorkbook(res: Response, students: any[]): Promise<void
     status: student.status,
   }));
 
-  // Keep a stable schema even for an empty filtered result.
   const workbookData = data.length > 0 ? data : [{ admissionNo: "", firstName: "", lastName: "", class: "", section: "", gender: "", phone: "", status: "" }];
   const buffer = await generateExcelFile(workbookData, "Students");
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
