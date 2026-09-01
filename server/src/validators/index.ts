@@ -4,7 +4,7 @@ import {
   CreateSchoolSchema, UpdateSchoolSchema, UpdateSchoolSettingsSchema, CreateStudentSchema, UpdateStudentSchema,
   CreateTeacherSchema, UpdateTeacherSchema, CreateClassSchema, UpdateClassSchema,
   CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema,
-  CreateAttendanceSchema, MarkAttendanceSchema, BulkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
+  CreateAttendanceSchema, MarkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
   CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema, UserRole, DateOnlySchema,
 } from "@school-erp/shared";
 
@@ -13,7 +13,7 @@ export {
   CreateSchoolSchema, UpdateSchoolSchema, UpdateSchoolSettingsSchema, CreateStudentSchema, UpdateStudentSchema,
   CreateTeacherSchema, UpdateTeacherSchema, CreateClassSchema, UpdateClassSchema,
   CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema,
-  CreateAttendanceSchema, MarkAttendanceSchema, BulkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
+  CreateAttendanceSchema, MarkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
   CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema,
 };
 

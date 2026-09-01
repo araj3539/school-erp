@@ -108,22 +108,30 @@ function applyStudentExportFilters(query: any, input: any): void {
 export async function exportStudentsHardened(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = getTenantId(req);
-    const queryInput = req.validatedQuery as any;
-    const { page, limit, sortBy, sortOrder } = queryInput;
-    const query: any = { schoolId };
-
-    if (req.user!.role === UserRole.TEACHER) {
+    const query = req.validatedQuery as any;
+    const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
+    const dbQuery: any = { schoolId };
+    if (req.user!.role === UserRole.STUDENT) {
+      dbQuery.userId = req.user!.userId;
+    } else if (req.user!.role === UserRole.PARENT) {
+      dbQuery.parentIds = req.user!.userId;
+    } else if (req.user!.role === UserRole.TEACHER) {
       const classIds = await getTeacherClassIds(req);
       if (!classIds?.length) return sendStudentWorkbook(res, []);
-      query.classId = { $in: classIds };
-      if (queryInput.classId && !classIds.includes(String(queryInput.classId))) throw AppError.forbidden("You are not assigned to this class");
+      dbQuery.classId = { $in: classIds };
+      if (filters.classId && !classIds.includes(String(filters.classId))) throw AppError.forbidden("You are not assigned to this class");
     }
-
-    applyStudentExportFilters(query, queryInput);
-
-    const sort: any = sortBy ? { [sortBy]: sortOrder === "asc" ? 1 : -1 } : { createdAt: -1 };
-    const skip = page && limit ? (page - 1) * limit : 0;
-    const studentsQuery = Student.find(query).populate("classId sectionId").sort(sort);
+    if (filters.classId && req.user!.role !== UserRole.TEACHER) dbQuery.classId = filters.classId;
+    if (filters.sectionId) dbQuery.sectionId = filters.sectionId;
+    if (filters.status) dbQuery.status = filters.status;
+    if (filters.search && req.user!.role !== UserRole.STUDENT) {
+      const search = escapeRegex(String(filters.search));
+      dbQuery.$or = [{ firstName: { $regex: search, $options: "i" } }, { lastName: { $regex: search, $options: "i" } }, { admissionNo: { $regex: search, $options: "i" } }, { phone: { $regex: search, $options: "i" } }];
+    }
+    const sort: any = {};
+    if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1; else sort.createdAt = -1;
+    const skip = (page - 1) * limit;
+    const studentsQuery = Student.find(dbQuery).populate("classId sectionId").sort(sort);
     if (limit) studentsQuery.skip(skip).limit(limit);
     const students = await studentsQuery.lean();
     return sendStudentWorkbook(res, students);
