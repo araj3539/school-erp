@@ -14,10 +14,11 @@ if (missing.length) {
 }
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const bootstrap = spawnSync(process.execPath, [resolve(serverRoot, "scripts/phase3-token-bootstrap.mjs")], {
+const bootstrapEnv = { ...process.env, E2E_BOOTSTRAP_ROLES: "principalA,teacherA" };
+const bootstrap = spawnSync(process.execPath, [resolve(serverRoot, "scripts/phase2-token-bootstrap.mjs")], {
   cwd: serverRoot,
   encoding: "utf8",
-  env: process.env,
+  env: bootstrapEnv,
 });
 
 if (bootstrap.status !== 0 || !bootstrap.stdout.trim()) {
