@@ -9,22 +9,22 @@ import { Types } from "mongoose";
 
 async function assertTeacherClassAccess(req: Request, classId: string) {
   if (req.user!.role !== UserRole.TEACHER) return;
-  const teacher = await Teacher.findOne({ userId: req.user!.userId, schoolId: req.user!.schoolId }).select("classTeacherOf").lean();
+  const teacher = await Teacher.findOne({ userId: req.user!.userId, schoolId: getTenantId(req) }).select("classTeacherOf").lean();
   if (!teacher || !teacher.classTeacherOf.some((id) => id.toString() === classId)) throw AppError.forbidden("You are not assigned to this class");
 }
 async function getTeacherClassIds(req: Request) {
   if (req.user!.role !== UserRole.TEACHER) return null;
-  const teacher = await Teacher.findOne({ userId: req.user!.userId, schoolId: req.user!.schoolId }).select("classTeacherOf").lean();
+  const teacher = await Teacher.findOne({ userId: req.user!.userId, schoolId: getTenantId(req) }).select("classTeacherOf").lean();
   return teacher?.classTeacherOf ?? [];
 }
 async function assertStudentOwnAccess(req: Request, studentId: string) {
   if (req.user!.role !== UserRole.STUDENT) return;
-  const student = await Student.findOne({ _id: studentId, schoolId: req.user!.schoolId, userId: req.user!.userId }).select("_id").lean();
+  const student = await Student.findOne({ _id: studentId, schoolId: getTenantId(req), userId: req.user!.userId }).select("_id").lean();
   if (!student) throw AppError.forbidden("Students can only access their own attendance");
 }
 async function assertParentChildAccess(req: Request, studentId: string) {
   if (req.user!.role !== UserRole.PARENT) return;
-  const student = await Student.findOne({ _id: studentId, schoolId: req.user!.schoolId, parentIds: req.user!.userId }).select("_id").lean();
+  const student = await Student.findOne({ _id: studentId, schoolId: getTenantId(req), parentIds: req.user!.userId }).select("_id").lean();
   if (!student) throw AppError.forbidden("Parents can only access attendance for their linked children");
 }
 async function assertAttendanceDateInCurrentAcademicYear(schoolId: Types.ObjectId, date: Date) {
@@ -101,26 +101,11 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
       existing.records = records;
       existing.markedBy = new Types.ObjectId(req.user!.userId);
       await existing.save();
-      await createAuditLog({
-        schoolId,
-        userId: req.user!.userId,
-        action: "CORRECT",
-        entity: "Attendance",
-        entityId: existing._id.toString(),
-        before: { records: before },
-        after: { recordsCount: records.length, date: date.toISOString(), classId: data.classId, sectionId: data.sectionId }
-      });
+      await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { recordsCount: records.length, date: date.toISOString(), classId: data.classId, sectionId: data.sectionId } });
       return res.json({ attendance: existing, corrected: true });
     }
     const attendance = await Attendance.create({ ...data, records, date, schoolId, markedBy: new Types.ObjectId(req.user!.userId) });
-    await createAuditLog({
-      schoolId,
-      userId: req.user!.userId,
-      action: "CREATE",
-      entity: "Attendance",
-      entityId: attendance._id.toString(),
-      after: { recordsCount: data.records.length, date: date.toISOString(), classId: data.classId, sectionId: data.sectionId }
-    });
+    await createAuditLog({ schoolId, userId: req.user!.userId, action: "CREATE", entity: "Attendance", entityId: attendance._id.toString(), after: { recordsCount: data.records.length, date: date.toISOString(), classId: data.classId, sectionId: data.sectionId } });
     res.status(201).json({ attendance, corrected: false });
   } catch (error) { next(error); }
 }
@@ -129,12 +114,13 @@ export async function getStudentAttendance(req: Request, res: Response, next: Ne
   try {
     const { id } = req.validatedParams as any;
     const { startDate, endDate } = req.validatedQuery as any;
+    const schoolId = getTenantId(req);
     await assertStudentOwnAccess(req, id);
     await assertParentChildAccess(req, id);
-    const student = await Student.findOne({ _id: id, schoolId: req.user!.schoolId }).select("_id classId").lean();
+    const student = await Student.findOne({ _id: id, schoolId }).select("_id classId").lean();
     if (!student) throw AppError.notFound("Student not found");
     if (req.user!.role === UserRole.TEACHER && student.classId) await assertTeacherClassAccess(req, student.classId.toString());
-    const dbQuery: any = { schoolId: req.user!.schoolId, "records.studentId": new Types.ObjectId(id) };
+    const dbQuery: any = { schoolId, "records.studentId": new Types.ObjectId(id) };
     if (startDate || endDate) {
       dbQuery.date = {};
       if (startDate) dbQuery.date.$gte = parseCalendarDate(String(startDate));
@@ -156,9 +142,7 @@ export async function getMonthlyAttendanceReport(req: Request, res: Response, ne
     if (!classId || !sectionId || !month || !year) throw AppError.badRequest("classId, sectionId, month, year required");
     const numericMonth = Number(month);
     const numericYear = Number(year);
-    if (!Number.isInteger(numericMonth) || numericMonth < 1 || numericMonth > 12 || !Number.isInteger(numericYear) || numericYear < 2000 || numericYear > 2100) {
-      throw AppError.badRequest("Invalid month or year");
-    }
+    if (!Number.isInteger(numericMonth) || numericMonth < 1 || numericMonth > 12 || !Number.isInteger(numericYear) || numericYear < 2000 || numericYear > 2100) throw AppError.badRequest("Invalid month or year");
     await assertTeacherClassAccess(req, classId.toString());
     const startDate = new Date(Date.UTC(numericYear, numericMonth - 1, 1));
     const endDate = new Date(Date.UTC(numericYear, numericMonth, 1));
@@ -167,9 +151,7 @@ export async function getMonthlyAttendanceReport(req: Request, res: Response, ne
     if (!school?.academicYear) throw AppError.conflict("School does not have a current academic year configured");
     const academicYear = await AcademicYear.findOne({ _id: school.academicYear, schoolId }).select("startDate endDate name").lean();
     if (!academicYear) throw AppError.conflict("Current academic year could not be resolved");
-    if (startDate < academicYear.startDate || startDate >= academicYear.endDate) {
-      throw AppError.badRequest("Attendance report must fall within the current academic year");
-    }
+    if (startDate < academicYear.startDate || startDate >= academicYear.endDate) throw AppError.badRequest("Attendance report must fall within the current academic year");
     const section = await Section.findOne({ _id: sectionId, classId, schoolId }).select("_id");
     if (!section) throw AppError.notFound("Class or section not found");
     const students = await Student.find({ classId, sectionId, schoolId, status: "active" }).lean();
@@ -181,7 +163,5 @@ export async function getMonthlyAttendanceReport(req: Request, res: Response, ne
       return { studentId: student._id, admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}`, attendance: studentAttendance, counts };
     });
     res.json({ report, month: numericMonth, year: numericYear, academicYear: academicYear.name });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 }
