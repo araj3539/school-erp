@@ -2,6 +2,9 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 import { test, expect } from "@playwright/test";
 
+// Support both direct execution from the repository root and execution with
+// the server package as the working directory.
+config({ path: resolve(process.cwd(), "server", ".env") });
 config({ path: resolve(process.cwd(), ".env") });
 
 const baseUrl = process.env.E2E_API_URL;
