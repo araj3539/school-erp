@@ -11,6 +11,11 @@ const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const principalEmail = "principal.a@phase1.example.com";
 const studentId = process.env.E2E_SCHOOL_A_STUDENT_ID;
 
+function apiUrl(path: string): string {
+  expect(baseUrl, "E2E_API_URL is required").toBeTruthy();
+  return new URL(path, baseUrl).toString();
+}
+
 function normalizeObjectId(value: unknown): string | undefined {
   if (typeof value === "string" && /^[a-f\d]{24}$/i.test(value)) return value;
   if (value && typeof value === "object" && "$oid" in value) {
@@ -24,7 +29,7 @@ async function getPrincipalToken(request: any): Promise<string> {
   const cachedToken = process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN;
   if (cachedToken) return cachedToken;
   expect(fixturePassword, "E2E_FIXTURE_PASSWORD is required").toBeTruthy();
-  const response = await request.post("/api/v1/auth/login", {
+  const response = await request.post(apiUrl("/api/v1/auth/login"), {
     data: {
       email: principalEmail,
       password: fixturePassword,
@@ -39,12 +44,11 @@ async function getPrincipalToken(request: any): Promise<string> {
 }
 
 test("principal can submit two attendance days atomically", async ({ request }) => {
-  expect(baseUrl).toBeTruthy();
   expect(studentId).toBeTruthy();
 
   const principalToken = await getPrincipalToken(request);
 
-  const studentResponse = await request.get(`/api/v1/students/${studentId}`, {
+  const studentResponse = await request.get(apiUrl(`/api/v1/students/${studentId}`), {
     headers: { Authorization: `Bearer ${principalToken}` },
   });
   const studentBody = await studentResponse.json().catch(() => ({}));
@@ -55,7 +59,7 @@ test("principal can submit two attendance days atomically", async ({ request }) 
   expect(classId, `Fixture student has invalid classId: ${JSON.stringify(student?.classId)}`).toBeTruthy();
   expect(sectionId, `Fixture student has invalid sectionId: ${JSON.stringify(student?.sectionId)}`).toBeTruthy();
 
-  const yearsResponse = await request.get("/api/v1/academic-years", {
+  const yearsResponse = await request.get(apiUrl("/api/v1/academic-years"), {
     headers: { Authorization: `Bearer ${principalToken}` },
   });
   const yearsBody = await yearsResponse.json().catch(() => ({}));
@@ -70,7 +74,7 @@ test("principal can submit two attendance days atomically", async ({ request }) 
   second.setUTCDate(second.getUTCDate() + 1);
   const toDate = (date: Date) => date.toISOString().slice(0, 10);
 
-  const response = await request.post("/api/v1/attendance/bulk", {
+  const response = await request.post(apiUrl("/api/v1/attendance/bulk"), {
     headers: { Authorization: `Bearer ${principalToken}` },
     data: {
       entries: [
