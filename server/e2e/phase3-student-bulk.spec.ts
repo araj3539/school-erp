@@ -9,7 +9,6 @@ config({ path: resolve(process.cwd(), ".env") });
 const baseUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
 const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
-const existingStudentId = process.env.E2E_SCHOOL_A_STUDENT_ID;
 
 function apiUrl(path: string): string {
   expect(baseUrl, "E2E_API_URL is required").toBeTruthy();
@@ -33,16 +32,20 @@ async function excelBuffer(rows: unknown[][]): Promise<Buffer> {
   return Buffer.from(buffer);
 }
 
+async function findFixtureStudent(request: any, headers: Record<string, string>): Promise<any> {
+  const admissionNo = "PH1-A-001";
+  const response = await request.get(apiUrl(`/api/v1/students?search=${encodeURIComponent(admissionNo)}&page=1&limit=10`), { headers });
+  const body = await response.json().catch(() => ({}));
+  expect(response.status(), `Fixture student list lookup failed: ${JSON.stringify(body)}`).toBe(200);
+  const student = body.data?.find((item: any) => item.admissionNo === admissionNo);
+  expect(student, `Fixture student ${admissionNo} was not found: ${JSON.stringify(body)}`).toBeTruthy();
+  return student;
+}
+
 test("invalid student import is rejected atomically and filtered export remains tenant-safe", async ({ request }) => {
-  expect(existingStudentId).toBeTruthy();
   const token = await getPrincipalToken(request);
   const headers = { Authorization: `Bearer ${token}` };
-
-  const existingResponse = await request.get(apiUrl(`/api/v1/students/${existingStudentId}`), { headers });
-  const existingBody = await existingResponse.json().catch(() => ({}));
-  expect(existingResponse.status(), `Fixture student lookup failed: ${JSON.stringify(existingBody)}`).toBe(200);
-  const existing = existingBody.student ?? existingBody.data?.student ?? existingBody.data ?? existingBody;
-  expect(existing?.admissionNo).toBeTruthy();
+  const existing = await findFixtureStudent(request, headers);
 
   const candidateAdmission = `E2E${Date.now().toString().slice(-10)}`;
   const invalidWorkbook = await excelBuffer([
