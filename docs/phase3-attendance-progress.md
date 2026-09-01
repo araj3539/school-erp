@@ -10,30 +10,37 @@ Phase state: `IN_PROGRESS`
 Attendance creation and correction resolve the school-configured academic year and reject dates outside its `[startDate, endDate)` range.
 
 ### 2. Correction authorization
-Creating a new attendance record continues to use the existing `attendance:write` permission.
-
-When a record already exists for the same school/class/section/date, the request is treated as a correction. Corrections are restricted to:
-- `principal`
-- `super_admin`
-
-Teachers can continue to mark attendance for their assigned classes but cannot overwrite an existing attendance record through the marking endpoint.
+Creating a new attendance record continues to use the existing `attendance:write` permission. Existing records are correction operations restricted to `principal` and `super_admin`.
 
 ### 3. Correction auditing
 Corrections generate an `Attendance` `CORRECT` audit event with the tenant `schoolId` explicitly included in the audit payload.
 
 ### 4. Monthly-report academic-year guard
-Monthly attendance reports verify that the requested month begins inside the school-configured current academic year and return the academic-year name with the report.
+Monthly attendance reports verify that the requested month begins inside the school-configured current academic year and return the academic-year name.
 
 ### 5. Calendar-date API contract
-Attendance API input and student attendance date-range validation now use `DateOnlySchema`/`AttendanceDateRangeSchema` with strict `YYYY-MM-DD` values.
-
-This matches the controller's calendar-day parsing and prevents ISO datetime timezone offsets from changing or rejecting the represented school day.
+Attendance write/query date input and student attendance date ranges use strict `YYYY-MM-DD` calendar-date semantics.
 
 ### 6. Attendance list-filter validation
-The attendance collection route now validates with `AttendanceQuerySchema`, so class, section, single-date, and date-range filters are preserved instead of being stripped by the generic pagination schema.
+The attendance collection route validates with `AttendanceQuerySchema`, preserving class, section, single-date, and date-range filters.
 
 ### 7. Tenant resolution consistency
-Attendance student views now resolve the effective tenant through the shared `getTenantId()` helper, including selected-school context for super-admin requests.
+Attendance student views resolve the effective tenant through the shared `getTenantId()` helper.
+
+### 8. Bounded bulk attendance workflow
+Added `POST /api/v1/attendance/bulk`.
+
+Rules:
+- accepts 1–31 attendance entries per request
+- rejects payloads above 5000 student records
+- rejects duplicate class/section/date entries in the same request
+- resolves tenant context from authenticated request state
+- validates every class, section, and active student against the tenant
+- enforces teacher class ownership for every entry
+- enforces the current academic year for every entry
+- treats existing days as corrections and restricts them to principal/super-admin
+- creates/updates all attendance days and their audit events in one MongoDB transaction
+- rolls the whole request back if any entry fails validation or persistence
 
 ## Existing safeguards retained
 
@@ -49,33 +56,27 @@ Attendance student views now resolve the effective tenant through the shared `ge
 
 ## Verification status
 
-Source-level review completed for:
-- `server/src/controllers/attendanceController.ts`
-- `server/src/models/Attendance.ts`
-- `server/src/routes/attendanceRoutes.ts`
-- `shared/src/schemas/index.ts`
-- `server/src/validators/index.ts`
-- `shared/src/schemas/schemas.test.ts`
+Source-level review completed for attendance controller, model, routes, shared schemas, server validators, and regression tests.
 
-Regression coverage added for:
-- valid calendar attendance dates
-- invalid calendar dates
-- rejection of datetime values for attendance input
+Regression coverage includes:
+- calendar date validation
+- strict attendance date-range validation
 - teacher correction denial
 - principal correction success
 - out-of-academic-year attendance rejection
 - attendance list class/section/date filtering
+- bulk entry size limits
+- duplicate class/section/day rejection
 
-A dedicated `phase3-attendance` Playwright gate and package scripts are now present. Live E2E execution still requires the configured E2E fixture environment.
+A dedicated `phase3-attendance` Playwright gate and package scripts are present. Live E2E execution is still the acceptance gate for the current Phase 3 implementation.
 
-Render successfully deployed the tenant/date hardening commit `478f06f...`. Subsequent commits are being deployed automatically on `main`; the latest commit is currently queued for deployment.
+Render successfully deployed the prior type-safe tenant/date hardening. The latest bulk-attendance commits are deploying automatically on `main`; production acceptance remains pending until the new code is live.
 
 The Phase 1 and Phase 2 security gates remain mandatory regression gates.
 
 ## Next Phase 3 work
 
-1. Run the new attendance E2E gate against the live fixture environment.
-2. Fix any live acceptance failures before expanding the workflow.
-3. Add bulk attendance correction/import workflows only after the single-record correction path is stable.
-4. Harden monthly/reporting timezone semantics if school-local reporting requires an explicit timezone field.
-5. Keep student/teacher attendance views tenant- and ownership-scoped.
+1. Run the live Phase 3 attendance E2E gate against the deployed bulk workflow.
+2. Fix any live acceptance failures before adding spreadsheet import/export.
+3. Harden monthly/reporting timezone semantics if school-local reporting requires an explicit timezone field.
+4. Keep student/teacher attendance views tenant- and ownership-scoped.
