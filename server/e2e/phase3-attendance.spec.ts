@@ -18,6 +18,15 @@ const cachedTokens: Record<string, string | undefined> = {
   teacherA: process.env.E2E_TEACHER_A_ACCESS_TOKEN,
 };
 
+function normalizeObjectId(value: unknown): string | undefined {
+  if (typeof value === "string" && /^[a-f\d]{24}$/i.test(value)) return value;
+  if (value && typeof value === "object" && "$oid" in value) {
+    const oid = (value as { $oid?: unknown }).$oid;
+    if (typeof oid === "string" && /^[a-f\d]{24}$/i.test(oid)) return oid;
+  }
+  return undefined;
+}
+
 async function login(api: any, role: keyof typeof emails) {
   const cached = cachedTokens[role];
   if (cached) return cached;
@@ -51,26 +60,23 @@ async function getFixtureContext(api: any, principalToken: string) {
   });
   const studentBody = await studentResponse.json();
   expect(studentResponse.status(), `Student lookup failed: ${JSON.stringify(studentBody)}`).toBe(200);
-  const student = studentBody.student;
-  expect(student?.classId?.toString(), `Fixture student has no class: ${JSON.stringify(student)}`).toBeTruthy();
-  expect(student?.sectionId?.toString(), `Fixture student has no section: ${JSON.stringify(student)}`).toBeTruthy();
+  const student = studentBody.student ?? studentBody.data?.student ?? studentBody.data ?? studentBody;
+  const classId = normalizeObjectId(student?.classId);
+  const sectionId = normalizeObjectId(student?.sectionId);
+  expect(classId, `Fixture student has invalid classId: ${JSON.stringify(student?.classId)}`).toBeTruthy();
+  expect(sectionId, `Fixture student has invalid sectionId: ${JSON.stringify(student?.sectionId)}`).toBeTruthy();
 
   const yearsResponse = await api.get("/api/v1/academic-years", {
     headers: { Authorization: `Bearer ${principalToken}` },
   });
   const yearsBody = await yearsResponse.json();
   expect(yearsResponse.status(), `Academic year lookup failed: ${JSON.stringify(yearsBody)}`).toBe(200);
-  const years = yearsBody.data ?? [];
+  const years = yearsBody.data ?? yearsBody.academicYears ?? [];
   const current = years.find((year: any) => year.isCurrent);
   expect(current?.startDate, `No current academic year: ${JSON.stringify(years)}`).toBeTruthy();
   expect(current?.endDate, `Current academic year missing endDate: ${JSON.stringify(current)}`).toBeTruthy();
 
-  return {
-    studentId: schoolAStudent,
-    classId: student.classId.toString(),
-    sectionId: student.sectionId.toString(),
-    academicYear: current,
-  };
+  return { studentId: schoolAStudent, classId, sectionId, academicYear: current };
 }
 
 async function expectStatus(response: any, expected: number | number[], label: string) {
@@ -125,15 +131,9 @@ test.describe("Phase 3 attendance acceptance", () => {
     const principalToken = await login(request, "principalA");
     const context = await getFixtureContext(request, principalToken);
     const date = addDays(calendarDate(context.academicYear.startDate), -1);
-
     const response = await request.post("/api/v1/attendance", {
       headers: { Authorization: `Bearer ${principalToken}` },
-      data: {
-        date,
-        classId: context.classId,
-        sectionId: context.sectionId,
-        records: [{ studentId: context.studentId, status: "present" }],
-      },
+      data: { date, classId: context.classId, sectionId: context.sectionId, records: [{ studentId: context.studentId, status: "present" }] },
     });
     await expectStatus(response, 400, "Out-of-academic-year attendance");
   });
@@ -142,7 +142,6 @@ test.describe("Phase 3 attendance acceptance", () => {
     const principalToken = await login(request, "principalA");
     const context = await getFixtureContext(request, principalToken);
     const date = addDays(calendarDate(context.academicYear.startDate), 1);
-
     const response = await request.get("/api/v1/attendance", {
       headers: { Authorization: `Bearer ${principalToken}` },
       params: { classId: context.classId, sectionId: context.sectionId, date },
@@ -150,8 +149,8 @@ test.describe("Phase 3 attendance acceptance", () => {
     const body = await expectStatus(response, 200, "Attendance list filter");
     expect(body.data).toBeInstanceOf(Array);
     for (const item of body.data) {
-      expect(item.classId?.toString()).toBe(context.classId);
-      expect(item.sectionId?.toString()).toBe(context.sectionId);
+      expect(normalizeObjectId(item.classId)).toBe(context.classId);
+      expect(normalizeObjectId(item.sectionId)).toBe(context.sectionId);
       expect(calendarDate(item.date)).toBe(date);
     }
   });
