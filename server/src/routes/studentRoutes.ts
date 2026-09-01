@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticate, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
 import { upload, validateStudentDocumentUpload } from "../middleware/upload.js";
-import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument } from "../controllers/studentController.js";
+import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument, deleteStudentDocument } from "../controllers/studentController.js";
 import { bulkImportStudentsHardened, exportStudentsHardened } from "../controllers/studentBulkOperationsController.js";
 import { getStudentParents, assignStudentParents } from "../controllers/studentParentController.js";
 import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery, runManualStorageBackup } from "../controllers/documentRecoveryController.js";
