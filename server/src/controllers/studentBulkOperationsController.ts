@@ -96,7 +96,11 @@ function applyStudentExportFilters(query: any, input: any): void {
   const searchText = String(search ?? "").trim();
   if (!searchText) return;
 
-  // Keep export search semantics identical to GET /students.
+  if (/^[A-Z0-9-]{1,20}$/i.test(searchText)) {
+    query.admissionNo = searchText;
+    return;
+  }
+
   const escaped = escapeRegex(searchText);
   query.$or = [
     { firstName: { $regex: escaped, $options: "i" } },
@@ -111,12 +115,12 @@ export async function exportStudentsHardened(req: Request, res: Response, next: 
     const schoolId = getTenantId(req);
     const queryInput = req.validatedQuery as any;
     const { page, limit, sortBy, sortOrder } = queryInput;
-    const query: any = { schoolId };
+    const query: any = { schoolId: new mongoose.Types.ObjectId(schoolId) };
 
     if (req.user!.role === UserRole.TEACHER) {
       const classIds = await getTeacherClassIds(req);
       if (!classIds?.length) return sendStudentWorkbook(res, []);
-      query.classId = { $in: classIds };
+      query.classId = { $in: classIds.map((id) => new mongoose.Types.ObjectId(id)) };
       if (queryInput.classId && !classIds.includes(String(queryInput.classId))) throw AppError.forbidden("You are not assigned to this class");
     }
 
