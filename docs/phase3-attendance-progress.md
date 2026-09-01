@@ -9,8 +9,6 @@ Phase state: `IN_PROGRESS`
 ### 1. Academic-year-aware attendance marking
 Attendance creation and correction resolve the school-configured academic year and reject dates outside its `[startDate, endDate)` range.
 
-This prevents attendance from being written against a school period that is not currently active.
-
 ### 2. Correction authorization
 Creating a new attendance record continues to use the existing `attendance:write` permission.
 
@@ -31,9 +29,15 @@ Attendance API input and student attendance date-range validation now use `DateO
 
 This matches the controller's calendar-day parsing and prevents ISO datetime timezone offsets from changing or rejecting the represented school day.
 
+### 6. Attendance list-filter validation
+The attendance collection route now validates with `AttendanceQuerySchema`, so class, section, single-date, and date-range filters are preserved instead of being stripped by the generic pagination schema.
+
+### 7. Tenant resolution consistency
+Attendance student views now resolve the effective tenant through the shared `getTenantId()` helper, including selected-school context for super-admin requests.
+
 ## Existing safeguards retained
 
-- tenant scope through authenticated `schoolId`
+- tenant scope through authenticated `schoolId` / resolved tenant context
 - teacher class ownership checks
 - student self-access checks
 - parent-child ownership checks
@@ -53,19 +57,25 @@ Source-level review completed for:
 - `server/src/validators/index.ts`
 - `shared/src/schemas/schemas.test.ts`
 
-Regression tests added for:
+Regression coverage added for:
 - valid calendar attendance dates
 - invalid calendar dates
 - rejection of datetime values for attendance input
+- teacher correction denial
+- principal correction success
+- out-of-academic-year attendance rejection
+- attendance list class/section/date filtering
 
-Vercel checks have been passing for the implementation commits. Render has automatic deploy enabled on `main`; deployment acceptance remains required after the latest attendance commit reaches the live service.
+A dedicated `phase3-attendance` Playwright gate and package scripts are now present. Live E2E execution still requires the configured E2E fixture environment.
+
+Render successfully deployed the tenant/date hardening commit `478f06f...`. Subsequent commits are being deployed automatically on `main`; the latest commit is currently queued for deployment.
 
 The Phase 1 and Phase 2 security gates remain mandatory regression gates.
 
 ## Next Phase 3 work
 
-1. Add explicit attendance correction E2E coverage for teacher denial and principal success.
-2. Add duplicate-date and out-of-academic-year live acceptance cases.
-3. Harden monthly/reporting timezone semantics if school-local reporting requires an explicit timezone field.
-4. Add bulk correction/import workflows only after the single-record correction path is stable.
+1. Run the new attendance E2E gate against the live fixture environment.
+2. Fix any live acceptance failures before expanding the workflow.
+3. Add bulk attendance correction/import workflows only after the single-record correction path is stable.
+4. Harden monthly/reporting timezone semantics if school-local reporting requires an explicit timezone field.
 5. Keep student/teacher attendance views tenant- and ownership-scoped.
