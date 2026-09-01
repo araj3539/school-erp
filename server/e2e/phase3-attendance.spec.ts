@@ -4,10 +4,8 @@ import { test, expect } from "@playwright/test";
 
 config({ path: resolve(process.cwd(), ".env") });
 
-const apiUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
 const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
-const schoolAStudent = process.env.E2E_SCHOOL_A_STUDENT_ID;
 const emails = {
   principalA: "principal.a@phase1.example.com",
   teacherA: "teacher.a@phase1.example.com",
@@ -23,6 +21,9 @@ function normalizeObjectId(value: unknown): string | undefined {
   if (value && typeof value === "object" && "$oid" in value) {
     const oid = (value as { $oid?: unknown }).$oid;
     if (typeof oid === "string" && /^[a-f\d]{24}$/i.test(oid)) return oid;
+  }
+  if (value && typeof value === "object" && "_id" in value) {
+    return normalizeObjectId((value as { _id?: unknown })._id);
   }
   return undefined;
 }
@@ -53,18 +54,22 @@ function addDays(value: string, days: number) {
 }
 
 async function getFixtureContext(api: any, principalToken: string) {
-  if (!schoolAStudent) throw new Error("E2E_SCHOOL_A_STUDENT_ID is required");
-
-  const studentResponse = await api.get(`/api/v1/students/${schoolAStudent}`, {
+  const studentsResponse = await api.get("/api/v1/students?limit=50", {
     headers: { Authorization: `Bearer ${principalToken}` },
   });
-  const studentBody = await studentResponse.json();
-  expect(studentResponse.status(), `Student lookup failed: ${JSON.stringify(studentBody)}`).toBe(200);
-  const student = studentBody.student ?? studentBody.data?.student ?? studentBody.data ?? studentBody;
-  const classId = normalizeObjectId(student?.classId);
-  const sectionId = normalizeObjectId(student?.sectionId);
-  expect(classId, `Fixture student has invalid classId: ${JSON.stringify(student?.classId)}`).toBeTruthy();
-  expect(sectionId, `Fixture student has invalid sectionId: ${JSON.stringify(student?.sectionId)}`).toBeTruthy();
+  const studentsBody = await studentsResponse.json();
+  expect(studentsResponse.status(), `Student list failed: ${JSON.stringify(studentsBody)}`).toBe(200);
+
+  const students = studentsBody.data ?? studentsBody.students ?? [];
+  const student = students.find((item: any) => item.admissionNo === "PH1-A-001" && item.status === "active");
+  expect(student, `School A fixture student not found: ${JSON.stringify(students)}`).toBeTruthy();
+
+  const studentId = normalizeObjectId(student._id);
+  const classId = normalizeObjectId(student.classId);
+  const sectionId = normalizeObjectId(student.sectionId);
+  expect(studentId, `Fixture student has invalid _id: ${JSON.stringify(student._id)}`).toBeTruthy();
+  expect(classId, `Fixture student has invalid classId: ${JSON.stringify(student.classId)}`).toBeTruthy();
+  expect(sectionId, `Fixture student has invalid sectionId: ${JSON.stringify(student.sectionId)}`).toBeTruthy();
 
   const yearsResponse = await api.get("/api/v1/academic-years", {
     headers: { Authorization: `Bearer ${principalToken}` },
@@ -72,11 +77,11 @@ async function getFixtureContext(api: any, principalToken: string) {
   const yearsBody = await yearsResponse.json();
   expect(yearsResponse.status(), `Academic year lookup failed: ${JSON.stringify(yearsBody)}`).toBe(200);
   const years = yearsBody.data ?? yearsBody.academicYears ?? [];
-  const current = years.find((year: any) => year.isCurrent);
-  expect(current?.startDate, `No current academic year: ${JSON.stringify(years)}`).toBeTruthy();
+  const current = years.find((year: any) => year.isCurrent && normalizeObjectId(year.schoolId) === "66a000000000000000000001");
+  expect(current?.startDate, `No current academic year for School A: ${JSON.stringify(years)}`).toBeTruthy();
   expect(current?.endDate, `Current academic year missing endDate: ${JSON.stringify(current)}`).toBeTruthy();
 
-  return { studentId: schoolAStudent, classId, sectionId, academicYear: current };
+  return { studentId, classId, sectionId, academicYear: current };
 }
 
 async function expectStatus(response: any, expected: number | number[], label: string) {
