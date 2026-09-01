@@ -6,13 +6,13 @@ import { getStudentParents, assignStudentParents } from "../controllers/studentP
 import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery, runManualStorageBackup } from "../controllers/documentRecoveryController.js";
 import { getParentStudents, getParentStudentById, getParentStudentDocumentUrl } from "../controllers/parentStudentAccessController.js";
 import { UserRole } from "@school-erp/shared";
-import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, IdParamSchema, StudentDocumentParamSchema } from "../validators/index.js";
+import { CreateStudentSchema, UpdateStudentSchema, PaginationSchema, StudentQuerySchema, IdParamSchema, StudentDocumentParamSchema } from "../validators/index.js";
 const router = Router();
 router.use(authenticate);
 const parentOnly = (req: any, _res: any, next: any) => req.user?.role === UserRole.PARENT ? next() : next("route");
 
 router.get("/", parentOnly, requirePermission("students:read:child"), validate(PaginationSchema, "query"), getParentStudents);
-router.get("/", requireAnyPermission("students:read", "students:read:own"), validate(PaginationSchema, "query"), getStudents);
+router.get("/", requireAnyPermission("students:read", "students:read:own"), validate(StudentQuerySchema, "query"), getStudents);
 router.get("/export", requirePermission("students:read"), exportStudents);
 router.post("/document-recoveries/backup", requirePermission("settings:write"), runManualStorageBackup);
 router.get("/:id/parents", requirePermission("students:read"), validate(IdParamSchema, "params"), getStudentParents);
