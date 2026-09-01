@@ -38,34 +38,52 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
     const validationErrors: { row: number; message: string }[] = [];
     const documents: any[] = [];
     const admissionNumbers: string[] = [];
-    const seenAdmissionNumbers = new Set<string>();
+    const seenAdmissionNumbers = new Map<string, number>();
 
     for (const [index, row] of rows.entries()) {
       const rowNumber = index + 2;
       const admissionNo = String(row.admissionNo ?? "").trim() || generateAdmissionNumber();
-      if (seenAdmissionNumbers.has(admissionNo)) {
-        validationErrors.push({ row: rowNumber, message: `Duplicate admissionNo in import: ${admissionNo}` });
+      const firstSeenRow = seenAdmissionNumbers.get(admissionNo);
+      if (firstSeenRow !== undefined) {
+        validationErrors.push({ row: rowNumber, message: `Duplicate admissionNo in import: ${admissionNo} (already used on row ${firstSeenRow})` });
         continue;
       }
-      seenAdmissionNumbers.add(admissionNo);
+      seenAdmissionNumbers.set(admissionNo, rowNumber);
       admissionNumbers.push(admissionNo);
       try {
-        const parsed = CreateStudentSchema.parse({ ...row, admissionNo, schoolId, dob: normalizeDateOnly(row.dob), admissionDate: normalizeDateOnly(row.admissionDate) });
+        const parsed = CreateStudentSchema.parse({
+          ...row,
+          admissionNo,
+          schoolId,
+          dob: normalizeDateOnly(row.dob),
+          admissionDate: normalizeDateOnly(row.admissionDate),
+        });
         documents.push({ ...parsed, schoolId, documents: [] });
       } catch (error) {
         validationErrors.push({ row: rowNumber, message: formatValidationError(error) });
       }
     }
 
-    const existing = await Student.find({ admissionNo: { $in: admissionNumbers }, schoolId }).select("admissionNo").lean();
+    const existing = await Student.find({ admissionNo: { $in: admissionNumbers }, schoolId })
+      .select("admissionNo")
+      .lean();
     if (existing.length) {
       const existingSet = new Set(existing.map((student) => student.admissionNo));
-      admissionNumbers.forEach((admissionNo, index) => {
-        if (existingSet.has(admissionNo)) validationErrors.push({ row: index + 2, message: `Admission number already exists: ${admissionNo}` });
-      });
+      for (const admissionNo of admissionNumbers) {
+        if (existingSet.has(admissionNo)) {
+          const row = seenAdmissionNumbers.get(admissionNo);
+          validationErrors.push({ row: row ?? 2, message: `Admission number already exists: ${admissionNo}` });
+        }
+      }
     }
 
-    if (validationErrors.length) return res.status(400).json({ error: "Student import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
+    if (validationErrors.length) {
+      return res.status(400).json({
+        error: "Student import validation failed",
+        code: "VALIDATION_ERROR",
+        errors: validationErrors,
+      });
+    }
 
     const session = await mongoose.startSession();
     let created: any[] = [];
@@ -75,7 +93,15 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
         for (const student of docs) await student.validate();
         created = await Student.create(documents, { session });
         for (const student of created) {
-          await createAuditLog({ userId: req.user!.userId, schoolId, action: "CREATE", entity: "Student", entityId: student._id.toString(), after: { admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}`, source: "bulk-import" }, session });
+          await createAuditLog({
+            userId: req.user!.userId,
+            schoolId,
+            action: "CREATE",
+            entity: "Student",
+            entityId: student._id.toString(),
+            after: { admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}`, source: "bulk-import" },
+            session,
+          });
         }
       });
     } finally {
@@ -85,24 +111,6 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
   } catch (error) {
     next(error);
   }
-}
-
-function applyStudentExportFilters(query: any, input: any): void {
-  const { search, status, classId, sectionId } = input;
-  if (classId) query.classId = classId;
-  if (sectionId) query.sectionId = sectionId;
-  if (status) query.status = status;
-
-  const searchText = String(search ?? "").trim();
-  if (!searchText) return;
-
-  const escaped = escapeRegex(searchText);
-  query.$or = [
-    { firstName: { $regex: escaped, $options: "i" } },
-    { lastName: { $regex: escaped, $options: "i" } },
-    { admissionNo: { $regex: escaped, $options: "i" } },
-    { phone: { $regex: escaped, $options: "i" } },
-  ];
 }
 
 export async function exportStudentsHardened(req: Request, res: Response, next: NextFunction) {
@@ -126,7 +134,12 @@ export async function exportStudentsHardened(req: Request, res: Response, next: 
     if (filters.status) dbQuery.status = filters.status;
     if (filters.search && req.user!.role !== UserRole.STUDENT) {
       const search = escapeRegex(String(filters.search));
-      dbQuery.$or = [{ firstName: { $regex: search, $options: "i" } }, { lastName: { $regex: search, $options: "i" } }, { admissionNo: { $regex: search, $options: "i" } }, { phone: { $regex: search, $options: "i" } }];
+      dbQuery.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { admissionNo: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
     }
     const sort: any = {};
     if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1; else sort.createdAt = -1;
@@ -141,8 +154,19 @@ export async function exportStudentsHardened(req: Request, res: Response, next: 
 }
 
 async function sendStudentWorkbook(res: Response, students: any[]): Promise<void> {
-  const data = students.map((student: any) => ({ admissionNo: student.admissionNo, firstName: student.firstName, lastName: student.lastName, class: student.classId?.displayName ?? "", section: student.sectionId?.name ?? "", gender: student.gender, phone: student.phone, status: student.status }));
-  const workbookData = data.length > 0 ? data : [{ admissionNo: "", firstName: "", lastName: "", class: "", section: "", gender: "", phone: "", status: "" }];
+  const data = students.map((student: any) => ({
+    admissionNo: student.admissionNo,
+    firstName: student.firstName,
+    lastName: student.lastName,
+    class: student.classId?.displayName ?? "",
+    section: student.sectionId?.name ?? "",
+    gender: student.gender,
+    phone: student.phone,
+    status: student.status,
+  }));
+  const workbookData = data.length > 0
+    ? data
+    : [{ admissionNo: "", firstName: "", lastName: "", class: "", section: "", gender: "", phone: "", status: "" }];
   const buffer = await generateExcelFile(workbookData, "Students");
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", "attachment; filename=students.xlsx");
