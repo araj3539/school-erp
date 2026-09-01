@@ -5,7 +5,7 @@ import {
   CreateTeacherSchema, UpdateTeacherSchema, CreateClassSchema, UpdateClassSchema,
   CreateSectionSchema, UpdateSectionSchema, CreateSubjectSchema, UpdateSubjectSchema,
   CreateAttendanceSchema, MarkAttendanceSchema, CreateFeeStructureSchema, CreateFeeSchema,
-  CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema, UserRole,
+  CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, ObjectIdSchema, UserRole, DateOnlySchema,
 } from "@school-erp/shared";
 
 export {
@@ -36,7 +36,7 @@ export const TeacherQuerySchema = z.object({ page: z.coerce.number().int().posit
 export const ClassQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(20), sortBy: z.string().optional(), sortOrder: z.enum(["asc", "desc"]).default("desc") });
 export const SectionQuerySchema = z.object({ classId: z.string().optional() });
 export const SubjectQuerySchema = z.object({ classId: z.string().optional() });
-export const AttendanceQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(20), sortBy: z.string().optional(), sortOrder: z.enum(["asc", "desc"]).default("desc"), classId: z.string().optional(), sectionId: z.string().optional(), date: z.string().optional(), startDate: z.string().optional(), endDate: z.string().optional() });
+export const AttendanceQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(20), sortBy: z.string().optional(), sortOrder: z.enum(["asc", "desc"]).default("desc"), classId: z.string().optional(), sectionId: z.string().optional(), date: DateOnlySchema.optional(), startDate: DateOnlySchema.optional(), endDate: DateOnlySchema.optional() });
 export const PaymentQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(20), sortBy: z.string().optional(), sortOrder: z.enum(["asc", "desc"]).default("desc"), studentId: z.string().optional(), feeId: z.string().optional(), startDate: z.string().optional(), endDate: z.string().optional() });
 export const UserQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(20), sortBy: z.string().optional(), sortOrder: z.enum(["asc", "desc"]).default("desc"), role: z.string().optional(), isActive: z.string().optional() });
 export const DateRangeQuerySchema = z.object({ startDate: z.string().optional(), endDate: z.string().optional() });
