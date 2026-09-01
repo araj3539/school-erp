@@ -82,10 +82,10 @@ test("invalid student import is rejected atomically and filtered export remains 
   });
   if (existing.status) exportParams.set("status", String(existing.status));
   const exportResponse = await request.get(apiUrl(`/api/v1/students/export?${exportParams.toString()}`), { headers });
-  const exportBody = await exportResponse.text();
-  expect(exportResponse.status(), `Filtered export response: ${exportBody}`).toBe(200);
+  const exportBody = await exportResponse.body();
+  expect(exportResponse.status(), `Filtered export response status: ${exportResponse.status()}`).toBe(200);
   expect(exportResponse.headers()["content-type"]).toContain("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  const exportedRows = await readSheet(Buffer.from(exportBody, "binary"));
+  const exportedRows = await readSheet(exportBody);
   expect(exportedRows.length).toBeGreaterThanOrEqual(2);
   expect(String(exportedRows[1][0])).toBe(existing.admissionNo);
 });
