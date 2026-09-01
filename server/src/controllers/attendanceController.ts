@@ -28,12 +28,17 @@ async function assertParentChildAccess(req: Request, studentId: string) {
   const student = await Student.findOne({ _id: studentId, schoolId: getTenantId(req), parentIds: req.user!.userId }).select("_id").lean();
   if (!student) throw AppError.forbidden("Parents can only access attendance for their linked children");
 }
+function calendarDayStart(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+}
 async function assertAttendanceDateInCurrentAcademicYear(schoolId: Types.ObjectId, date: Date) {
   const school = await School.findById(schoolId).select("academicYear").lean();
   if (!school?.academicYear) throw AppError.conflict("School does not have a current academic year configured");
   const academicYear = await AcademicYear.findOne({ _id: school.academicYear, schoolId }).select("startDate endDate").lean();
   if (!academicYear) throw AppError.conflict("Current academic year could not be resolved");
-  if (date < academicYear.startDate || date >= academicYear.endDate) throw AppError.badRequest("Attendance date must fall within the current academic year");
+  const startDay = calendarDayStart(academicYear.startDate);
+  const endDay = calendarDayStart(academicYear.endDate);
+  if (date < startDay || date >= endDay) throw AppError.badRequest("Attendance date must fall within the current academic year");
 }
 async function assertAttendanceCorrectionAccess(req: Request) {
   if (req.user!.role !== UserRole.PRINCIPAL && req.user!.role !== UserRole.SUPER_ADMIN) throw AppError.forbidden("Only school management can correct existing attendance");
@@ -170,7 +175,9 @@ export async function getMonthlyAttendanceReport(req: Request, res: Response, ne
     if (!school?.academicYear) throw AppError.conflict("School does not have a current academic year configured");
     const academicYear = await AcademicYear.findOne({ _id: school.academicYear, schoolId }).select("startDate endDate name").lean();
     if (!academicYear) throw AppError.conflict("Current academic year could not be resolved");
-    if (startDate < academicYear.startDate || startDate >= academicYear.endDate) throw AppError.badRequest("Attendance report must fall within the current academic year");
+    const academicStart = calendarDayStart(academicYear.startDate);
+    const academicEnd = calendarDayStart(academicYear.endDate);
+    if (startDate < academicStart || startDate >= academicEnd) throw AppError.badRequest("Attendance report must fall within the current academic year");
     const section = await Section.findOne({ _id: sectionId, classId, schoolId }).select("_id");
     if (!section) throw AppError.notFound("Class or section not found");
     const students = await Student.find({ classId, sectionId, schoolId, status: "active" }).lean();
