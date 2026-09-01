@@ -2,13 +2,13 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 import { test, expect } from "@playwright/test";
 
-// Support both direct execution from the repository root and execution with
-// the server package as the working directory.
 config({ path: resolve(process.cwd(), "server", ".env") });
 config({ path: resolve(process.cwd(), ".env") });
 
 const baseUrl = process.env.E2E_API_URL;
-const principalToken = process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN;
+const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
+const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
+const principalEmail = "principal.a@phase1.example.com";
 const studentId = process.env.E2E_SCHOOL_A_STUDENT_ID;
 
 function normalizeObjectId(value: unknown): string | undefined {
@@ -20,10 +20,29 @@ function normalizeObjectId(value: unknown): string | undefined {
   return undefined;
 }
 
+async function getPrincipalToken(request: any): Promise<string> {
+  const cachedToken = process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN;
+  if (cachedToken) return cachedToken;
+  expect(fixturePassword, "E2E_FIXTURE_PASSWORD is required").toBeTruthy();
+  const response = await request.post("/api/v1/auth/login", {
+    data: {
+      email: principalEmail,
+      password: fixturePassword,
+      schoolCode: schoolACode,
+    },
+  });
+  const body = await response.json().catch(() => ({}));
+  expect(response.status(), `Principal login failed: ${JSON.stringify(body)}`).toBe(200);
+  const token = body.accessToken ?? body.data?.accessToken;
+  expect(token).toBeTruthy();
+  return token;
+}
+
 test("principal can submit two attendance days atomically", async ({ request }) => {
   expect(baseUrl).toBeTruthy();
-  expect(principalToken).toBeTruthy();
   expect(studentId).toBeTruthy();
+
+  const principalToken = await getPrincipalToken(request);
 
   const studentResponse = await request.get(`/api/v1/students/${studentId}`, {
     headers: { Authorization: `Bearer ${principalToken}` },
