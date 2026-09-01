@@ -1,13 +1,13 @@
-import dotenv from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadEnvFile } from "node:process";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 // Load local environment variables before importing config, which validates them at module load time.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, "../../.env") });
-dotenv.config({ path: resolve(__dirname, "../../../.env"), override: false });
+loadEnvFile(resolve(__dirname, "../../.env"));
+try { loadEnvFile(resolve(__dirname, "../../../.env")); } catch {}
 
 const { connectDB, disconnectDB } = await import("../config/index.js");
 
