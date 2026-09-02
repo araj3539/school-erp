@@ -24,6 +24,7 @@
     "test:e2e:phase3:students": "playwright test e2e/phase3-student-search.spec.ts --workers=1",
     "test:e2e:phase3:student-bulk": "playwright test e2e/phase3-student-bulk.spec.ts --workers=1",
     "test:e2e:phase3:teachers": "playwright test e2e/phase3-teacher-administration.spec.ts --workers=1",
+    "test:e2e:phase3:attendance-report": "playwright test e2e/phase3-attendance-report.spec.ts --workers=1",
     "test:e2e:phase3": "node scripts/phase3-gate.mjs",
     "lint": "eslint src --ext .ts"
   },
