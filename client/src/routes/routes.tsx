@@ -5,6 +5,7 @@ import { RequireAuth } from "./guards";
 import LoginPage from "../pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
 import StudentsPage from "../pages/StudentsPage";
+import StudentBulkOperationsPage from "../pages/StudentBulkOperationsPage";
 import StudentDetailPage from "../pages/StudentDetailPage";
 import StudentDocumentRecoveryPage from "../pages/StudentDocumentRecoveryPage";
 import DocumentRecoveryPage from "../pages/DocumentRecoveryPage";
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
       { path: "/", element: <Navigate to="/dashboard" replace /> },
       { path: "/dashboard", element: <DashboardPage /> },
       { path: "/students", element: <StudentsPage /> },
+      { path: "/students/bulk", element: <StudentBulkOperationsPage /> },
       { path: "/students/:id", element: <StudentDetailPage /> },
       { path: "/document-recovery", element: <DocumentRecoveryPage /> },
       { path: "/students/:id/document-recovery", element: <StudentDocumentRecoveryPage /> },
