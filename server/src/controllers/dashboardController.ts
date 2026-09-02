@@ -3,6 +3,23 @@ import { Student, Teacher, Fee, Payment, Attendance, Class, AcademicYear } from 
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
 
+function utcDateKey(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+function localDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function localDayStart(date: Date): Date {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
 export async function getDashboardStats(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = getTenantId(req);
@@ -35,24 +52,62 @@ export async function getDashboardCharts(req: Request, res: Response, next: Next
     const schoolId = getTenantId(req);
     const currentYear = await AcademicYear.findOne({ schoolId, isCurrent: true });
     if (!currentYear) throw AppError.badRequest("No current academic year set");
+
+    const attendanceStart = new Date();
+    attendanceStart.setUTCHours(0, 0, 0, 0);
+    attendanceStart.setUTCDate(attendanceStart.getUTCDate() - 6);
+    const attendanceEnd = new Date();
+    attendanceEnd.setUTCHours(0, 0, 0, 0);
+    attendanceEnd.setUTCDate(attendanceEnd.getUTCDate() + 1);
+
+    const paymentStart = localDayStart(new Date());
+    paymentStart.setDate(paymentStart.getDate() - 29);
+    const paymentEnd = localDayStart(new Date());
+    paymentEnd.setDate(paymentEnd.getDate() + 1);
+
+    const [attendanceRows, payments] = await Promise.all([
+      Attendance.aggregate([
+        { $match: { schoolId, date: { $gte: attendanceStart, $lt: attendanceEnd } } },
+        { $unwind: "$records" },
+        { $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date", timezone: "UTC" } },
+          present: { $sum: { $cond: [{ $eq: ["$records.status", "present"] }, 1, 0] } },
+          total: { $sum: 1 },
+        } },
+        { $sort: { _id: 1 } },
+      ]),
+      Payment.find({ schoolId, date: { $gte: paymentStart, $lt: paymentEnd } }).select("date amount").lean(),
+    ]);
+
+    const attendanceByDate = new Map(attendanceRows.map((row: any) => [row._id, row]));
     const attendanceTrend = [];
     for (let i = 6; i >= 0; i--) {
-      const date = new Date(); date.setDate(date.getDate() - i); date.setHours(0, 0, 0, 0);
-      const nextDate = new Date(date); nextDate.setDate(date.getDate() + 1);
-      const attendance = await Attendance.findOne({ schoolId, date: { $gte: date, $lt: nextDate } }).lean();
-      const present = attendance ? attendance.records.filter((r: any) => r.status === "present").length : 0;
-      const total = attendance ? attendance.records.length : 0;
-      attendanceTrend.push({ date: date.toISOString().split("T")[0], present, total, rate: total > 0 ? Math.round((present / total) * 100) : 0 });
+      const date = new Date();
+      date.setUTCHours(0, 0, 0, 0);
+      date.setUTCDate(date.getUTCDate() - i);
+      const key = utcDateKey(date);
+      const row = attendanceByDate.get(key);
+      const present = row?.present ?? 0;
+      const total = row?.total ?? 0;
+      attendanceTrend.push({ date: key, present, total, rate: total > 0 ? Math.round((present / total) * 100) : 0 });
+    }
+
+    const collectionByDate = new Map<string, number>();
+    for (const payment of payments) {
+      const key = localDateKey(new Date(payment.date));
+      collectionByDate.set(key, (collectionByDate.get(key) ?? 0) + payment.amount);
     }
     const collectionTrend = [];
     for (let i = 29; i >= 0; i--) {
-      const date = new Date(); date.setDate(date.getDate() - i);
-      const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999);
-      const payments = await Payment.find({ schoolId, date: { $gte: startOfDay, $lte: endOfDay } }).lean();
-      collectionTrend.push({ date: date.toISOString().split("T")[0], total: payments.reduce((sum, p) => sum + p.amount, 0) });
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      collectionTrend.push({ date: localDateKey(date), total: collectionByDate.get(localDateKey(date)) ?? 0 });
     }
-    const feeStatus = await Fee.aggregate([{ $match: { schoolId, academicYear: currentYear._id } }, { $group: { _id: "$status", count: { $sum: 1 }, total: { $sum: "$balance" } } }]);
+
+    const feeStatus = await Fee.aggregate([
+      { $match: { schoolId, academicYear: currentYear._id } },
+      { $group: { _id: "$status", count: { $sum: 1 }, total: { $sum: "$balance" } } },
+    ]);
     res.json({ attendanceTrend, collectionTrend, feeStatus });
   } catch (error) { next(error); }
 }
