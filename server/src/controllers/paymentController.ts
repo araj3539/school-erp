@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
-import { Fee, Payment, PaymentReversal } from "../models/index.js";
+import { Fee, Payment, PaymentReversal, School } from "../models/index.js";
 import { PaymentQuerySchema, CreatePaymentSchema, PaymentReversalSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { FeeStatus, generateReceiptNumber } from "@school-erp/shared";
@@ -73,11 +73,15 @@ export async function collectPayment(req: Request, res: Response, next: NextFunc
       paymentId = payment._id;
     });
 
-    const payment = await Payment.findOne({ _id: paymentId!, schoolId: tenant }).populate("collectedBy").lean();
+    const [payment, school] = await Promise.all([
+      Payment.findOne({ _id: paymentId!, schoolId: tenant }).populate("collectedBy").lean(),
+      School.findOne({ _id: tenant }).select("name address phone email").lean(),
+    ]);
     if (!payment) throw AppError.notFound("Payment not found after collection");
+    if (!school) throw AppError.notFound("School not found after collection");
     const fee = await Fee.findOne({ _id: payment.feeId, schoolId: tenant }).populate("feeStructureId studentId").lean();
     if (!fee) throw AppError.notFound("Fee not found after collection");
-    const receiptPdf = await generateReceiptPDF({ ...payment, fee: { ...fee, feeStructure: fee.feeStructureId, student: fee.studentId }, collectedBy: { fullName: req.user!.email } } as any);
+    const receiptPdf = await generateReceiptPDF({ ...payment, fee: { ...fee, feeStructure: fee.feeStructureId, student: fee.studentId }, collectedBy: { fullName: req.user!.email }, school } as any);
     res.status(201).json({ payment, receiptPdf: receiptPdf.toString("base64") });
   } catch (error: any) {
     if (error?.code === 11000) {
@@ -199,7 +203,9 @@ export async function getReceiptPDF(req: Request, res: Response, next: NextFunct
     const tenant = schoolId(req);
     const payment = await Payment.findOne({ _id: id, schoolId: tenant }).populate({ path: "feeId", populate: { path: "feeStructureId studentId" } }).lean();
     if (!payment) throw AppError.notFound("Payment not found");
-    const pdf = await generateReceiptPDF({ ...payment, fee: { ...(payment.feeId as any), feeStructure: (payment.feeId as any).feeStructureId, student: (payment.feeId as any).studentId }, collectedBy: { fullName: (payment.collectedBy as any)?.email || "Unknown" } } as any);
+    const school = await School.findOne({ _id: tenant }).select("name address phone email").lean();
+    if (!school) throw AppError.notFound("School not found");
+    const pdf = await generateReceiptPDF({ ...payment, fee: { ...(payment.feeId as any), feeStructure: (payment.feeId as any).feeStructureId, student: (payment.feeId as any).studentId }, collectedBy: { fullName: (payment.collectedBy as any)?.email || "Unknown" }, school } as any);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=receipt-${payment.receiptNo}.pdf`);
     res.send(pdf);
