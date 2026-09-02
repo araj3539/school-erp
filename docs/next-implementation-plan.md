@@ -30,7 +30,7 @@ Completed implementation slice:
 - document upload responses expose only safe metadata;
 - recovery-history responses expose only safe recovery metadata and never recovery/storage keys;
 - signed document delivery remains tenant/ownership authorized and 600 seconds short-lived;
-- populated-document acceptance coverage is now present in the Phase 2 E2E suite and activates when `E2E_SCHOOL_A_DOCUMENT_ID` points to a real fixture document.
+- populated-document acceptance coverage is present in the Phase 2 E2E suite and activates when `E2E_SCHOOL_A_DOCUMENT_ID` points to a real fixture document.
 
 Remaining verification:
 - provision or identify a non-destructive populated-document fixture for the deployed acceptance run;
@@ -47,22 +47,28 @@ Completed first performance slice:
 - dashboard payment collection trend now uses one bounded payment query and in-memory date bucketing instead of one database query per day;
 - Phase 3 date-only attendance semantics are preserved by using UTC calendar-day boundaries for attendance trend data;
 - payment bucketing retains the existing server-local timestamp behavior until a school-local reporting timezone is explicitly defined;
-- focused dashboard E2E coverage now verifies the 7-day/30-day series bounds, date-only formatting, consecutive daily boundaries, and numeric rate/collection constraints;
-- the dashboard suite is now included in the Phase 3 regression gate.
+- focused dashboard E2E coverage verifies the 7-day/30-day series bounds, date-only formatting, consecutive daily boundaries, and numeric rate/collection constraints;
+- the dashboard suite is included in the Phase 3 regression gate.
 
 Next:
-- pull and run the new dashboard suite against the deployed API;
-- verify dashboard aggregation output against known fixtures;
 - define a school-local reporting timezone before expanding timestamp-to-local-date reporting behavior;
 - progressively remove business-critical `any` without broad unrelated rewrites.
 
 ## Priority 3 — Phase 4 financial hardening
 
-After document/privacy and reporting foundations are stable:
+Status: **IN PROGRESS**
 
-- collection reports and reconciliation verification;
-- receipt correctness and tenant school branding;
-- reversal/refund edge cases;
+Completed first financial-hardening slice:
+- payment persistence now rejects zero and negative ledger amounts (`min: 0.01`);
+- idempotency-key collision handling now distinguishes an exact replay from reuse of the same key for different payment data, including the concurrent unique-index race path;
+- existing tenant-scoped idempotency and transaction-ID uniqueness guards are retained;
+- payment and reversal operations remain transaction-backed and tenant-scoped;
+- reversal/refund amounts remain bounded by the original payment and cumulative reversals are checked before creating another reversal.
+
+Next:
+- collection reports and reconciliation verification, including date-range boundary tests;
+- receipt correctness and school branding verification;
+- reversal/refund acceptance tests for partial and full reversal paths;
 - immutable-ledger regression tests;
 - period-vs-lifetime reconciliation correctness.
 
