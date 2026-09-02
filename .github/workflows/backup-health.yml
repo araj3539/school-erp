@@ -36,7 +36,7 @@ jobs:
           key = $B2_APPLICATION_KEY
           EOF
 
-      - name: Verify latest R2 backup manifest
+      - name: Verify latest R2 backup state
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
@@ -48,37 +48,46 @@ jobs:
           from datetime import datetime, timezone
           with open('/tmp/r2-manifest.json', encoding='utf-8') as f:
               data = json.load(f)
-          completed = datetime.fromisoformat(data['completedAt'].replace('Z', '+00:00'))
-          age_hours = (datetime.now(timezone.utc) - completed).total_seconds() / 3600
-          print(f"R2 backup age: {age_hours:.2f} hours")
+          checked = datetime.fromisoformat(data['lastCheckedAt'].replace('Z', '+00:00'))
+          age_hours = (datetime.now(timezone.utc) - checked).total_seconds() / 3600
+          print(f"R2 backup last checked: {age_hours:.2f} hours ago")
           if age_hours > 26:
-              raise SystemExit('R2 backup is older than 26 hours')
+              raise SystemExit('R2 backup workflow has not successfully checked the source for more than 26 hours')
           if data.get('objectCount', 0) <= 0:
               raise SystemExit('R2 manifest contains zero objects')
+          print(f"Last R2 content change: {data.get('lastChangedAt') or 'unknown'}")
           PY
 
-      - name: Verify latest MongoDB backup freshness and size
+      - name: Verify latest MongoDB backup state
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          PATH_FILE=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest-path.txt")
-          test -n "$PATH_FILE"
-          rclone size "$PATH_FILE"
-          python - "$PATH_FILE" <<'PY'
-          import re
-          import sys
+          rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" > /tmp/mongodb-latest.json
+          python - <<'PY'
+          import json
           from datetime import datetime, timezone
-          path = sys.argv[1]
-          match = re.search(r'(\d{8}T\d{6}Z)\.archive\.gz$', path)
-          if not match:
-              raise SystemExit('Latest MongoDB backup path has no valid timestamp')
-          created = datetime.strptime(match.group(1), '%Y%m%dT%H%M%SZ').replace(tzinfo=timezone.utc)
-          age_hours = (datetime.now(timezone.utc) - created).total_seconds() / 3600
-          print(f"MongoDB backup age: {age_hours:.2f} hours")
+          with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
+              data = json.load(f)
+          checked = datetime.fromisoformat(data['lastCheckedAt'].replace('Z', '+00:00'))
+          age_hours = (datetime.now(timezone.utc) - checked).total_seconds() / 3600
+          print(f"MongoDB backup last checked: {age_hours:.2f} hours ago")
           if age_hours > 26:
-              raise SystemExit('MongoDB backup is older than 26 hours')
+              raise SystemExit('MongoDB backup workflow has not successfully checked the database for more than 26 hours')
+          if not data.get('fingerprint'):
+              raise SystemExit('MongoDB backup metadata has no database fingerprint')
+          if not data.get('currentPath'):
+              raise SystemExit('MongoDB backup metadata has no current backup path')
           PY
+
+          CURRENT_PATH=$(python - <<'PY'
+          import json
+          with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
+              print(json.load(f)['currentPath'])
+          PY
+          )
+          rclone size "$CURRENT_PATH"
+          echo "MongoDB backup is present and its change fingerprint is recorded."
 
       - name: Failure notice
         if: failure()
