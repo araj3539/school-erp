@@ -81,22 +81,41 @@ jobs:
           CURRENT_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
           PREVIOUS_SHA=""
           PREVIOUS_PATH=""
+          rm -f /tmp/mongodb-latest.json
 
-          if rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" > /tmp/mongodb-latest.json 2>/dev/null; then
-            PREVIOUS_SHA=$(python - <<'PY'
+          # A missing, empty, or malformed metadata object must not prevent an
+          # initial backup. Treat it as no previous successful backup and let the
+          # upload step replace it with valid metadata after the backup succeeds.
+          if rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" > /tmp/mongodb-latest.json 2>/dev/null && [[ -s /tmp/mongodb-latest.json ]]; then
+            if python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('/tmp/mongodb-latest.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          if not data.get('fingerprint') or not (data.get('backupPath') or data.get('currentPath')):
+              raise ValueError('missing fingerprint or backup path')
+          PY
+            then
+              PREVIOUS_SHA=$(python - <<'PY'
           import json
           with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
-              data = json.load(f)
-          print(data.get('fingerprint', ''))
+              print(json.load(f)['fingerprint'])
           PY
-          )
-            PREVIOUS_PATH=$(python - <<'PY'
+              )
+              PREVIOUS_PATH=$(python - <<'PY'
           import json
           with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
               data = json.load(f)
           print(data.get('backupPath') or data.get('currentPath') or '')
           PY
-          )
+              )
+            else
+              echo "Previous MongoDB metadata is empty or invalid; treating this as an initial backup."
+              rm -f /tmp/mongodb-latest.json
+            fi
+          else
+            echo "No usable previous MongoDB metadata found; creating an initial backup if needed."
+            rm -f /tmp/mongodb-latest.json
           fi
 
           echo "Current database fingerprint:  ${CURRENT_SHA}"
@@ -161,6 +180,7 @@ jobs:
             "databaseChanged": true
           }
           EOF
+          python -m json.tool /tmp/mongodb-latest.json >/dev/null
           rclone copyto /tmp/mongodb-latest.json "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json"
 
           # B2 keeps old object versions by default. The history files above are
