@@ -16,7 +16,7 @@ export interface IPaymentReversal extends Document {
 const PaymentReversalSchema = new Schema<IPaymentReversal>({
   paymentId: { type: Schema.Types.ObjectId, ref: "Payment", required: true },
   schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
-  amount: { type: Number, required: true, min: 0 },
+  amount: { type: Number, required: true, min: 0.01 },
   type: { type: String, enum: ["reversal", "refund"], required: true },
   reason: { type: String, required: true, minlength: 3, maxlength: 500 },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
