@@ -24,22 +24,16 @@ jobs:
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
-          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
         run: |
           set -euo pipefail
-          for value in B2_KEY_ID B2_APPLICATION_KEY B2_BUCKET_NAME B2_ENDPOINT; do
-            test -n "${!value}" || { echo "Missing required secret: $value"; exit 1; }
-          done
+          test -n "$B2_KEY_ID" || { echo "Missing required secret: B2_KEY_ID"; exit 1; }
+          test -n "$B2_APPLICATION_KEY" || { echo "Missing required secret: B2_APPLICATION_KEY"; exit 1; }
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf <<EOF
           [b2]
-          type = s3
-          provider = Other
-          access_key_id = $B2_KEY_ID
-          secret_access_key = $B2_APPLICATION_KEY
-          endpoint = $B2_ENDPOINT
-          acl = private
+          type = b2
+          account = $B2_KEY_ID
+          key = $B2_APPLICATION_KEY
           EOF
 
       - name: Verify latest R2 backup manifest
@@ -47,6 +41,7 @@ jobs:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
+          test -n "$B2_BUCKET_NAME" || { echo "Missing required secret: B2_BUCKET_NAME"; exit 1; }
           rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json" > /tmp/r2-manifest.json
           python - <<'PY'
           import json
