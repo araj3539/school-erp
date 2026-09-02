@@ -19,7 +19,7 @@ export async function getParentStudents(req: Request, res: Response, next: NextF
     else sort.createdAt = -1;
     const skip = (page - 1) * limit;
     const [students, total] = await Promise.all([
-      Student.find(query).populate("classId sectionId").sort(sort).skip(skip).limit(limit).lean(),
+      Student.find(query).select("-documents.url -documents.publicId").populate("classId sectionId").sort(sort).skip(skip).limit(limit).lean(),
       Student.countDocuments(query),
     ]);
     res.json({ data: students, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
@@ -34,7 +34,7 @@ export async function getParentStudentById(req: Request, res: Response, next: Ne
       _id: id,
       schoolId: getTenantId(req),
       parentIds: req.user!.userId,
-    }).populate("classId sectionId userId");
+    }).select("-documents.url -documents.publicId").populate("classId sectionId userId");
     if (!student) throw AppError.notFound("Student not found");
     res.json({ student });
   } catch (error) { next(error); }
