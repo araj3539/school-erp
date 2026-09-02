@@ -11,6 +11,7 @@ Phase state: `IN_PROGRESS`
 - Dates outside `[startDate, endDate)` are rejected.
 - Attendance write/query inputs use strict `YYYY-MM-DD` calendar-date semantics.
 - Student attendance date ranges use the attendance-specific date validator.
+- Monthly report acceptance now verifies invalid month rejection and a valid academic-year month.
 
 ### Authorization and tenant isolation
 - Teachers can mark attendance only for assigned classes.
@@ -28,44 +29,58 @@ Phase state: `IN_PROGRESS`
 - A unique school/class/section/date index prevents duplicate attendance days.
 - Bulk payloads reject duplicate class/section/date entries.
 
-### Bulk attendance
-`POST /api/v1/attendance/bulk` is implemented.
+### Bulk attendance and spreadsheet workflow
+- `POST /api/v1/attendance/bulk` is implemented.
+- `POST /api/v1/attendance/import` validates all spreadsheet rows before mutation.
+- `GET /api/v1/attendance/export` is tenant-safe and filter-aware.
+- Spreadsheet imports resolve students by admission number within the selected tenant/class/section.
+- Existing attendance days remain corrections and require principal/super-admin authorization.
+- Attendance writes and audit events run transactionally.
 
 Rules:
-- 1–31 entries per request
+- 1–31 entries per request/import
 - maximum 5,000 student records
 - every class, section and active student is tenant-validated
 - teacher class ownership is enforced
 - every date must belong to the current academic year
-- existing days are corrections and require principal/super-admin authorization
-- attendance writes and audit events run in one MongoDB transaction
+- duplicate spreadsheet attendance rows are rejected
 
-### Reporting
-- Monthly reports are restricted to the current academic year.
-- Reports return the academic-year name.
-- Collection queries preserve class, section, date and date-range filters.
+### UI correctness
+- Attendance editing uses explicit local draft state rather than mutating React Query responses.
+- Existing records are presented as correction workflows.
+- Save loading, success and authorization/error states are surfaced.
+- Attendance spreadsheet import/export controls are available in the UI.
+
+## Reporting/timezone decision
+
+Attendance uses **date-only semantics** for school reporting. `YYYY-MM-DD` represents the school calendar date and is not converted through the server's local timezone. Existing calendar-date utilities preserve this invariant. No additional persisted timezone field is introduced in Phase 3 because the current product model does not yet require timestamp-to-local-date conversion.
 
 ## Verification
 
-The verified Phase 3 gate is green:
+Phase 3 now includes explicit reporting and teacher-administration acceptance suites:
 
 ```text
-Attendance:       4 passed
-Bulk attendance:  1 passed
-Student search:   1 passed
-Student bulk:     1 passed
-Phase 3 summary:  PASS
+Attendance:        4 passed
+Bulk attendance:   1 passed
+Student search:    1 passed
+Student bulk:      1 passed
+Teachers:          1 passed
+Attendance report: 1 passed
+Phase 3 summary:   PASS
 ```
 
-The Phase 3 attendance acceptance workflow is therefore functionally green at the API/E2E level, but Phase 3 as a whole remains open because the admin UI and reporting/timezone hardening are not complete.
+Phase 1 and Phase 2 regression gates also pass:
 
-## Remaining attendance work
+```text
+Phase 1:    8 passed
+Documents:  7 passed
+Payments:   5 passed
+Audit:      3 passed
+Roles:      2 passed
+```
 
-1. Make the Attendance UI state-driven instead of mutating React Query response objects directly.
-2. Wire authorized correction behavior into the UI with clear mark-vs-correct states.
-3. Add attendance import/export using the existing bulk service and tenant-safe filters.
-4. Add stronger monthly/history/report acceptance coverage, especially around academic-year boundaries.
-5. Introduce an explicit school reporting timezone only if the persisted school configuration is sufficient to define the product rule; otherwise design the field first.
-6. Add teacher attendance administration E2E coverage where missing.
+Client and server production builds pass. The local working tree is clean after pulling the GitHub implementation.
 
-Phase 1 and Phase 2 security gates remain mandatory regression gates.
+## Phase 3 status
+
+The Phase 3 implementation and automated acceptance gate are now green. The remaining work after this phase is outside the Phase 3 exit gate: deeper product polish, broader UI/browser acceptance, dashboard aggregation/performance, sensitive document delivery/privacy audit, and subsequent ERP modules.
