@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PaymentReversalSchema, CreatePaymentSchema } from "../validators/index.js";
+import { PaymentReversalSchema, CreatePaymentSchema, DateRangeSchema } from "../validators/index.js";
 import { Payment } from "./Payment.js";
 
 const basePayment = {
@@ -29,6 +29,11 @@ describe("payment financial safeguards", () => {
   it("validates reversal amount and reason", () => {
     expect(PaymentReversalSchema.parse({ type: "refund", amount: 100, reason: "Duplicate collection" })).toEqual({ type: "refund", amount: 100, reason: "Duplicate collection" });
     expect(() => PaymentReversalSchema.parse({ type: "refund", amount: 0, reason: "x" })).toThrow();
+  });
+
+  it("rejects a reconciliation range whose end precedes its start", () => {
+    expect(() => DateRangeSchema.parse({ startDate: "2026-09-02T00:00:00.000Z", endDate: "2026-09-01T23:59:59.000Z" })).toThrow();
+    expect(DateRangeSchema.parse({ startDate: "2026-09-01T00:00:00.000Z", endDate: "2026-09-02T00:00:00.000Z" })).toEqual({ startDate: "2026-09-01T00:00:00.000Z", endDate: "2026-09-02T00:00:00.000Z" });
   });
 
   it("defines tenant-scoped unique guards for idempotency and transaction IDs", () => {
