@@ -5,6 +5,10 @@ on:
     - cron: "30 2 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: school-erp-r2-b2-backup
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -63,22 +67,52 @@ jobs:
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
       - name: Sync current R2 files to B2 mirror
+        id: sync
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          # Only the current-file mirror is synchronized. Recovery snapshots and
-          # backup metadata are explicitly excluded so sync never deletes them.
+          : > /tmp/r2-changes.txt
+
+          # Compare by content checksum rather than R2 modification time. This
+          # prevents re-uploading an unchanged document just because its remote
+          # metadata/mtime differs from B2.
           rclone sync "r2:${R2_BUCKET_NAME}" "b2:${B2_BUCKET_NAME}" \
+            --checksum \
             --exclude "${RECOVERY_PREFIX}/**" \
             --exclude "metadata/**" \
+            --combined /tmp/r2-changes.txt \
             --fast-list \
             --transfers 4 \
             --checkers 8 \
             --retries 3 \
             --low-level-retries 10 \
             --stats 30s
+
+          if grep -Eq '^[+*-] ' /tmp/r2-changes.txt; then
+            echo "R2 content changes detected and synchronized to B2."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Changed objects:"
+            grep -E '^[+*-] ' /tmp/r2-changes.txt || true
+          else
+            echo "No R2 content changes detected."
+            echo "Already backed up — no document content was uploaded."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Remove old B2 versions from current document mirror
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          # R2 deletions/replacements are already preserved in recovery by the
+          # application. Keep only the current version in the B2 schools mirror.
+          if rclone lsd "b2:${B2_BUCKET_NAME}/schools" >/dev/null 2>&1; then
+            rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/schools"
+          else
+            echo "B2 schools prefix is currently empty; nothing to clean."
+          fi
 
       - name: Remove recovery copies older than 60 days
         env:
@@ -88,7 +122,7 @@ jobs:
           rclone delete "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}" --min-age "${RECOVERY_RETENTION_DAYS}d" --fast-list --stats 30s
           rclone rmdirs "b2:${B2_BUCKET_NAME}/${RECOVERY_PREFIX}" --leave-root || true
 
-      - name: Write backup manifest
+      - name: Write current backup manifest
         env:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
@@ -102,7 +136,17 @@ jobs:
           {
             "source": "r2",
             "destination": "b2",
-            "completedAt": "$NOW",
+            "lastCheckedAt": "$NOW",
+            "lastChangedAt": "$(python - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              data = json.loads(Path('/tmp/r2-manifest-existing.json').read_text(encoding='utf-8'))
+              print(data.get('lastChangedAt') or data.get('completedAt') or '')
+          except Exception:
+              print('')
+          PY
+          )",
             "objectCount": $R2_COUNT,
             "bytes": $R2_BYTES,
             "mode": "current-sync-plus-application-recovery",
@@ -110,8 +154,22 @@ jobs:
             "recoveryRetentionDays": $RECOVERY_RETENTION_DAYS
           }
           EOF
+
+          if [[ "${{ steps.sync.outputs.changed }}" == "true" ]]; then
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('/tmp/r2-manifest.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data['lastChangedAt'] = data['lastCheckedAt']
+          path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+          PY
+          fi
+
+          # Always keep one stable manifest. Its old B2 versions are cleaned so
+          # repeated health checks never create an unbounded metadata history.
           rclone copyto /tmp/r2-manifest.json "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
-          rclone copyto /tmp/r2-manifest.json "b2:${B2_BUCKET_NAME}/metadata/r2-manifest-${NOW//:/-}.json"
+          rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/metadata"
 
       - name: Verify backup
         env:
