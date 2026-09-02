@@ -5,6 +5,10 @@ on:
     - cron: "0 3 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: school-erp-mongodb-backup
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -53,12 +57,12 @@ jobs:
           test -n "$B2_BUCKET_NAME" || { echo "Missing required secret: B2_BUCKET_NAME"; exit 1; }
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
-      - name: Create compressed MongoDB dump
+      - name: Create compressed MongoDB dump and fingerprint
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
           set -euo pipefail
-          test -n "$MONGODB_URI"
+          test -n "$MONGODB_URI" || { echo "Missing required secret: MONGODB_URI"; exit 1; }
           mkdir -p /tmp/mongodb-backup
           mongodump \
             --uri="$MONGODB_URI" \
@@ -68,30 +72,104 @@ jobs:
           sha256sum /tmp/mongodb-backup/school-erp.archive.gz | tee /tmp/mongodb-backup/sha256.txt
           ls -lh /tmp/mongodb-backup/school-erp.archive.gz
 
-      - name: Upload database backup to B2
+      - name: Detect database change
+        id: change-check
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          CURRENT_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
+          PREVIOUS_SHA=""
+          PREVIOUS_PATH=""
+
+          if rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" > /tmp/mongodb-latest.json 2>/dev/null; then
+            PREVIOUS_SHA=$(python - <<'PY'
+          import json
+          with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
+              data = json.load(f)
+          print(data.get('fingerprint', ''))
+          PY
+          )
+            PREVIOUS_PATH=$(python - <<'PY'
+          import json
+          with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
+              data = json.load(f)
+          print(data.get('backupPath', ''))
+          PY
+          )
+          fi
+
+          echo "Current database fingerprint:  ${CURRENT_SHA}"
+          echo "Previous database fingerprint: ${PREVIOUS_SHA:-<none>}"
+
+          if [[ -n "$PREVIOUS_SHA" && "$CURRENT_SHA" == "$PREVIOUS_SHA" && -n "$PREVIOUS_PATH" ]] && \
+             rclone size "$PREVIOUS_PATH" >/dev/null 2>&1; then
+            echo "No database changes detected."
+            echo "Already backed up — no new B2 backup will be created."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -z "$PREVIOUS_SHA" ]]; then
+            echo "No previous fingerprint found; creating the initial change-aware backup."
+          elif [[ "$CURRENT_SHA" != "$PREVIOUS_SHA" ]]; then
+            echo "Database changes detected; creating a new backup version."
+          else
+            echo "Previous backup object is unavailable; recreating the backup."
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload changed database backup to B2
+        if: steps.change-check.outputs.changed == 'true'
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
           DATE=$(date -u +%Y/%m/%d)
           TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
-          BASE="b2:${B2_BUCKET_NAME}/database/${DATE}/school-erp-${TIMESTAMP}"
-          rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${BASE}.archive.gz"
-          rclone copyto /tmp/mongodb-backup/sha256.txt "${BASE}.sha256"
-          printf '%s\n' "${BASE}.archive.gz" > /tmp/mongodb-backup/latest-path.txt
-          rclone copyto /tmp/mongodb-backup/latest-path.txt "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest-path.txt"
+          HISTORY_BASE="b2:${B2_BUCKET_NAME}/database/history/${DATE}/school-erp-${TIMESTAMP}"
+          CURRENT_BASE="b2:${B2_BUCKET_NAME}/database/current/school-erp"
+          CURRENT_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
+
+          rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${HISTORY_BASE}.archive.gz"
+          rclone copyto /tmp/mongodb-backup/sha256.txt "${HISTORY_BASE}.sha256"
+          rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${CURRENT_BASE}.archive.gz"
+          rclone copyto /tmp/mongodb-backup/sha256.txt "${CURRENT_BASE}.sha256"
+
+          cat > /tmp/mongodb-latest.json <<EOF
+          {
+            "status": "success",
+            "fingerprint": "${CURRENT_SHA}",
+            "backupPath": "${HISTORY_BASE}.archive.gz",
+            "currentPath": "${CURRENT_BASE}.archive.gz",
+            "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "databaseChanged": true
+          }
+          EOF
+          rclone copyto /tmp/mongodb-latest.json "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json"
+
+          # B2 keeps old object versions by default. The history files above are
+          # intentionally unique; only the stable current object should have one
+          # retained version so it never accumulates redundant B2 versions.
+          rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/current"
+          rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/metadata"
 
       - name: Verify database backup
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          PATH_FILE=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest-path.txt")
-          test -n "$PATH_FILE"
-          rclone size "$PATH_FILE"
-          SHA_PATH="${PATH_FILE%.archive.gz}.sha256"
-          rclone cat "$SHA_PATH" | head -n 1
-          echo "MongoDB backup completed successfully."
+          if [[ "${{ steps.change-check.outputs.changed }}" == "true" ]]; then
+            CURRENT_PATH="b2:${B2_BUCKET_NAME}/database/current/school-erp.archive.gz"
+            CURRENT_SHA=$(rclone cat "b2:${B2_BUCKET_NAME}/database/current/school-erp.sha256" | head -n 1 | awk '{print $1}')
+            LATEST_SHA=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" | python -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
+            test -n "$CURRENT_SHA"
+            test "$CURRENT_SHA" = "$LATEST_SHA"
+            rclone size "$CURRENT_PATH"
+            echo "MongoDB backup completed successfully."
+          else
+            echo "MongoDB backup verification: skipped upload because the database was already backed up."
+          fi
 
       - name: Failure notice
         if: failure()
