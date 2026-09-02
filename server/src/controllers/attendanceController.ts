@@ -5,7 +5,7 @@ import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
 import { getTenantId } from "../utils/tenant.js";
-import { UserRole } from "@school-erp/shared";
+import { BulkAttendanceSchema, UserRole } from "@school-erp/shared";
 import { Types } from "mongoose";
 import { generateExcelFile, parseExcelFile } from "../services/excel.js";
 
@@ -208,17 +208,23 @@ export async function importAttendanceSpreadsheet(req: MulterRequest, res: Respo
         entry.rows.forEach((row: number) => validationErrors.push({ row, message }));
       }
     }
+
+    const schemaResult = BulkAttendanceSchema.safeParse({ entries: prepared });
+    if (!schemaResult.success) {
+      for (const issue of schemaResult.error.issues) {
+        validationErrors.push({ row: Number(issue.path[issue.path.length - 1]) || 1, message: issue.message });
+      }
+    }
     if (validationErrors.length) return res.status(400).json({ error: "Attendance import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
 
     await session.withTransaction(async () => {
-      const payload = { entries: prepared };
       const existingByKey = new Map<string, any>();
       for (const entry of prepared) {
         const date = parseCalendarDate(entry.date);
         const existing = await Attendance.findOne({ schoolId, date, classId: entry.classId, sectionId: entry.sectionId }).session(session);
         if (existing) existingByKey.set(`${entry.date}|${entry.classId}|${entry.sectionId}`, existing);
       }
-      for (const entry of payload.entries) {
+      for (const entry of prepared) {
         const date = parseCalendarDate(entry.date);
         const key = `${entry.date}|${entry.classId}|${entry.sectionId}`;
         const existing = existingByKey.get(key);
