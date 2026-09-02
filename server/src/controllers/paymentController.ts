@@ -84,7 +84,22 @@ export async function collectPayment(req: Request, res: Response, next: NextFunc
       const key = req.get("Idempotency-Key")?.trim();
       if (key) {
         const existing = await Payment.findOne({ schoolId: tenant, idempotencyKey: key }).lean();
-        if (existing) return res.status(200).json({ payment: existing, idempotentReplay: true });
+        if (existing) {
+          let data: any;
+          try {
+            const raw = { ...req.body };
+            if (!raw.idempotencyKey && key) raw.idempotencyKey = key;
+            data = CreatePaymentSchema.parse(raw);
+          } catch {
+            next(error);
+            return;
+          }
+          if (!samePaymentRequest(existing, data)) {
+            next(AppError.conflict("Idempotency key was already used for a different payment"));
+            return;
+          }
+          return res.status(200).json({ payment: existing, idempotentReplay: true });
+        }
       }
     }
     next(error);
