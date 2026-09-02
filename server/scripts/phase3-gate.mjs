@@ -45,6 +45,7 @@ const suites = [
   ["bulk", ["run", "test:e2e:phase3:bulk"]],
   ["students", ["run", "test:e2e:phase3:students"]],
   ["student-bulk", ["run", "test:e2e:phase3:student-bulk"]],
+  ["teachers", ["run", "test:e2e:phase3:teachers"]],
 ];
 
 let failed = false;
