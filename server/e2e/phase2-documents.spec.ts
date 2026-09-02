@@ -4,6 +4,7 @@ const apiUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
 const schoolAStudent = process.env.E2E_SCHOOL_A_STUDENT_ID;
 const schoolBStudent = process.env.E2E_SCHOOL_B_STUDENT_ID;
+const schoolADocument = process.env.E2E_SCHOOL_A_DOCUMENT_ID;
 const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const cachedTokens: Record<string, string | undefined> = {
   "principal.a@phase1.example.com": process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN,
@@ -80,5 +81,45 @@ test.describe("Phase 2 document and recovery authorization", () => {
     const token = await login(request, emails.principalA);
     const response = await request.get(`/api/v1/students/${schoolBStudent}/document-recoveries`, auth(token));
     expect([403, 404]).toContain(response.status());
+  });
+
+  test("authorized student receives only a short-lived signed document URL", async ({ request }) => {
+    test.skip(!schoolADocument, "E2E_SCHOOL_A_DOCUMENT_ID is not configured with a populated document fixture");
+
+    const token = await login(request, emails.studentA);
+    const detail = await request.get(`/api/v1/students/${schoolAStudent}`, auth(token));
+    expect(detail.status()).toBe(200);
+    const detailBody = await detail.json();
+    const documents = detailBody.student?.documents ?? [];
+    expect(documents.length).toBeGreaterThan(0);
+    expect(documents).not.toContainEqual(expect.objectContaining({ url: expect.anything() }));
+    expect(documents).not.toContainEqual(expect.objectContaining({ publicId: expect.anything() }));
+
+    const response = await request.get(`/api/v1/students/${schoolAStudent}/documents/${schoolADocument}/url`, auth(token));
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.expiresIn).toBe(600);
+    expect(typeof body.url).toBe("string");
+    expect(body.url.length).toBeGreaterThan(0);
+    expect(body).not.toHaveProperty("key");
+    expect(body).not.toHaveProperty("publicId");
+    expect(body).not.toHaveProperty("storageKey");
+    expect(body).not.toHaveProperty("recoveryKey");
+  });
+
+  test("linked parent receives the same bounded signed-delivery contract", async ({ request }) => {
+    test.skip(!schoolADocument, "E2E_SCHOOL_A_DOCUMENT_ID is not configured with a populated document fixture");
+
+    const token = await login(request, emails.parentA);
+    const response = await request.get(`/api/v1/students/${schoolAStudent}/documents/${schoolADocument}/url`, auth(token));
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.expiresIn).toBe(600);
+    expect(typeof body.url).toBe("string");
+    expect(body.url.length).toBeGreaterThan(0);
+    expect(body).not.toHaveProperty("key");
+    expect(body).not.toHaveProperty("publicId");
+    expect(body).not.toHaveProperty("storageKey");
+    expect(body).not.toHaveProperty("recoveryKey");
   });
 });
