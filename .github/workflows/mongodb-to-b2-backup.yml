@@ -105,12 +105,13 @@ jobs:
           if [[ -n "$PREVIOUS_SHA" && "$CURRENT_SHA" == "$PREVIOUS_SHA" && -n "$PREVIOUS_PATH" ]] && \
              rclone size "$PREVIOUS_PATH" >/dev/null 2>&1; then
             NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            python - <<'PY'
+            NOW="$NOW" python - <<'PY'
           import json
+          import os
           from pathlib import Path
           path = Path('/tmp/mongodb-latest.json')
           data = json.loads(path.read_text(encoding='utf-8'))
-          data['lastCheckedAt'] = '${NOW}'
+          data['lastCheckedAt'] = os.environ['NOW']
           data['databaseChanged'] = False
           path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
           PY
