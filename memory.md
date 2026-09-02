@@ -1,30 +1,31 @@
 # School ERP — AI Project Memory
 
-> **Purpose:** Compact operational memory for AI coding agents. Verify important claims against the repository before relying on them.
+> Compact operational memory for coding agents. Repository implementation and verified tests are authoritative; this file summarizes the current state.
 
-**Last verified:** 2026-09-01
-**Repository status:** actively developed; Phase 1 security baseline completed; Phase 2 Core Administration MVP completed; Phase 3 Attendance in progress.
+**Last verified:** 2026-09-02
+**Repository line:** current `main` after Phase 3 student bulk export fix and documentation audit
+**Overall state:** Phase 1 complete, Phase 2 security/ownership exit gate complete, Phase 3 in progress
 
 ---
 
-## 1. Project Snapshot
+## 1. Project snapshot
 
-School ERP intended to become an industry-grade multi-tenant SaaS.
+School ERP is a multi-tenant school administration platform intended to become an industry-grade SaaS.
 
-Current target:
-- initially one school / ~500 students
-- later 3–4 schools / ~3,000 students
-- eventually many schools
-
-Architecture philosophy:
+Architecture:
 - modular monolith first
+- React + TypeScript frontend
+- Express + TypeScript backend
 - MongoDB + Mongoose
-- low infrastructure cost without sacrificing security/correctness
-- scale infrastructure only when justified
+- shared Zod/constants package
+- low infrastructure cost until scale justifies more infrastructure
+
+Initial scale target: one school / roughly 500 students.
+Next target: several schools / roughly 3,000 students.
 
 ---
 
-## 2. Current Stack
+## 2. Current stack
 
 ### Frontend
 - React 18
@@ -41,21 +42,20 @@ Architecture philosophy:
 - Lucide React
 
 ### Backend
-- Node.js
+- Node.js 22 target
 - Express
 - TypeScript
-- Mongoose
-- MongoDB
-- JWT
+- Mongoose/MongoDB
+- JWT + HttpOnly cookies
 - bcryptjs
 - Helmet
 - CORS
 - express-rate-limit
 - cookie-parser
-- Cloudinary
+- Cloudflare R2 via S3-compatible SDK
+- Backblaze B2 for recovery/backup
 - PDFKit
-- read-excel-file
-- write-excel-file
+- Excel read/write services
 - Zod
 
 ### Testing/tooling
@@ -69,9 +69,10 @@ Architecture philosophy:
 
 ---
 
-## 3. Implemented Functional Areas
+## 3. Current API/domain areas
 
-Frontend routes:
+Frontend admin routes include:
+
 ```text
 /login
 /dashboard
@@ -85,7 +86,8 @@ Frontend routes:
 /settings
 ```
 
-Backend groups:
+Backend route groups include:
+
 ```text
 /api/v1/auth
 /api/v1/students
@@ -99,7 +101,8 @@ Backend groups:
 /api/v1/health
 ```
 
-Core models:
+Core models include:
+
 ```text
 School
 User
@@ -118,290 +121,242 @@ AuditLog
 
 ---
 
-## 4. Phase 1 Security Baseline — COMPLETED 22 Aug 2026
+## 4. Phase 1 — COMPLETED
 
-The deployed acceptance gate passed all 8 checks against Render:
+Verified deployed gate on 2026-08-22:
+
 ```text
-8 passed (34.5s)
-Phase 1 Playwright exit code: 0
+8 passed
 ```
 
-Verified:
-- School A student can access own record
-- School A cannot access School B student data
-- teacher cross-tenant/class ownership is denied
-- principal cross-tenant fee access is denied
-- parent access to an unlinked child is denied
-- student access to teacher-only attendance management is denied
-- principal can access tenant-owned student data
-- refresh-token replay after rotation is denied
+Verified cross-tenant and role/ownership boundaries include:
+- student own-record access
+- cross-school student denial
+- teacher class/tenant denial
+- principal cross-school fee denial
+- parent unlinked-child denial
+- student teacher-only attendance denial
+- principal tenant-owned access
+- refresh-token replay denial
 
-Phase 1 is now a regression gate for future changes.
+Phase 1 is a mandatory regression gate for all later work.
 
-Security implemented and verified includes:
-- JWT access + refresh tokens
-- HttpOnly auth cookies
-- production `SameSite=None` cookies for separate SPA/API hosting
-- Origin / Fetch-Metadata CSRF protection
-- Helmet
-- strict CORS allowlist
-- API rate limiting + login rate limiting
-- Zod validation
-- RBAC
-- audit logging
-- bounded JSON / URL-encoded request bodies
-- bounded multipart uploads
-- MIME restrictions for uploads
-- escaped Mongo regex search input
-- no browser localStorage access-token persistence
-- tenant-scoped core controllers and reporting
-- explicit Parent ↔ Student ownership through `Student.parentIds`
-- refresh-token rotation/revocation using `refreshTokenVersion`
-- super-admin selected-school validation against the live `School` collection
-- immutable payment ledger with reversal/refund workflow
-- tenant-scoped financial reconciliation
+Security baseline includes HttpOnly auth cookies, refresh-token rotation, CSRF protections, Helmet, CORS allowlisting, rate limiting, Zod validation, RBAC, audit logging, bounded request bodies/uploads and tenant-scoped core controllers.
 
 ---
 
-## 5. Tenant Isolation — Current State
+## 5. Phase 2 — COMPLETED
 
-Core tenant-owned CRUD/reporting controllers currently scope database queries using `req.user.schoolId` or an equivalent tenant helper, including:
-- students
-- teachers
-- classes/sections/subjects
-- attendance
-- fees/payments
-- dashboard
-- parent access
+Verified consolidated gate on 2026-08-25:
+
+```text
+phase1       8/8
+phase2 docs  7/7
+a payments   5/5
+audit        3/3
+roles        2/2
+```
+
+Completed security/ownership foundations:
 - school settings
+- academic years/current-year ownership
+- explicit Parent ↔ Student ownership through `Student.parentIds`
+- Student/Teacher/Class/Subject relationship ownership
+- fee/payment ownership
+- receipt/payment tenant boundaries
+- AuditLog isolation
+- principal role-management hardening
+- document/recovery authorization
 
-The fee payment workflow uses a MongoDB transaction so Payment creation and Fee balance/status updates are atomic.
-
-### Remaining security-sensitive follow-up
-- sensitive document delivery should move from permanent Cloudinary URLs to private/authenticated delivery
-- dashboard chart queries should be batched before larger deployments
-- standardize school timezone/reporting timezone
-
----
-
-## 6. Authentication Architecture
-
-Current authoritative mechanism:
-```text
-HttpOnly access_token cookie
-        +
-HttpOnly refresh_token cookie
-```
-
-Frontend behavior:
-- no auth token in localStorage
-- login stores only user state in memory
-- app calls `/auth/me` during bootstrap
-- Axios refreshes the session when an authenticated request receives 401
-- logout calls `/auth/logout` and clears client state
-
-Do not reintroduce persistent access-token storage in browser localStorage/sessionStorage.
+Phase 2 security is closed; remaining administration feature work continues without reopening its security exit gate.
 
 ---
 
-## 7. Permissions
+## 6. Phase 3 — IN PROGRESS
 
-`shared/src/constants/index.ts` is the source of truth for `ROLE_PERMISSIONS`.
-
-Server RBAC and frontend permission checks should consume the shared definition.
-
-Do not duplicate role-permission maps in the client.
-
-Principal has `settings:read` and `settings:write` permissions for school administration.
-
-For attendance:
-- teachers retain `attendance:write` for marking attendance in their assigned classes
-- corrections to an existing attendance record are restricted in the controller to `principal` and `super_admin`
-
----
-
-## 8. School Settings and Academic Years — Phase 2 COMPLETED
-
-Implemented and verified:
-```text
-GET   /api/v1/school/settings
-PATCH /api/v1/school/settings
-```
-
-Rules:
-- authentication required
-- `settings:read` for reads
-- `settings:write` for writes
-- school is resolved only from authenticated `req.user.schoolId`
-- school code is immutable
-- academic year cannot be changed through settings endpoint
-- update schema allows only school profile/settings fields
-- updates create before/after AuditLog records
-
-Phase 2 has exited. Remaining administration polish continues only where it is a dependency for later phases.
-
----
-
-## 9. Attendance — Phase 3 IN PROGRESS
-
-Current attendance behavior:
-- attendance remains tenant-scoped by authenticated/resolved school context
-- teacher access remains class-teacher scoped through `Teacher.classTeacherOf`
-- student attendance remains self-only
-- parent attendance remains linked-child-only
-- attendance creation validates class/section ownership and active student membership
-- duplicate students within one submission are rejected
-- school/class/section/date uniqueness is enforced by a MongoDB unique index
-- attendance creation/correction is restricted to the school-configured current academic year
-- existing attendance records are now corrected only by principal/super-admin
-- attendance corrections produce explicit `CORRECT` audit events
-- monthly reports are restricted to the current academic year and return the academic-year name
-- attendance write/query date inputs use strict `YYYY-MM-DD` calendar-date semantics to match server-side UTC calendar parsing
-- student attendance date ranges use an attendance-specific calendar-date validator
-- attendance collection filters are validated by `AttendanceQuerySchema`, preserving class/section/date/date-range filters
-- student attendance views use the shared `getTenantId()` helper, including super-admin selected-school context
-
-### Bulk attendance workflow
-`POST /api/v1/attendance/bulk` is implemented for bounded multi-day create/correction.
-
-Rules:
-- 1–31 entries per request
-- maximum 5000 student records total
-- duplicate class/section/day entries in one request are rejected
-- every class, section, and active student is validated against the resolved tenant
-- every teacher entry is checked against `Teacher.classTeacherOf`
-- every date is checked against the current academic year
-- existing attendance days are corrections and require principal/super-admin
-- all changes and audit events run in one MongoDB transaction
-
-Regression coverage exists for bulk payload bounds and duplicate day detection.
-
-### Phase 3 acceptance
-A dedicated Playwright attendance gate exists at `server/scripts/phase3-attendance-gate.mjs` with `npm run test:e2e:phase3:attendance:gate`.
-
-Remaining Phase 3 work:
-- run/complete the live attendance acceptance gate against the deployed bulk workflow
-- harden timezone-safe reporting semantics if a persisted school timezone is required
-- add spreadsheet import/export on top of the bulk service
-- keep student/teacher attendance views tenant- and ownership-scoped
-
----
-
-## 10. File Uploads
-
-Current flow:
-```text
-Multer
-  ↓
-Buffer
-  ↓
-Cloudinary
-```
-
-Permanent files must not use local Render disk.
-
-### Remaining privacy work
-Student/teacher documents currently store Cloudinary secure URLs. Before production, sensitive documents should use a private/authenticated delivery strategy with controlled access rather than permanent public URLs.
-
----
-
-## 11. PDF / Reports
-
-Server-side PDFKit is used for fee receipts and ID cards.
-
-Remaining work:
-- replace hardcoded school placeholders with tenant School configuration
-- actual student/teacher photos
-- QR generation where required
-- standardized timezone/date handling
-
----
-
-## 12. Performance / Correctness Work Remaining
-
-Dashboard chart generation is tenant-safe but currently performs repeated queries in loops. Replace with batched aggregation queries before larger deployments.
-
-Standardize school timezone/reporting timezone instead of relying on server-local `Date` behavior.
-
-Progressively remove business-critical `any` usage; avoid giant unrelated type rewrites.
-
----
-
-## 13. Feature Gaps
-
-Not fully implemented:
-- parent portal UI
-- student portal
-- teacher portal
-- exams/marks/results
-- homework
-- timetable
-- library
-- transport
-- inventory
-- expenses
-- payroll/staff/leave
-- SMS/push/WhatsApp
-- payment gateway
-- subscriptions/SaaS administration
-- advanced backup/recovery
-- production observability
-- mobile app
-
-Permission entries for future features do not mean those modules are implemented.
-
-Transport is referenced by Student but no complete Transport module exists yet. Do not build against it without defining requirements/model.
-
----
-
-## 14. Immediate Development Order
-
-Continue in this order:
+### Verified E2E state
 
 ```text
-1. Run Phase 3 attendance E2E gate and resolve live failures
-2. Harden Phase 3 attendance timezone/reporting semantics
-3. Add spreadsheet import/export on top of the bulk attendance service
-4. Finish administration search/filter/pagination and bulk workflows where needed
-5. Finish sensitive document private/authenticated delivery
-6. Batch dashboard aggregations and standardize reporting timezone
-7. Finish Phase 4 financial hardening and reports
-8. Add exams/results
-9. Add notifications
-10. Add portals
-11. Add SaaS administration
-12. Add mobile
+Attendance:       4 passed
+Bulk attendance:  1 passed
+Student search:   1 passed
+Student bulk:     1 passed
+Phase 3 summary:  PASS
 ```
 
-Do not prioritize microservices, Kubernetes, complex AI/ML, GPS tracking, WhatsApp automation, or large-scale caching before the core ERP is correct.
+### Attendance implemented
+- tenant-scoped marking/querying
+- teacher assigned-class boundary
+- student self-only attendance
+- parent linked-child-only attendance
+- class/section/active-student validation
+- academic-year date restriction
+- strict `YYYY-MM-DD` calendar-date semantics
+- duplicate student protection
+- unique school/class/section/date index
+- correction restricted to principal/super-admin
+- correction audit with before/after data
+- bounded bulk attendance: max 31 entries / 5000 student records
+- duplicate bulk day rejection
+- transactional bulk writes + audit events
+- validated attendance list filters
+- monthly report academic-year guard
+
+### Student administration implemented
+- validated student search/status/class/section/pagination contract
+- escaped search input
+- hardened atomic student bulk import
+- duplicate admission-number detection
+- row-level validation errors
+- tenant-safe filtered student export
+- teacher export limited to assigned classes
 
 ---
 
-## 15. AI Coding Contract
+## 7. Phase 3 remaining work
 
-Before coding, inspect:
+### Highest priority
+1. Attendance UI state/edit/save correctness.
+2. Mark-vs-correct attendance UX and authorization messaging.
+3. Attendance spreadsheet import/export.
+4. Reporting/month/session boundary tests and explicit school reporting timezone decision.
+5. Student Import/Export UI integration.
+6. Teacher administration E2E and UI acceptance.
+
+### Then
+7. Student activity/timeline.
+8. Class/section acceptance gaps.
+9. Admission/enrollment foundations.
+10. Promotion/transfer/withdrawal rules before implementing irreversible workflows.
+11. Phase 3 final exit verification.
+
+Do not mark Phase 3 complete merely because the current API/E2E gate is green.
+
+---
+
+## 8. Important current frontend findings
+
+`StudentsPage.tsx` already exposes Import/Export buttons, but they are not wired to the hardened backend workflows.
+
+`AttendancePage.tsx` has the core marking flow, but editable attendance currently mutates the object returned by React Query rather than maintaining explicit local edit state. This should be corrected before calling the attendance UI production-ready.
+
+The established Tailwind/UI primitive system should be reused rather than replaced.
+
+---
+
+## 9. Storage architecture — CURRENT TRUTH
+
+Current implementation is **Cloudflare R2**, not Cloudinary.
+
 ```text
-prd.md
-architecture.md
-rules.md
-design.md
-phases.md
-memory.md
+Multer / upload buffer
+        ↓
+Cloudflare R2
+        ↓
+short-lived signed URL
 ```
+
+Backups/recovery use Backblaze B2.
+
+There is no active Cloudinary implementation under `server/src`.
+
+Older PRD/architecture references to Cloudinary are legacy documentation and must not be used as implementation evidence.
+
+Remaining document work:
+- verify every sensitive document URL is authorized by tenant + ownership/role;
+- ensure no permanent public object URL bypass exists;
+- standardize short-lived signed delivery;
+- maintain separate authorization for recovery operations.
+
+---
+
+## 10. Reporting/performance debt
+
+Dashboard trend generation currently performs repeated database queries inside loops.
+
+Required later:
+- replace with aggregation/batched queries;
+- standardize school reporting timezone;
+- verify month and academic-session boundaries;
+- add focused performance regression tests.
+
+Avoid premature caching/microservices.
+
+---
+
+## 11. Shared schema and generated-artifact caution
+
+Shared schemas intentionally enforce strict date-only semantics.
+
+Do not weaken production schemas to accommodate stale fixtures.
+
+Earlier commits that removed stale generated shared artifacts were explicitly reverted. Do not silently reintroduce those changes. If the generated-artifact state blocks a required test/build, treat that as a deliberate maintenance task.
+
+Known unit-test technical debt may exist around stale fixtures/config-loading/generated-artifact state. It is separate from the green Phase 3 E2E acceptance result unless it blocks a required release gate.
+
+---
+
+## 12. Financial baseline
+
+Payment collection/reversal workflows are tenant-scoped and transaction-safe, with immutable financial-history principles and reconciliation support.
+
+Before Phase 4 completion, continue verifying:
+- period-vs-lifetime reconciliation
+- reversal/refund edge cases
+- receipt correctness/branding
+- ledger immutability
+- idempotency and duplicate external transaction handling
+
+---
+
+## 13. Development order
+
+```text
+1. Attendance UI correctness
+2. Attendance spreadsheet import/export
+3. Attendance reporting/timezone contract + tests
+4. Student Import/Export UI integration
+5. Teacher administration E2E + UI polish
+6. Student timeline + admission/enrollment foundations
+7. Class/section administration acceptance
+8. Document signed-delivery/privacy audit
+9. Dashboard aggregation + reporting timezone/performance
+10. Phase 3 final exit verification
+11. Phase 4 financial hardening
+12. Exams/results
+13. Homework/notices/timetable
+14. Parent/Student/Teacher portals
+15. Notifications
+16. Mobile
+17. SaaS/reliability
+18. AI/advanced analytics
+```
+
+Do not prioritize microservices, Kubernetes, GPS/WhatsApp automation, speculative AI decisioning or large mobile work before core correctness.
+
+---
+
+## 14. Coding workflow contract
+
+Before coding:
+- inspect `prd.md`, `architecture.md`, `rules.md`, `design.md`, `phases.md`, `memory.md`;
+- inspect the actual relevant code;
+- define acceptance criteria.
 
 During coding:
-- preserve existing architecture
-- use TypeScript
-- reuse existing components/API utilities/shared schemas/constants
-- enforce tenant isolation
-- add tests for business-critical changes
-- avoid unrelated refactors
+- make tracked code/document changes directly on GitHub;
+- preserve tenant isolation/RBAC;
+- add focused tests;
+- avoid unrelated refactors.
+
+For local-only work:
+- use Desktop Commander for ignored files, local `.env`, commands, builds and E2E verification;
+- do not turn local-only environment changes into source-code commits unless explicitly required.
 
 After coding:
-- verify build
-- verify tests
-- verify authorization and tenant safety
-- verify error states
-- update docs when behavior/architecture changes
+- pull/verify locally;
+- run relevant build/tests/E2E;
+- verify authorization, tenant isolation and error states;
+- update affected living documentation.
 
-Memory is living context, not proof. Refresh it after meaningful implementation changes.
+Memory is context, not proof; refresh it after meaningful changes.
