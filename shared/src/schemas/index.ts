@@ -5,7 +5,7 @@ export const ObjectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid Obj
 export const SchoolCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,30}$/, "Invalid school code");
 export const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").refine((value) => { const [year, month, day] = value.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day; }, "Invalid date");
 export const PaginationSchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(20), sortBy: z.string().optional(), sortOrder: z.enum(["asc", "desc"]).default("desc") });
-export const DateRangeSchema = z.object({ startDate: z.string().datetime().optional(), endDate: z.string().datetime().optional() });
+export const DateRangeSchema = z.object({ startDate: z.string().datetime().optional(), endDate: z.string().datetime().optional() }).superRefine((value, ctx) => { if (value.startDate && value.endDate && new Date(value.startDate) > new Date(value.endDate)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date must be on or after start date" }); });
 export const PaginationParams = PaginationSchema;
 
 const UserBaseSchema = z.object({ _id: ObjectIdSchema.optional(), email: z.string().email(), password: z.string().min(8).optional(), role: z.nativeEnum(UserRole), profileId: ObjectIdSchema.optional(), schoolId: ObjectIdSchema.optional(), isActive: z.boolean().default(true), lastLogin: z.string().datetime().optional(), createdAt: z.string().datetime().optional(), updatedAt: z.string().datetime().optional() });
