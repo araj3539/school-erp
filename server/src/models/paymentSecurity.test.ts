@@ -18,6 +18,13 @@ describe("payment financial safeguards", () => {
     expect(() => CreatePaymentSchema.parse({ ...basePayment, amount: 0 })).toThrow();
   });
 
+  it("rejects zero and negative amounts at the persistence layer", () => {
+    const amountPath = Payment.schema.path("amount");
+    expect(amountPath.options.min).toBe(0.01);
+    expect(() => Payment.hydrate({ amount: 0 }).validateSync()).toBeUndefined();
+    expect(() => Payment.schema.validate({ amount: 0 })).not.toThrow();
+  });
+
   it("validates reversal amount and reason", () => {
     expect(PaymentReversalSchema.parse({ type: "refund", amount: 100, reason: "Duplicate collection" })).toEqual({ type: "refund", amount: 100, reason: "Duplicate collection" });
     expect(() => PaymentReversalSchema.parse({ type: "refund", amount: 0, reason: "x" })).toThrow();
