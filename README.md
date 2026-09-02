@@ -1,50 +1,92 @@
 # School ERP
 
-A comprehensive School Management System built with modern web technologies.
+A multi-tenant School Management System built with React, TypeScript, Express and MongoDB.
+
+## Current status — 2026-09-02
+
+- Phase 1 Production Security and Multi-Tenancy: **COMPLETED**
+- Phase 2 Core Administration security/ownership gate: **COMPLETED**
+- Phase 3 Attendance + Core Administration completion: **IN PROGRESS**
+- Phase 3 API/E2E acceptance currently green for attendance, bulk attendance, student search and student bulk import/export.
+
+See `docs/codebase-audit-2026-09-02.md` and `docs/next-implementation-plan.md` for the current development state and sequence.
 
 ## Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
-- **Backend**: Node.js + Express + TypeScript
-- **Database**: MongoDB (Mongoose ODM)
-- **Authentication**: JWT with HttpOnly cookies + Refresh token rotation
-- **State Management**: TanStack Query (server) + Zustand (client)
-- **Forms**: React Hook Form + Zod validation
-- **PDF Generation**: pdfkit
-- **File Storage**: Cloudflare R2 with private object keys and signed URLs
-- **Testing**: Vitest + Playwright
-- **Monorepo**: Turbo
+- **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS
+- **Backend:** Node.js + Express + TypeScript
+- **Database:** MongoDB + Mongoose
+- **Authentication:** JWT with HttpOnly cookies + refresh-token rotation
+- **State:** TanStack Query + Zustand
+- **Forms/validation:** React Hook Form + Zod
+- **PDF:** PDFKit
+- **File storage:** Cloudflare R2 with short-lived signed URLs
+- **Recovery/backup:** Backblaze B2 + MongoDB backups
+- **Excel:** read/write Excel services
+- **Testing:** Vitest + Playwright + Testing Library
+- **Monorepo:** npm workspaces + Turbo
 
 ## Project Structure
 
-```
+```text
 school-erp/
-+-- client/          # React frontend
-+-- server/          # Express backend
-+-- shared/          # Shared Zod schemas & types
-+-- docker-compose.yml
-+-- turbo.json
-+-- package.json
+├── client/          # React frontend
+├── server/          # Express backend, models, services and E2E
+├── shared/          # Shared Zod schemas and constants
+├── docs/            # Phase/audit/implementation documentation
+├── docker-compose.yml
+├── turbo.json
+└── package.json
 ```
 
-## Features (Phase 1)
+## Implemented Core Areas
 
-- **Authentication & RBAC**: JWT auth, role-based access control
-- **Student Management**: Admission, profiles, bulk import/export, ID cards
-- **Teacher Management**: Profiles, qualifications, salary, ID cards
-- **Class/Section/Subject Management**: Academic structure
-- **Attendance**: Bulk marking, calendar view, monthly reports
-- **Fee Management**: Fee structures, payment collection, receipts, reports
-- **Dashboard**: Stats, charts, recent activity, birthdays
-- **Reports**: Student, attendance, fee reports with Excel/PDF export
+- Authentication and RBAC
+- Tenant isolation and ownership enforcement
+- Student management and detail pages
+- Teacher management
+- Classes, sections and subjects
+- Attendance marking, correction and bounded bulk attendance
+- Student bulk import/export backend workflows
+- Fee/payment workflows and receipts
+- Dashboard and reports foundation
+- School settings and academic years
+- Audit logging
+- R2 document storage and B2 recovery infrastructure
+
+## Phase 3 acceptance
+
+The current Phase 3 gate covers:
+
+```text
+Attendance:       4 passed
+Bulk attendance:  1 passed
+Student search:   1 passed
+Student bulk:     1 passed
+Phase 3 summary:  PASS
+```
+
+This does **not** mean Phase 3 is complete. Remaining work includes attendance UI correctness, attendance spreadsheet workflows, reporting/timezone hardening, student Import/Export UI integration, teacher administration acceptance and admission/admin workflows.
+
+## Development workflow
+
+Tracked source and documentation changes are made directly on GitHub. Pull them locally before verification.
+
+Use Desktop Commander for local-only work such as:
+- running builds/tests/E2E
+- inspecting ignored files
+- checking local environment variables
+- other machine-specific commands
+
+Do not commit local `.env` or machine-specific configuration.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm 10+
-- Docker (for local MongoDB)
+- Docker (optional, for local MongoDB)
 
 ### Installation
 
@@ -56,53 +98,76 @@ cp .env.example .env
 npm run dev
 ```
 
-### Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| MONGODB_URI | MongoDB connection string | Yes |
-| JWT_SECRET | JWT signing secret (32+ chars) | Yes |
-| JWT_REFRESH_SECRET | Refresh token secret (32+ chars) | Yes |
-| CORS_ORIGIN | Frontend URL | Yes |
-| R2_ACCOUNT_ID | Cloudflare account ID for R2 | Yes for file storage |
-| R2_ACCESS_KEY_ID | R2 object read/write access key | Yes for file storage |
-| R2_SECRET_ACCESS_KEY | R2 secret access key | Yes for file storage |
-| R2_BUCKET_NAME | Private R2 bucket name | Yes for file storage |
-
-### Development
+### Common verification commands
 
 ```bash
-npm run dev
+npm run build
 npm run test
 npm run lint
-npm run format
+npm run test:e2e:phase3 --prefix server
 ```
 
-## File Storage
-
-School ERP uses a private Cloudflare R2 bucket for uploaded files. The backend stores the R2 object key as metadata and generates short-lived signed download URLs only after authentication and permission checks. R2 credentials must never be committed to Git.
+The Phase 3 E2E command uses the configured E2E environment. Do not commit its local credentials.
 
 ## Deployment
 
-### Render (Backend)
-Build: npm run build, Start: npm start
+### Backend
+Render-compatible Node service using the repository build/start scripts.
 
-### Vercel (Frontend)
-Framework: Vite, Build: npm run build, Output: dist
+### Frontend
+Vercel-compatible Vite build producing `dist`.
 
-### MongoDB Atlas
-M0 free tier (512MB)
+### Database
+MongoDB Atlas is the intended managed database for the deployed environment.
 
-## Roles & Permissions
+## File Storage
 
-| Role | Permissions |
-|------|-------------|
-| Super Admin | All access |
-| Principal | Students, Teachers, Classes, Attendance, Fees, Reports, Settings |
-| Accountant | Fees, Payments, Expenses, Salary, Reports |
-| Teacher | Attendance (own class), Homework, Marks, Students (own class) |
-| Student | View own: Attendance, Homework, Results, Fees |
-| Parent | View childs: Attendance, Homework, Results, Fees |
+Student/teacher documents use Cloudflare R2 object keys and short-lived signed URLs. Backblaze B2 is used for recovery/backup copies.
+
+Sensitive documents must never become publicly accessible merely because an object URL is stored in a record. Access must pass authentication, tenant and ownership/role checks first.
+
+## Security principles
+
+- authenticated tenant context is authoritative
+- never trust browser-supplied school ownership
+- backend authorization is mandatory
+- financial history is immutable/auditable
+- sensitive mutations create audit events
+- validate all external input
+- keep secrets out of Git
+- preserve Phase 1/Phase 2 regression gates
+
+## Roles
+
+The current permission model includes:
+
+| Role | General scope |
+|---|---|
+| Super Admin | Platform-level operations with explicit selected-school context where required |
+| Principal | School administration and oversight |
+| Accountant | Financial operations |
+| Teacher | Assigned academic/attendance operations |
+| Student | Own records |
+| Parent | Linked-child records |
+
+Exact authorization comes from the shared permission definitions and server-side checks; the role table is not a substitute for endpoint authorization.
+
+## Documentation
+
+Before changing core behavior, inspect:
+
+```text
+prd.md
+architecture.md
+rules.md
+design.md
+phases.md
+memory.md
+docs/codebase-audit-2026-09-02.md
+docs/next-implementation-plan.md
+```
+
+Documentation is living project state and must be synchronized after material changes.
 
 ## License
 
