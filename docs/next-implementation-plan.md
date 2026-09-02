@@ -58,15 +58,16 @@ Next:
 
 Status: **IN PROGRESS**
 
-Completed first financial-hardening slice:
+Completed financial-hardening slices:
 - payment persistence now rejects zero and negative ledger amounts (`min: 0.01`);
 - idempotency-key collision handling now distinguishes an exact replay from reuse of the same key for different payment data, including the concurrent unique-index race path;
 - existing tenant-scoped idempotency and transaction-ID uniqueness guards are retained;
 - payment and reversal operations remain transaction-backed and tenant-scoped;
-- reversal/refund amounts remain bounded by the original payment and cumulative reversals are checked before creating another reversal.
+- reversal/refund amounts remain bounded by the original payment and cumulative reversals are checked before creating another reversal;
+- reconciliation now rejects an end date earlier than its start date;
+- reconciliation date filters treat the supplied end timestamp as an inclusive boundary by using an exclusive upper bound one millisecond after the supplied value.
 
 Next:
-- collection reports and reconciliation verification, including date-range boundary tests;
 - receipt correctness and school branding verification;
 - reversal/refund acceptance tests for partial and full reversal paths;
 - immutable-ledger regression tests;
