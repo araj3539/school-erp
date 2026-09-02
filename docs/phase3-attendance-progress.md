@@ -2,7 +2,7 @@
 
 Review date: 2026-09-02
 Branch: `main`
-Phase state: `IN_PROGRESS`
+Phase state: `COMPLETED`
 
 ## Implemented attendance capabilities
 
@@ -11,7 +11,7 @@ Phase state: `IN_PROGRESS`
 - Dates outside `[startDate, endDate)` are rejected.
 - Attendance write/query inputs use strict `YYYY-MM-DD` calendar-date semantics.
 - Student attendance date ranges use the attendance-specific date validator.
-- Monthly report acceptance now verifies invalid month rejection and a valid academic-year month.
+- Monthly report acceptance verifies invalid month rejection and a valid academic-year month.
 
 ### Authorization and tenant isolation
 - Teachers can mark attendance only for assigned classes.
@@ -57,7 +57,7 @@ Attendance uses **date-only semantics** for school reporting. `YYYY-MM-DD` repre
 
 ## Verification
 
-Phase 3 now includes explicit reporting and teacher-administration acceptance suites:
+Phase 3 includes explicit reporting and teacher-administration acceptance suites:
 
 ```text
 Attendance:        4 passed
@@ -79,8 +79,8 @@ Audit:      3 passed
 Roles:      2 passed
 ```
 
-Client and server production builds pass. The local working tree is clean after pulling the GitHub implementation.
+Client and server production builds pass. The local working tree was clean after pulling the GitHub implementation.
 
 ## Phase 3 status
 
-The Phase 3 implementation and automated acceptance gate are now green. The remaining work after this phase is outside the Phase 3 exit gate: deeper product polish, broader UI/browser acceptance, dashboard aggregation/performance, sensitive document delivery/privacy audit, and subsequent ERP modules.
+The Phase 3 implementation and automated acceptance gate are complete and green. Remaining work is outside the Phase 3 exit gate: deeper product polish, broader UI/browser acceptance, sensitive document delivery/privacy audit, dashboard aggregation/performance, and subsequent ERP modules.
