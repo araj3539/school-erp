@@ -106,12 +106,33 @@ jobs:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          # R2 deletions/replacements are already preserved in recovery by the
-          # application. Keep only the current version in the B2 schools mirror.
+          # B2 always keeps object versions by default. The schools prefix is
+          # intentionally a current-only mirror because application-level
+          # replacement/deletion history is already stored under recovery/.
+          # rclone cleanup removes all old B2 versions under this path while
+          # leaving each current object intact.
           if rclone lsd "b2:${B2_BUCKET_NAME}/schools" >/dev/null 2>&1; then
-            rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/schools"
+            rclone cleanup "b2:${B2_BUCKET_NAME}/schools" --fast-list --stats 30s
           else
             echo "B2 schools prefix is currently empty; nothing to clean."
+          fi
+
+      - name: Verify schools mirror has no old versions
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          if rclone lsd "b2:${B2_BUCKET_NAME}/schools" >/dev/null 2>&1; then
+            rclone --b2-versions lsf "b2:${B2_BUCKET_NAME}/schools" --files-only > /tmp/schools-versions.txt
+            if grep -Eq -- '-v[0-9]{8}-[0-9]{6}-[0-9]{3}(\.[^/]*)?$' /tmp/schools-versions.txt; then
+              echo "ERROR: old B2 versions still exist under schools/."
+              echo "Remaining versions:"
+              grep -E -- '-v[0-9]{8}-[0-9]{6}-[0-9]{3}(\.[^/]*)?$' /tmp/schools-versions.txt
+              exit 1
+            fi
+            echo "Verified: schools/ contains current objects only; no old B2 versions remain."
+          else
+            echo "B2 schools prefix is currently empty; nothing to verify."
           fi
 
       - name: Load previous backup manifest
