@@ -43,11 +43,15 @@ jobs:
           set -euo pipefail
           test -n "$B2_BUCKET_NAME" || { echo "Missing required secret: B2_BUCKET_NAME"; exit 1; }
           rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json" > /tmp/r2-manifest.json
+          test -s /tmp/r2-manifest.json || { echo "R2 backup manifest is empty"; exit 1; }
           python - <<'PY'
           import json
           from datetime import datetime, timezone
-          with open('/tmp/r2-manifest.json', encoding='utf-8') as f:
-              data = json.load(f)
+          try:
+              with open('/tmp/r2-manifest.json', encoding='utf-8') as f:
+                  data = json.load(f)
+          except (OSError, json.JSONDecodeError) as exc:
+              raise SystemExit(f'R2 backup manifest is invalid JSON: {exc}')
           checked = datetime.fromisoformat(data['lastCheckedAt'].replace('Z', '+00:00'))
           age_hours = (datetime.now(timezone.utc) - checked).total_seconds() / 3600
           print(f"R2 backup last checked: {age_hours:.2f} hours ago")
@@ -63,12 +67,22 @@ jobs:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" > /tmp/mongodb-latest.json
+          if ! rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" > /tmp/mongodb-latest.json 2>/dev/null; then
+            echo "MongoDB backup metadata could not be read from B2."
+            exit 1
+          fi
+          test -s /tmp/mongodb-latest.json || {
+            echo "MongoDB backup metadata is empty. The MongoDB backup workflow must complete successfully before this health check can pass."
+            exit 1
+          }
           python - <<'PY'
           import json
           from datetime import datetime, timezone
-          with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
-              data = json.load(f)
+          try:
+              with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
+                  data = json.load(f)
+          except (OSError, json.JSONDecodeError) as exc:
+              raise SystemExit(f'MongoDB backup metadata is invalid JSON: {exc}')
           checked = datetime.fromisoformat(data['lastCheckedAt'].replace('Z', '+00:00'))
           age_hours = (datetime.now(timezone.utc) - checked).total_seconds() / 3600
           print(f"MongoDB backup last checked: {age_hours:.2f} hours ago")
