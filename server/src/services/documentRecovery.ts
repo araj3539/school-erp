@@ -20,6 +20,9 @@ const DATABASE_PREFIX = "database/";
 const PRESERVED_PREFIXES = [RECOVERY_PREFIX, METADATA_PREFIX, DATABASE_PREFIX];
 
 type B2VersionRef = { Key: string; VersionId: string };
+type BackupResult = { objectCount: number; bytes: number; deletedCount: number };
+
+let backupInProgress: Promise<BackupResult> | null = null;
 
 function getB2Client(): S3Client {
   if (!env.B2_ENDPOINT || !env.B2_KEY_ID || !env.B2_APPLICATION_KEY || !env.B2_BUCKET_NAME) throw AppError.internal("B2 recovery storage is not configured");
@@ -139,8 +142,7 @@ export async function copyB2ObjectToRecovery(storageKey: string, recoveryKey: st
   }
 }
 
-/** Synchronize the current B2 mirror with R2 and permanently remove stale B2 versions. */
-export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: number; deletedCount: number }> {
+async function runBackupR2ToB2(): Promise<BackupResult> {
   const r2 = getR2Client();
   const b2 = getB2Client();
   const currentKeys = new Set<string>();
@@ -183,6 +185,19 @@ export async function backupR2ToB2(): Promise<{ objectCount: number; bytes: numb
 
   const deletedCount = await purgeB2Versions(b2, env.B2_BUCKET_NAME!, currentKeys);
   return { objectCount, bytes, deletedCount };
+}
+
+/** Serialize manual backups so two simultaneous requests cannot create competing mirror versions. */
+export async function backupR2ToB2(): Promise<BackupResult> {
+  if (backupInProgress) return backupInProgress;
+
+  const operation = runBackupR2ToB2();
+  backupInProgress = operation;
+  try {
+    return await operation;
+  } finally {
+    if (backupInProgress === operation) backupInProgress = null;
+  }
 }
 
 export async function getB2Object(recoveryKey: string): Promise<{ body: Readable; contentType?: string; contentLength?: number }> {
