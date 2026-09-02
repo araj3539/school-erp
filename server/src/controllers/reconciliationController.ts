@@ -3,18 +3,31 @@ import mongoose from "mongoose";
 import { Fee, Payment, PaymentReversal } from "../models/index.js";
 import { DateRangeSchema } from "../validators/index.js";
 
+function buildInclusiveEnd(endDate?: string): Date | undefined {
+  if (!endDate) return undefined;
+  return new Date(new Date(endDate).getTime() + 1);
+}
+
 export async function getFinancialReconciliation(req: Request, res: Response, next: NextFunction) {
   try {
     const { startDate, endDate } = DateRangeSchema.parse(req.query);
     const schoolId = new mongoose.Types.ObjectId(req.user!.schoolId);
-    const dateFilter: Record<string, Date> = {};
-    if (startDate) dateFilter.$gte = new Date(startDate);
-    if (endDate) dateFilter.$lte = new Date(endDate);
+    const paymentDateFilter: Record<string, Date> = {};
+    const reversalDateFilter: Record<string, Date> = {};
+    if (startDate) {
+      paymentDateFilter.$gte = new Date(startDate);
+      reversalDateFilter.$gte = new Date(startDate);
+    }
+    const inclusiveEnd = buildInclusiveEnd(endDate);
+    if (inclusiveEnd) {
+      paymentDateFilter.$lt = inclusiveEnd;
+      reversalDateFilter.$lt = inclusiveEnd;
+    }
     const periodPaymentsFilter: Record<string, unknown> = { schoolId };
     const periodReversalsFilter: Record<string, unknown> = { schoolId };
-    if (Object.keys(dateFilter).length) {
-      periodPaymentsFilter.date = dateFilter;
-      periodReversalsFilter.createdAt = dateFilter;
+    if (Object.keys(paymentDateFilter).length) {
+      periodPaymentsFilter.date = paymentDateFilter;
+      periodReversalsFilter.createdAt = reversalDateFilter;
     }
 
     const [ledgerPayments, ledgerReversals, periodPayments, periodReversals, feeSummary, mismatches] = await Promise.all([
