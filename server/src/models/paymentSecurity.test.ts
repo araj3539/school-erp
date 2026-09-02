@@ -19,10 +19,11 @@ describe("payment financial safeguards", () => {
   });
 
   it("rejects zero and negative amounts at the persistence layer", () => {
-    const amountPath = Payment.schema.path("amount");
-    expect(amountPath.options.min).toBe(0.01);
-    expect(() => Payment.hydrate({ amount: 0 }).validateSync()).toBeUndefined();
-    expect(() => Payment.schema.validate({ amount: 0 })).not.toThrow();
+    const zero = new Payment({ amount: 0 }).validateSync();
+    const negative = new Payment({ amount: -1 }).validateSync();
+    expect(zero?.errors.amount).toBeDefined();
+    expect(negative?.errors.amount).toBeDefined();
+    expect(Payment.schema.path("amount").options.min).toBe(0.01);
   });
 
   it("validates reversal amount and reason", () => {
