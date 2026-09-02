@@ -20,6 +20,14 @@ function samePaymentRequest(payment: any, data: any): boolean {
     && (payment.transactionId || undefined) === (data.transactionId || undefined);
 }
 
+export function getRemainingReversibleAmount(paymentAmount: number, alreadyReversed: number, requestedAmount: number): number {
+  const remaining = paymentAmount - alreadyReversed;
+  if (requestedAmount <= 0 || requestedAmount > remaining) {
+    throw AppError.badRequest("Reversal/refund exceeds remaining payment amount");
+  }
+  return remaining - requestedAmount;
+}
+
 export async function collectPayment(req: Request, res: Response, next: NextFunction) {
   const session = await mongoose.startSession();
   const tenant = schoolId(req);
@@ -129,7 +137,7 @@ export async function reversePayment(req: Request, res: Response, next: NextFunc
         { $group: { _id: null, amount: { $sum: "$amount" } } },
       ]).session(session);
       const alreadyReversed = previous[0]?.amount ?? 0;
-      if (alreadyReversed + data.amount > payment.amount) throw AppError.badRequest("Reversal/refund exceeds remaining payment amount");
+      getRemainingReversibleAmount(payment.amount, alreadyReversed, data.amount);
 
       const reversal = new PaymentReversal({
         paymentId: payment._id,
