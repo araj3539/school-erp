@@ -94,7 +94,7 @@ jobs:
           import json
           with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
               data = json.load(f)
-          print(data.get('backupPath', ''))
+          print(data.get('backupPath') or data.get('currentPath') or '')
           PY
           )
           fi
@@ -104,6 +104,18 @@ jobs:
 
           if [[ -n "$PREVIOUS_SHA" && "$CURRENT_SHA" == "$PREVIOUS_SHA" && -n "$PREVIOUS_PATH" ]] && \
              rclone size "$PREVIOUS_PATH" >/dev/null 2>&1; then
+            NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('/tmp/mongodb-latest.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data['lastCheckedAt'] = '${NOW}'
+          data['databaseChanged'] = False
+          path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+          PY
+            rclone copyto /tmp/mongodb-latest.json "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json"
+            rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/metadata"
             echo "No database changes detected."
             echo "Already backed up — no new B2 backup will be created."
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -136,13 +148,15 @@ jobs:
           rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${CURRENT_BASE}.archive.gz"
           rclone copyto /tmp/mongodb-backup/sha256.txt "${CURRENT_BASE}.sha256"
 
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           cat > /tmp/mongodb-latest.json <<EOF
           {
             "status": "success",
             "fingerprint": "${CURRENT_SHA}",
             "backupPath": "${HISTORY_BASE}.archive.gz",
             "currentPath": "${CURRENT_BASE}.archive.gz",
-            "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "createdAt": "${NOW}",
+            "lastCheckedAt": "${NOW}",
             "databaseChanged": true
           }
           EOF
