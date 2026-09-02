@@ -65,7 +65,8 @@ Completed financial-hardening slices:
 - payment and reversal operations remain transaction-backed and tenant-scoped;
 - reversal/refund amounts remain bounded by the original payment and cumulative reversals are checked before creating another reversal;
 - reconciliation now rejects an end date earlier than its start date;
-- reconciliation date filters treat the supplied end timestamp as an inclusive boundary by using an exclusive upper bound one millisecond after the supplied value.
+- reconciliation date filters treat the supplied end timestamp as an inclusive boundary by using an exclusive upper bound one millisecond after the supplied value;
+- persisted reversal/refund amounts now reject zero and negative values (`min: 0.01`).
 
 Next:
 - receipt correctness and school branding verification;
