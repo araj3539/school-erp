@@ -21,7 +21,7 @@ const PaymentSchema = new Schema<IPayment>({
   feeId: { type: Schema.Types.ObjectId, ref: "Fee", required: true },
   studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
   schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
-  amount: { type: Number, required: true, min: 0 },
+  amount: { type: Number, required: true, min: 0.01 },
   mode: { type: String, enum: Object.values(PaymentMode), required: true },
   transactionId: { type: String, maxlength: 100 },
   idempotencyKey: { type: String, maxlength: 100, trim: true },
