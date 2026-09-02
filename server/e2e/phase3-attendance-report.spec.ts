@@ -24,7 +24,7 @@ async function getPrincipalToken(request: any): Promise<string> {
   return body.accessToken ?? body.data?.accessToken;
 }
 
-test("attendance monthly report rejects invalid months and respects calendar boundaries", async ({ request }) => {
+test("attendance monthly report rejects invalid months and accepts an academic-year month", async ({ request }) => {
   expect(studentId).toBeTruthy();
   const token = await getPrincipalToken(request);
   const headers = { Authorization: `Bearer ${token}` };
@@ -40,10 +40,8 @@ test("attendance monthly report rejects invalid months and respects calendar bou
   const invalid = await request.get(apiUrl(`/api/v1/attendance/report/monthly?classId=${classId}&sectionId=${sectionId}&month=13&year=2026`), { headers });
   expect(invalid.status()).toBe(400);
 
-  const valid = await request.get(apiUrl(`/api/v1/attendance/report/monthly?classId=${classId}&sectionId=${sectionId}&month=1&year=2026`), { headers });
-  expect([200, 400]).toContain(valid.status());
-  if (valid.status() === 200) {
-    const body = await valid.json();
-    expect(body).toBeTruthy();
-  }
+  const valid = await request.get(apiUrl(`/api/v1/attendance/report/monthly?classId=${classId}&sectionId=${sectionId}&month=4&year=2026`), { headers });
+  const validBody = await valid.json().catch(() => ({}));
+  expect(valid.status(), `Monthly report failed: ${JSON.stringify(validBody)}`).toBe(200);
+  expect(validBody).toBeTruthy();
 });
