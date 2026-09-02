@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PaymentReversalSchema, CreatePaymentSchema, DateRangeSchema } from "../validators/index.js";
 import { Payment } from "./Payment.js";
+import { PaymentReversal } from "./PaymentReversal.js";
 
 const basePayment = {
   feeId: "66c000000000000000000001",
@@ -29,6 +30,12 @@ describe("payment financial safeguards", () => {
   it("validates reversal amount and reason", () => {
     expect(PaymentReversalSchema.parse({ type: "refund", amount: 100, reason: "Duplicate collection" })).toEqual({ type: "refund", amount: 100, reason: "Duplicate collection" });
     expect(() => PaymentReversalSchema.parse({ type: "refund", amount: 0, reason: "x" })).toThrow();
+  });
+
+  it("rejects zero and negative persisted reversal amounts", () => {
+    expect(new PaymentReversal({ amount: 0 }).validateSync()?.errors.amount).toBeDefined();
+    expect(new PaymentReversal({ amount: -1 }).validateSync()?.errors.amount).toBeDefined();
+    expect(PaymentReversal.schema.path("amount").options.min).toBe(0.01);
   });
 
   it("rejects a reconciliation range whose end precedes its start", () => {
