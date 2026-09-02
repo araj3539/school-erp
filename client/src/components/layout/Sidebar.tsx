@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useUIStore } from "../../store/uiStore";
 import { cn } from "../../utils";
-import { LayoutDashboard, Users, UserCheck, Building2, Calendar, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Building2, Calendar, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
 import api from "../../lib/api";
@@ -16,6 +16,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
   { label: "Students", path: "/students", icon: <Users className="w-5 h-5" />, permissions: ["students:read"] },
+  { label: "Student Import & Export", path: "/students/bulk", icon: <FileSpreadsheet className="w-5 h-5" />, permissions: ["students:read"] },
   { label: "Document Recovery", path: "/document-recovery", icon: <ArchiveRestore className="w-5 h-5" />, permissions: ["students:read"] },
   { label: "Teachers", path: "/teachers", icon: <UserCheck className="w-5 h-5" />, permissions: ["teachers:read"] },
   { label: "Classes", path: "/classes", icon: <Building2 className="w-5 h-5" />, permissions: ["classes:read"] },
@@ -44,91 +45,30 @@ export function Sidebar() {
 
   return (
     <>
-      <button
-        onClick={toggleSidebar}
-        className="fixed top-4 left-4 z-50 lg:hidden text-gray-500 hover:text-gray-700"
-      >
-        <LayoutDashboard className="w-6 h-6" />
-      </button>
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 transition-transform duration-200 lg:translate-x-0",
-          sidebarOpen ? "w-64 translate-x-0" : "-translate-x-full"
-        )}
-      >
+      <button onClick={toggleSidebar} className="fixed top-4 left-4 z-50 lg:hidden text-gray-500 hover:text-gray-700"><LayoutDashboard className="w-6 h-6" /></button>
+      <aside className={cn("fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 transition-transform duration-200 lg:translate-x-0", sidebarOpen ? "w-64 translate-x-0" : "-translate-x-full")}>
         <div className="flex h-full flex-col">
-          <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
-            <h1 className="text-xl font-bold text-primary-600">School ERP</h1>
-            <button onClick={toggleSidebar} className="lg:hidden text-gray-500">
-              <LayoutDashboard className="w-6 h-6" />
-            </button>
-          </div>
+          <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200"><h1 className="text-xl font-bold text-primary-600">School ERP</h1><button onClick={toggleSidebar} className="lg:hidden text-gray-500"><LayoutDashboard className="w-6 h-6" /></button></div>
           {user?.role === "super_admin" && availableSchools.length > 0 && (
             <div className="px-4 py-3 border-b border-gray-200">
-              <label htmlFor="active-school" className="block text-xs font-medium text-gray-500 mb-1">
-                Active School
-              </label>
-              <select
-                id="active-school"
-                value={activeSchoolId ?? ""}
-                onChange={(event) => setActiveSchoolId(event.target.value || null)}
-                className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
-              >
-                {availableSchools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name} ({school.code})
-                  </option>
-                ))}
+              <label htmlFor="active-school" className="block text-xs font-medium text-gray-500 mb-1">Active School</label>
+              <select id="active-school" value={activeSchoolId ?? ""} onChange={(event) => setActiveSchoolId(event.target.value || null)} className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none">
+                {availableSchools.map((school) => <option key={school.id} value={school.id}>{school.name} ({school.code})</option>)}
               </select>
             </div>
           )}
           <nav className="flex-1 overflow-y-auto p-4 space-y-1">
             {filteredItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  )
-                }
-              >
-                {item.icon}
-                {item.label}
-              </NavLink>
+              <NavLink key={item.path} to={item.path} className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors", isActive ? "bg-primary-50 text-primary-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>{item.icon}{item.label}</NavLink>
             ))}
           </nav>
           <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary-700">
-                  {user?.email?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
-                <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="mt-3 w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              <LogOut className="w-5 h-5" />
-              Logout
-            </button>
+            <div className="flex items-center gap-3 px-3 py-2"><div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center"><span className="text-sm font-medium text-primary-700">{user?.email?.charAt(0).toUpperCase()}</span></div><div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p><p className="text-xs text-gray-500 capitalize">{user?.role}</p></div></div>
+            <button onClick={handleLogout} className="mt-3 w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"><LogOut className="w-5 h-5" />Logout</button>
           </div>
         </div>
       </aside>
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-          onClick={toggleSidebar}
-        />
-      )}
+      {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={toggleSidebar} />}
     </>
   );
 }
