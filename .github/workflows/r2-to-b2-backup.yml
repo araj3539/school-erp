@@ -114,6 +114,15 @@ jobs:
             echo "B2 schools prefix is currently empty; nothing to clean."
           fi
 
+      - name: Load previous backup manifest
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          if ! rclone cat "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json" > /tmp/r2-manifest-existing.json 2>/dev/null; then
+            : > /tmp/r2-manifest-existing.json
+          fi
+
       - name: Remove recovery copies older than 60 days
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
@@ -132,12 +141,7 @@ jobs:
           rclone size "r2:${R2_BUCKET_NAME}" --json > /tmp/r2-size.json
           R2_COUNT=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["count"])')
           R2_BYTES=$(python -c 'import json; print(json.load(open("/tmp/r2-size.json"))["bytes"])')
-          cat > /tmp/r2-manifest.json <<EOF
-          {
-            "source": "r2",
-            "destination": "b2",
-            "lastCheckedAt": "$NOW",
-            "lastChangedAt": "$(python - <<'PY'
+          PREVIOUS_CHANGED_AT=$(python - <<'PY'
           import json
           from pathlib import Path
           try:
@@ -146,7 +150,18 @@ jobs:
           except Exception:
               print('')
           PY
-          )",
+          )
+          LAST_CHANGED_AT="$PREVIOUS_CHANGED_AT"
+          if [[ "${{ steps.sync.outputs.changed }}" == "true" ]]; then
+            LAST_CHANGED_AT="$NOW"
+          fi
+
+          cat > /tmp/r2-manifest.json <<EOF
+          {
+            "source": "r2",
+            "destination": "b2",
+            "lastCheckedAt": "$NOW",
+            "lastChangedAt": "$LAST_CHANGED_AT",
             "objectCount": $R2_COUNT,
             "bytes": $R2_BYTES,
             "mode": "current-sync-plus-application-recovery",
@@ -155,19 +170,8 @@ jobs:
           }
           EOF
 
-          if [[ "${{ steps.sync.outputs.changed }}" == "true" ]]; then
-            python - <<'PY'
-          import json
-          from pathlib import Path
-          path = Path('/tmp/r2-manifest.json')
-          data = json.loads(path.read_text(encoding='utf-8'))
-          data['lastChangedAt'] = data['lastCheckedAt']
-          path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
-          PY
-          fi
-
           # Always keep one stable manifest. Its old B2 versions are cleaned so
-          # repeated health checks never create an unbounded metadata history.
+          # repeated scheduled checks never create an unbounded metadata history.
           rclone copyto /tmp/r2-manifest.json "b2:${B2_BUCKET_NAME}/metadata/r2-latest-manifest.json"
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/metadata"
 
