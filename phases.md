@@ -56,69 +56,67 @@ Phase 2's remaining feature-polish backlog continues under Phase 3 administratio
 # Phase 3 — Attendance and Core Administration Completion
 
 ### Status
-`IN_PROGRESS`
+`COMPLETED`
 
-### Verified API/E2E progress — 2026-09-02
+### Verified exit result — 2026-09-02
 
 ```text
-Attendance:       4 passed
-Bulk attendance:  1 passed
-Student search:   1 passed
-Student bulk:     1 passed
-Phase 3 summary:  PASS
+Client build:             PASS
+Server build:             PASS
+
+Attendance:               4/4 PASS
+Bulk attendance:          1/1 PASS
+Student search:           1/1 PASS
+Student bulk:             1/1 PASS
+Teacher administration:   1/1 PASS
+Attendance reporting:     1/1 PASS
+Dashboard:                PASS
+
+Phase 3:                  PASS
 ```
 
-### Implemented
-- tenant-safe attendance marking and querying
-- academic-year-aware attendance dates
-- duplicate-day protection
-- teacher class assignment boundaries
-- principal/super-admin attendance correction authorization
-- before/after correction audit events
-- bounded transactional bulk attendance
-- strict calendar-date API contracts
-- student search/status/class/section/pagination query contract
-- teacher search/status query contract
-- hardened student bulk import with atomic validation/write behavior
-- tenant-safe filtered student export
+Completed implementation includes tenant-safe attendance, academic-year-aware calendar dates, duplicate-day protection, teacher class boundaries, audited correction workflow, transactional bulk attendance, spreadsheet import/export, reporting boundaries, student/teacher administration, and dashboard acceptance.
 
-### Still required before Phase 3 completion
-- Attendance UI state/edit/save correctness
-- explicit mark-vs-correct UI behavior
-- attendance spreadsheet import/export
-- reporting/timezone boundary verification
-- teacher administration E2E coverage
-- student Import/Export UI wiring
-- student activity/timeline workflow
-- admission/enrollment foundations
-- class/section administration acceptance gaps
-
-### Phase 3 exit criteria
-A school administrator and teacher must be able to complete attendance and core student administration workflows through the UI while API authorization, tenant isolation, auditability, reporting boundaries and bulk workflows remain regression-gated.
-
-Phase 1 and Phase 2 gates remain mandatory.
+Phase 3 remains a mandatory regression gate for subsequent work.
 
 ---
 
 # Phase 4 — Fees and Financial Core
 
 ### Status
-`IN_PROGRESS`
+`READY_FOR_VERIFICATION`
 
-### Scope
-- fee structures and generation
-- payment collection
-- receipts
-- collection reports
-- immutable financial ledger
-- reversal/refund workflow
-- reconciliation
+### Implementation completion — 2026-09-02
 
-### Entry condition
-Phase 3 exit gate is complete and document/reporting foundations are stable.
+Completed financial hardening includes:
+- tenant-scoped fee/payment collection with transaction-backed balance updates;
+- immutable payment ledger rules and reversal/refund workflow;
+- positive persisted payment and reversal amounts;
+- idempotency replay/collision handling and tenant-scoped transaction uniqueness;
+- cumulative reversal bounds preventing over-refund/reversal;
+- reconciliation date-range validation and inclusive end-bound handling;
+- separate period collection totals versus lifetime ledger integrity totals;
+- receipt generation bound to the tenant school's configured name, address, phone and email instead of placeholder branding;
+- focused tests for financial persistence safeguards, reversal partial/full boundary math and receipt branding;
+- non-destructive Phase 4 E2E coverage for receipt PDF response shape, reconciliation separation and over-reversal rejection.
+
+### Verified implementation result
+
+```text
+Shared build:             PASS
+Server build:             PASS
+Client build:             PASS
+Focused financial tests:  11/11 PASS
+Deployed reconciliation:  PASS
+```
+
+### Remaining exit verification
+The deployed school fixture currently has no payment record, so receipt and reversal acceptance tests were skipped. One retry also encountered a transient deployed-login `502`. A controlled populated-payment fixture is therefore still required before changing Phase 4 to `COMPLETED`.
 
 ### Exit criteria
 A school can operate its complete fee collection process safely and reconcile period reporting against lifetime ledger state.
+
+The implementation is complete; only populated-fixture acceptance evidence remains before the phase can be formally closed.
 
 ---
 
@@ -209,18 +207,15 @@ Only after core data quality is strong. AI must never make authoritative financi
 ## Current Implementation Order
 
 ```text
-1. Finish Phase 3 UI + spreadsheet + reporting/admin acceptance
-2. Sensitive document delivery audit and privacy hardening
-3. Dashboard aggregation + reporting timezone/performance
-4. Phase 4 financial hardening and reports
-5. Exams/results
-6. Homework/notices/timetable
-7. Parent/Student/Teacher portals
-8. Notifications
-9. Mobile
-10. SaaS administration
-11. Reliability/scale
-12. AI/advanced analytics
+1. Phase 4 populated-fixture acceptance and closure
+2. Exams/results
+3. Homework/notices/timetable
+4. Parent/Student/Teacher portals
+5. Notifications
+6. Mobile
+7. SaaS administration
+8. Reliability/scale
+9. AI/advanced analytics
 ```
 
 Do not prioritize microservices, Kubernetes, GPS/WhatsApp automation, speculative AI decisioning or large mobile work before the core ERP is correct.
@@ -264,6 +259,7 @@ At every phase or material change:
 
 | Version | Date | Change | Verified By |
 |---|---|---|---|
+| 1.6.0 | 2026-09-02 | Phase 4 financial implementation completed: receipt tenant branding, reversal bounds, reconciliation hardening and focused acceptance coverage; populated-payment deployment verification remains open. | AI-assisted repository implementation review |
 | 1.5.0 | 2026-09-02 | Codebase audit synchronized Phase 3 state: attendance, bulk attendance, student search and student bulk E2E suites are green; UI/reporting/admin completion remains open. | AI-assisted repository implementation review |
 | 1.4.0 | 2026-08-25 | Phase 2 consolidated live exit gate passed: 8/8 + 7/7 + 5/5 + 3/3 + 2/2; Phase 3 became active. | AI-assisted repository implementation review |
 | 1.3.0 | 2026-08-22 | Phase 1 exit gate passed against deployed Render API; Phase 2 became active. | AI-assisted repository implementation review |
