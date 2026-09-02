@@ -6,9 +6,9 @@ Repository baseline: `main` after Phase 3 closure
 ## Current verified state
 
 - Phase 1 Production Security and Multi-Tenancy: `COMPLETED` and retained as a regression gate.
-- Phase 2 Core Administration security/ownership exit gate: `COMPLETED` and retained as a regression gate.
+- Phase 2 Core Administration security/ownership exit gate: `COMPLETED`; the last known successful document/recovery verification was 7/7, while the latest local rerun was blocked by a transient deployed-login 502 on the first test and did not exercise the populated-document cases.
 - Phase 3 Attendance and Administration: `COMPLETED`; attendance, bulk attendance, student search/bulk, teacher administration and attendance-report acceptance suites are green.
-- Client and server production builds pass on the verified Phase 3 baseline.
+- Client and server production builds pass on the current `main` baseline.
 
 ## Priority 0 — Keep the verified baseline stable
 
@@ -25,35 +25,33 @@ Before each production-affecting slice:
 
 The implementation uses Cloudflare R2 signed URLs and Backblaze B2 recovery infrastructure, not the older Cloudinary design described in some legacy documentation.
 
-First slice:
-- ensure normal student and parent read responses never expose R2 storage keys or legacy public object identifiers;
-- keep document metadata available to authorized UI workflows;
-- require tenant/ownership authorization before generating a signed document URL;
-- keep signed delivery short-lived;
-- verify cross-tenant, student, parent and teacher ownership boundaries;
-- verify recovery preview remains separately authorized and never exposes recovery keys;
-- audit document access where appropriate without recording signed URLs or storage secrets;
-- keep recovery operations separately authorized.
+Completed implementation slice:
+- normal student and parent read responses no longer expose R2 storage keys or legacy public object identifiers;
+- document upload responses expose only safe metadata;
+- recovery-history responses expose only safe recovery metadata and never recovery/storage keys;
+- signed document delivery remains tenant/ownership authorized and 600 seconds short-lived;
+- populated-document acceptance coverage is now present in the Phase 2 E2E suite and activates when `E2E_SCHOOL_A_DOCUMENT_ID` points to a real fixture document.
 
-Exit criteria:
-
-```text
-Raw storage keys absent from normal read responses    PASS
-Signed URL requires tenant/ownership authorization    PASS
-Signed URL is short-lived                             PASS
-Cross-tenant document access blocked                  PASS
-Recovery preview does not expose recovery key        PASS
-Recovery restore remains admin-only                   PASS
-Focused document/privacy regression coverage          PASS
-```
+Remaining verification:
+- provision or identify a non-destructive populated-document fixture for the deployed acceptance run;
+- verify authorized student/parent delivery against that fixture;
+- verify cross-tenant denial against the populated document;
+- add durable document-view audit logging only if product requirements call for it, without recording signed URLs or storage secrets.
 
 ## Priority 2 — Reporting and dashboard performance
 
-- batch repeated dashboard attendance/payment queries with aggregation;
-- preserve the Phase 3 date-only attendance reporting contract;
-- define a school-local reporting timezone before introducing timestamp-to-local-date conversion elsewhere;
-- verify date boundaries;
-- add focused performance regression coverage;
+Status: **IN PROGRESS**
+
+Completed first performance slice:
+- dashboard attendance trend now uses one batched aggregation instead of one database query per day;
+- dashboard payment collection trend now uses one bounded payment query and in-memory date bucketing instead of one database query per day;
+- Phase 3 date-only attendance semantics are preserved by using UTC calendar-day boundaries for attendance trend data;
+- payment bucketing retains the existing server-local timestamp behavior until a school-local reporting timezone is explicitly defined.
+
+Next:
+- add focused dashboard endpoint/date-boundary regression coverage;
+- verify dashboard aggregation output against known fixtures;
+- define a school-local reporting timezone before expanding timestamp-to-local-date reporting behavior;
 - progressively remove business-critical `any` without broad unrelated rewrites.
 
 ## Priority 3 — Phase 4 financial hardening
