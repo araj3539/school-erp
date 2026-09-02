@@ -88,7 +88,7 @@ export async function getStudents(req: Request, res: Response, next: NextFunctio
     const sort: any = {};
     if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1; else sort.createdAt = -1;
     const skip = (page - 1) * limit;
-    const [students, total] = await Promise.all([Student.find(dbQuery).populate("classId sectionId").sort(sort).skip(skip).limit(limit).lean(), Student.countDocuments(dbQuery)]);
+    const [students, total] = await Promise.all([Student.find(dbQuery).select("-documents.url -documents.publicId").populate("classId sectionId").sort(sort).skip(skip).limit(limit).lean(), Student.countDocuments(dbQuery)]);
     res.json({ data: students, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (error) { next(error); }
 }
@@ -97,7 +97,7 @@ export async function getStudentById(req: Request, res: Response, next: NextFunc
   try {
     const { id } = req.validatedParams as any;
     await assertStudentReadAccess(req, id);
-    const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }).populate("classId sectionId userId");
+    const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }).select("-documents.url -documents.publicId").populate("classId sectionId userId");
     if (!student) throw AppError.notFound("Student not found");
     res.json({ student });
   } catch (error) { next(error); }
