@@ -2,7 +2,19 @@ import PDFDocument from "pdfkit";
 import { formatCurrency, formatDate } from "@school-erp/shared";
 
 import type { Student, Fee, Payment, Teacher } from "@school-erp/shared";
-export function generateReceiptPDF(payment: Payment & { fee: Fee & { student: Student; feeStructure: { feeType: string; amount: number } }; collectedBy: { fullName: string } }): Promise<Buffer> {
+
+export interface ReceiptSchoolBranding {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+}
+
+export function getReceiptSchoolBranding(school: ReceiptSchoolBranding): string[] {
+  return [school.name, school.address, `Phone: ${school.phone}`, `Email: ${school.email}`];
+}
+
+export function generateReceiptPDF(payment: Payment & { fee: Fee & { student: Student; feeStructure: { feeType: string; amount: number } }; collectedBy: { fullName: string }; school: ReceiptSchoolBranding }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4" });
     const chunks: Buffer[] = [];
@@ -16,9 +28,11 @@ export function generateReceiptPDF(payment: Payment & { fee: Fee & { student: St
     doc.text(`Date: ${formatDate(payment.date)}`, { align: "right" });
     doc.moveDown(2);
 
-    doc.fontSize(12).font("Helvetica-Bold").text("School Name", { align: "center" });
-    doc.fontSize(10).font("Helvetica").text("School Address", { align: "center" });
-    doc.text("Phone: +91-XXXXXXXXXX", { align: "center" });
+    const [schoolName, schoolAddress, schoolPhone, schoolEmail] = getReceiptSchoolBranding(payment.school);
+    doc.fontSize(14).font("Helvetica-Bold").text(schoolName, { align: "center" });
+    doc.fontSize(10).font("Helvetica").text(schoolAddress, { align: "center" });
+    doc.text(schoolPhone, { align: "center" });
+    doc.text(schoolEmail, { align: "center" });
     doc.moveDown(2);
 
     doc.fontSize(12).font("Helvetica-Bold").text("Student Details");
