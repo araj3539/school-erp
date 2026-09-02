@@ -1,6 +1,6 @@
 # School ERP — Phase 3 Student Administration Progress
 
-Review date: 2026-09-01
+Review date: 2026-09-02
 Branch: `main`
 Status: `IN_PROGRESS`
 
@@ -12,38 +12,47 @@ Status: `IN_PROGRESS`
 - Tenant scoping remains enforced by authenticated school context.
 
 ### Student bulk import hardening
-- New hardened bulk import controller validates every row with `CreateStudentSchema` before writes.
+- Hardened bulk import validates every row with `CreateStudentSchema` before writes.
 - Duplicate admission numbers inside the uploaded file are rejected.
 - Existing admission numbers are preflighted before any write.
 - Empty workbooks are rejected explicitly.
 - Existing Excel 5 MB upload and 5,000-row parser limits are retained.
-- All successful student inserts and their audit events run inside one MongoDB transaction.
+- Successful student inserts and their audit events run inside one MongoDB transaction.
 - Any validation failure prevents partial import.
 
 ### Student export hardening
-- Export now accepts the validated student query contract.
+- Export accepts the validated student query contract.
 - Search, status, class, and section filters are honored.
 - Teacher exports remain limited to assigned classes.
 - Export remains tenant-scoped.
+- The Phase 3 E2E export assertion was corrected to parse the first worksheet's row data rather than treating the worksheet wrapper as rows.
 
 ## Verification
 
-Added `server/e2e/phase3-student-bulk.spec.ts` covering:
+`server/e2e/phase3-student-bulk.spec.ts` covers:
 - invalid-row atomic rejection
 - no partial insert after failed import
 - duplicate admission-number rejection
 - filtered Excel export
 
-Existing Phase 3 student search coverage remains mandatory.
+The complete Phase 3 gate was verified green after this work:
 
-## Acceptance gate
+```text
+Attendance:       4 passed
+Bulk attendance:  1 passed
+Student search:   1 passed
+Student bulk:     1 passed
+Phase 3 summary:  PASS
+```
 
-`test:e2e:phase3` now includes the student bulk suite in addition to attendance, attendance bulk, and student search.
+The student bulk test therefore no longer awaits live verification.
 
-The new student bulk suite is awaiting live local E2E execution against the deployed Render API before this slice is marked green.
+## Remaining administration work
 
-## Next work after green
+1. Wire the existing Students UI Import/Export controls to the hardened endpoints.
+2. Add teacher administration E2E coverage for search/status/pagination.
+3. Add class/section administration acceptance coverage where gaps remain.
+4. Design admission/enrollment workflow safeguards before implementing promotion/transfer/TC behavior.
+5. Add the student detail activity/timeline workflow.
 
-- Wire the existing Students UI Import/Export controls to the hardened endpoints.
-- Add teacher administration E2E coverage for search/status/pagination.
-- Continue with admission/enrollment workflow.
+Phase 1 and Phase 2 security gates remain mandatory regression gates.
