@@ -46,10 +46,12 @@ Completed first performance slice:
 - dashboard attendance trend now uses one batched aggregation instead of one database query per day;
 - dashboard payment collection trend now uses one bounded payment query and in-memory date bucketing instead of one database query per day;
 - Phase 3 date-only attendance semantics are preserved by using UTC calendar-day boundaries for attendance trend data;
-- payment bucketing retains the existing server-local timestamp behavior until a school-local reporting timezone is explicitly defined.
+- payment bucketing retains the existing server-local timestamp behavior until a school-local reporting timezone is explicitly defined;
+- focused dashboard E2E coverage now verifies the 7-day/30-day series bounds, date-only formatting, consecutive daily boundaries, and numeric rate/collection constraints;
+- the dashboard suite is now included in the Phase 3 regression gate.
 
 Next:
-- add focused dashboard endpoint/date-boundary regression coverage;
+- pull and run the new dashboard suite against the deployed API;
 - verify dashboard aggregation output against known fixtures;
 - define a school-local reporting timezone before expanding timestamp-to-local-date reporting behavior;
 - progressively remove business-critical `any` without broad unrelated rewrites.
