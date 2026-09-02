@@ -1,21 +1,15 @@
 # School ERP — Development Phases
 
-> **Purpose:** This is the delivery roadmap. Work should proceed in dependency order. Do not skip security/tenant foundations just because a visible feature is more attractive.
+> **Purpose:** Delivery roadmap and phase governance. Status must reflect verified implementation, not intention.
 
 ---
 
 ## Phase 0 — Foundation and Repository Hygiene
 
-### Goal
-Make the current codebase predictable and safe to extend.
+### Status
+`COMPLETED`
 
-### Exit criteria
-- clean install works
-- build works
-- tests run
-- lint runs
-- secrets are excluded
-- documentation exists
+The repository has an established monorepo structure, shared validation, builds, tests, deployment configuration and living documentation. Remaining test/dependency cleanup is tracked as technical debt rather than treated as a feature phase.
 
 ---
 
@@ -27,86 +21,82 @@ Make the current codebase predictable and safe to extend.
 ### Verified exit result — 2026-08-22
 - tenant-owned endpoint and query audit completed
 - role/permission audit completed
-- student/teacher ownership checks completed
-- explicit Parent ↔ Student relationship implemented
-- document/recovery authorization completed
-- AuditLog isolation completed
-- session/refresh-token verification completed
-- live cross-tenant and role/ownership Playwright gate passed
-- Render deployment verification completed
+- role/ownership boundaries verified
+- explicit Parent ↔ Student ownership implemented
+- document/recovery authorization implemented
+- AuditLog isolation implemented
+- session/refresh-token security verified
+- deployed cross-tenant and role/ownership Playwright gate passed: `8/8`
 
-### Live evidence
-```text
-8 passed
-Phase 1 Playwright exit code: 0
-```
-
-Phase 1 remains a regression gate for later phases.
+Phase 1 remains a mandatory regression gate.
 
 ---
 
-# Phase 2 — Core Administration MVP
+# Phase 2 — Core Administration Security/Ownership
 
 ### Status
 `COMPLETED`
 
 ### Verified exit result — 2026-08-25
 
-The Phase 2 consolidated live gate passed every suite:
-
 ```text
-PASS     phase1       8/8
-PASS     documents    7/7
-PASS     payments     5/5
-PASS     audit        3/3
-PASS     roles        2/2
+PASS  phase1       8/8
+PASS  documents    7/7
+PASS  payments     5/5
+PASS  audit        3/3
+PASS  roles        2/2
 ```
 
-### Completed security/admin deliverables
-- tenant-scoped school settings read/write endpoints with validation and audit snapshots
-- Academic Year administration with tenant ownership and current-year synchronization
-- explicit Parent ↔ Student ownership through `Student.parentIds`
-- Student/Teacher/Class/Subject relationship ownership validation
-- fee/payment ownership for Students and linked Parents
-- payment/receipt tenant and ownership boundaries
-- AuditLog tenant isolation
-- Principal role-management hardening
-- document/recovery authorization across role and tenant boundaries
-- Phase 1 + Phase 2 live E2E regression gates
+Completed security/ownership foundations include school settings, academic years, Parent ↔ Student ownership, relationship validation, fee/payment ownership, AuditLog isolation, principal role-management hardening and document/recovery authorization.
 
-### Remaining Core Administration backlog
-These are feature-completion items and do not reopen the completed security exit gate:
-- search and filters
-- consistent pagination
-- bulk import/export workflows
-- student detail timeline
-- admission workflow foundations
-- school branding in generated documents/reports
-
-See `docs/phase2-security-audit.md` for the exit evidence and `docs/next-implementation-plan.md` for the next sequence.
+Phase 2's remaining feature-polish backlog continues under Phase 3 administration work and does not reopen its security exit gate.
 
 ---
 
-# Phase 3 — Attendance
+# Phase 3 — Attendance and Core Administration Completion
 
 ### Status
 `IN_PROGRESS`
 
-### Current focus
-Attendance correctness and correction workflow.
+### Verified API/E2E progress — 2026-09-02
 
-### Production requirements
-- tenant scope
-- academic-year awareness
-- duplicate-date protection
-- correction audit
-- bulk operations
-- timezone-safe date handling
-- teacher assignment boundaries
-- monthly/history/report correctness
+```text
+Attendance:       4 passed
+Bulk attendance:  1 passed
+Student search:   1 passed
+Student bulk:     1 passed
+Phase 3 summary:  PASS
+```
 
-### Exit criteria
-Teacher can mark attendance and authorized staff can audit/correct it safely.
+### Implemented
+- tenant-safe attendance marking and querying
+- academic-year-aware attendance dates
+- duplicate-day protection
+- teacher class assignment boundaries
+- principal/super-admin attendance correction authorization
+- before/after correction audit events
+- bounded transactional bulk attendance
+- strict calendar-date API contracts
+- student search/status/class/section/pagination query contract
+- teacher search/status query contract
+- hardened student bulk import with atomic validation/write behavior
+- tenant-safe filtered student export
+
+### Still required before Phase 3 completion
+- Attendance UI state/edit/save correctness
+- explicit mark-vs-correct UI behavior
+- attendance spreadsheet import/export
+- reporting/timezone boundary verification
+- teacher administration E2E coverage
+- student Import/Export UI wiring
+- student activity/timeline workflow
+- admission/enrollment foundations
+- class/section administration acceptance gaps
+
+### Phase 3 exit criteria
+A school administrator and teacher must be able to complete attendance and core student administration workflows through the UI while API authorization, tenant isolation, auditability, reporting boundaries and bulk workflows remain regression-gated.
+
+Phase 1 and Phase 2 gates remain mandatory.
 
 ---
 
@@ -115,24 +105,26 @@ Teacher can mark attendance and authorized staff can audit/correct it safely.
 ### Status
 `IN_PROGRESS`
 
-### Modules
-- fee structures
-- fee generation
+### Scope
+- fee structures and generation
 - payment collection
 - receipts
 - collection reports
-- immutable ledger
+- immutable financial ledger
 - reversal/refund workflow
 - reconciliation
 
+### Entry condition
+Phase 3 exit gate is complete and document/reporting foundations are stable.
+
 ### Exit criteria
-A school can operate its complete fee collection process safely.
+A school can operate its complete fee collection process safely and reconcile period reporting against lifetime ledger state.
 
 ---
 
 # Phase 5 — Exams and Academic Results
 
-### Modules
+### Scope
 - exams
 - marks entry
 - grade rules
@@ -141,32 +133,28 @@ A school can operate its complete fee collection process safely.
 - correction audit
 
 ### Exit criteria
-Teacher can enter marks and authorized users can publish results.
+Teacher can enter marks and authorized users can publish results safely.
 
 ---
 
 # Phase 6 — Homework, Notices and Timetable
 
-### Modules
-- homework
-- attachments
+### Scope
+- homework and attachments
 - notices
 - scheduled/class notices
 - timetable
 - teacher timetable
 - student timetable
 
-### Exit criteria
-Teachers can communicate academic work and schedules.
-
 ---
 
 # Phase 7 — Parent/Student/Teacher Portals
 
-Create role-specific dashboards using the existing ownership rules.
+Create role-specific experiences using existing tenant and ownership rules.
 
 ### Exit criteria
-Users can access only their own/assigned records.
+Users can access only their own or explicitly assigned records.
 
 ---
 
@@ -178,10 +166,8 @@ Recommended direction: React Native using shared API contracts and schemas.
 
 # Phase 9 — Notifications
 
-Architecture:
-
 ```text
-Event -> NotificationService -> Push / SMS / Email
+Business event -> NotificationService -> Push / SMS / Email
 ```
 
 Provider failures must not break core ERP workflows.
@@ -190,13 +176,13 @@ Provider failures must not break core ERP workflows.
 
 # Phase 10 — Library, Transport, Inventory and Staff
 
-Add only after core ERP workflows are stable.
+Add only after core ERP workflows are stable and requirements are defined.
 
 ---
 
 # Phase 11 — Online Payments
 
-Required: order creation, webhook verification, idempotency, reconciliation, refunds and receipts.
+Order creation, webhook verification, idempotency, reconciliation, refunds and receipts.
 
 Never trust client-side payment success state.
 
@@ -220,6 +206,27 @@ Only after core data quality is strong. AI must never make authoritative financi
 
 ---
 
+## Current Implementation Order
+
+```text
+1. Finish Phase 3 UI + spreadsheet + reporting/admin acceptance
+2. Sensitive document delivery audit and privacy hardening
+3. Dashboard aggregation + reporting timezone/performance
+4. Phase 4 financial hardening and reports
+5. Exams/results
+6. Homework/notices/timetable
+7. Parent/Student/Teacher portals
+8. Notifications
+9. Mobile
+10. SaaS administration
+11. Reliability/scale
+12. AI/advanced analytics
+```
+
+Do not prioritize microservices, Kubernetes, GPS/WhatsApp automation, speculative AI decisioning or large mobile work before the core ERP is correct.
+
+---
+
 ## Release Gates
 
 ### Alpha
@@ -229,38 +236,21 @@ Core modules function locally.
 One real school uses the system with supervision.
 
 ### Production v1
-Security + backups + tenant isolation + financial correctness + monitoring.
+Security + backups + tenant isolation + financial correctness + document privacy + monitoring.
 
 ### SaaS v1
 Multiple schools with automated onboarding and billing.
 
 ---
 
-## Current Implementation Order
+## Documentation Lifecycle
 
-```text
-1. Phase 3 attendance correction/acceptance
-2. Core administration search/filter/pagination + bulk workflows
-3. Sensitive document private/authenticated delivery
-4. Dashboard aggregation + timezone correctness
-5. Phase 4 financial hardening and reports
-6. Exams/results
-7. Homework/notices/timetable
-8. Parent/Student/Teacher portals
-9. Notifications
-10. Mobile
-11. SaaS administration
-12. Reliability/scale
-13. AI/advanced analytics
-```
-
-Do not prioritize AI, WhatsApp, GPS or large mobile work before the core ERP is correct.
-
----
-
-## Documentation Lifecycle & Phase Governance
-
-Phase status must reflect verified implementation, not intention.
+At every phase or material change:
+1. verify the repository and deployed behavior where applicable;
+2. record completed and remaining work;
+3. update affected living documents;
+4. keep Phase 1/2 security gates as regression gates;
+5. only change a phase to `COMPLETED` after its exit criteria are verified.
 
 ### Status states
 - `NOT_STARTED`
@@ -270,18 +260,12 @@ Phase status must reflect verified implementation, not intention.
 - `COMPLETED`
 - `DEFERRED`
 
-### Phase completion protocol
-1. Verify exit criteria against the repository and deployed system.
-2. Record deliverables, deviations and tests.
-3. Move remaining work into the next appropriate backlog.
-4. Update `memory.md` and relevant design/architecture/rules documentation.
-5. Add a changelog entry.
-
 ### Changelog
 
 | Version | Date | Change | Verified By |
 |---|---|---|---|
-| 1.4.0 | 2026-08-25 | Phase 2 consolidated live exit gate passed: 8/8 + 7/7 + 5/5 + 3/3 + 2/2; Phase 3 became the active implementation phase. | AI-assisted repository implementation review |
+| 1.5.0 | 2026-09-02 | Codebase audit synchronized Phase 3 state: attendance, bulk attendance, student search and student bulk E2E suites are green; UI/reporting/admin completion remains open. | AI-assisted repository implementation review |
+| 1.4.0 | 2026-08-25 | Phase 2 consolidated live exit gate passed: 8/8 + 7/7 + 5/5 + 3/3 + 2/2; Phase 3 became active. | AI-assisted repository implementation review |
 | 1.3.0 | 2026-08-22 | Phase 1 exit gate passed against deployed Render API; Phase 2 became active. | AI-assisted repository implementation review |
 | 1.2.0 | 2026-08-18 | Phase 1 security hardening and remaining acceptance work recorded. | AI-assisted repository implementation review |
 | 1.1.0 | 2026-08-11 | Added phase-state model, completion protocol and verification rules. | AI-assisted repository review |
