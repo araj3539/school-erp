@@ -7,6 +7,9 @@ import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
 import { getTenantId } from "../utils/tenant.js";
 import { UserRole } from "@school-erp/shared";
 import { Types } from "mongoose";
+import { generateExcelFile, parseExcelFile } from "../services/excel.js";
+
+interface MulterRequest extends Request { file?: Express.Multer.File; }
 
 async function assertTeacherClassAccess(req: Request, classId: string) {
   if (req.user!.role !== UserRole.TEACHER) return;
@@ -117,7 +120,6 @@ export async function bulkMarkAttendance(req: Request, res: Response, next: Next
     const data = req.validatedBody as any;
     const prepared: Array<{ entry: any; schoolId: string; date: Date; records: any[] }> = [];
     for (const entry of data.entries) prepared.push({ entry, ...(await validateAttendanceEntry(req, entry, session)) });
-
     const results: Array<{ date: string; classId: string; sectionId: string; corrected: boolean }> = [];
     await session.withTransaction(async () => {
       for (const item of prepared) {
@@ -127,9 +129,7 @@ export async function bulkMarkAttendance(req: Request, res: Response, next: Next
         if (attendance) {
           await assertAttendanceCorrectionAccess(req);
           const before = attendance.records.map((record) => ({ studentId: record.studentId.toString(), status: record.status, remark: record.remark }));
-          attendance.records = records;
-          attendance.markedBy = new Types.ObjectId(req.user!.userId);
-          await attendance.save({ session });
+          attendance.records = records; attendance.markedBy = new Types.ObjectId(req.user!.userId); await attendance.save({ session });
           await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: attendance._id.toString(), before: { records: before }, after: { recordsCount: records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId }, session });
         } else {
           [attendance] = await Attendance.create([{ ...entry, records, date, schoolId, markedBy: new Types.ObjectId(req.user!.userId) }], { session });
@@ -141,6 +141,130 @@ export async function bulkMarkAttendance(req: Request, res: Response, next: Next
     res.status(200).json({ results, count: results.length });
   } catch (error) { next(error); }
   finally { await session.endSession(); }
+}
+
+export async function importAttendanceSpreadsheet(req: MulterRequest, res: Response, next: NextFunction) {
+  const session = await mongoose.startSession();
+  try {
+    if (!req.file) throw AppError.badRequest("No file uploaded", "FILE_REQUIRED");
+    const schoolId = getTenantId(req);
+    const rows = await parseExcelFile(req.file.buffer);
+    if (!rows.length) throw AppError.badRequest("Excel file contains no data rows", "EMPTY_IMPORT");
+
+    const validationErrors: { row: number; message: string }[] = [];
+    const grouped = new Map<string, any>();
+    const admissionKeys = new Set<string>();
+    for (const [index, row] of rows.entries()) {
+      const rowNumber = index + 2;
+      const date = String(row.date ?? "").trim();
+      const classId = String(row.classId ?? "").trim();
+      const sectionId = String(row.sectionId ?? "").trim();
+      const admissionNo = String(row.admissionNo ?? "").trim();
+      const status = String(row.status ?? "").trim();
+      const remark = String(row.remark ?? "").trim();
+      if (!date || !classId || !sectionId || !admissionNo || !status) {
+        validationErrors.push({ row: rowNumber, message: "Required columns: date, classId, sectionId, admissionNo, status" });
+        continue;
+      }
+      const key = `${date}|${classId}|${sectionId}`;
+      const studentKey = `${key}|${admissionNo.toLowerCase()}`;
+      if (admissionKeys.has(studentKey)) {
+        validationErrors.push({ row: rowNumber, message: `Duplicate attendance row for admissionNo ${admissionNo}` });
+        continue;
+      }
+      admissionKeys.add(studentKey);
+      if (!grouped.has(key)) grouped.set(key, { date, classId, sectionId, records: [], rows: [] });
+      grouped.get(key).records.push({ admissionNo, status, remark });
+      grouped.get(key).rows.push(rowNumber);
+    }
+
+    if (grouped.size > 31) validationErrors.push({ row: 1, message: "Attendance import cannot contain more than 31 class/section/date entries" });
+    const prepared: any[] = [];
+    for (const entry of grouped.values()) {
+      try {
+        if (!Types.ObjectId.isValid(entry.classId) || !Types.ObjectId.isValid(entry.sectionId)) throw AppError.badRequest("Invalid classId or sectionId");
+        const classId = new Types.ObjectId(entry.classId);
+        const sectionId = new Types.ObjectId(entry.sectionId);
+        const date = parseCalendarDate(entry.date);
+        await assertAttendanceDateInCurrentAcademicYear(new Types.ObjectId(schoolId), date);
+        await assertTeacherClassAccess(req, entry.classId);
+        const [cls, section] = await Promise.all([
+          Class.findOne({ _id: classId, schoolId }).select("_id").session(session),
+          Section.findOne({ _id: sectionId, classId, schoolId }).select("_id").session(session),
+        ]);
+        if (!cls || !section) throw AppError.notFound("Class or section not found");
+        const admissionNumbers = entry.records.map((record: any) => record.admissionNo);
+        const students = await Student.find({ schoolId, classId, sectionId, status: "active", admissionNo: { $in: admissionNumbers } }).select("_id admissionNo").session(session).lean();
+        const studentMap = new Map(students.map((student) => [student.admissionNo.toLowerCase(), student._id]));
+        for (const record of entry.records) {
+          const studentId = studentMap.get(record.admissionNo.toLowerCase());
+          if (!studentId) throw AppError.badRequest(`Active student not found for admissionNo ${record.admissionNo}`);
+          record.studentId = studentId.toString();
+          delete record.admissionNo;
+        }
+        prepared.push({ date: entry.date, classId: entry.classId, sectionId: entry.sectionId, records: entry.records });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Invalid attendance entry";
+        entry.rows.forEach((row: number) => validationErrors.push({ row, message }));
+      }
+    }
+    if (validationErrors.length) return res.status(400).json({ error: "Attendance import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
+
+    await session.withTransaction(async () => {
+      const payload = { entries: prepared };
+      const existingByKey = new Map<string, any>();
+      for (const entry of prepared) {
+        const date = parseCalendarDate(entry.date);
+        const existing = await Attendance.findOne({ schoolId, date, classId: entry.classId, sectionId: entry.sectionId }).session(session);
+        if (existing) existingByKey.set(`${entry.date}|${entry.classId}|${entry.sectionId}`, existing);
+      }
+      for (const entry of payload.entries) {
+        const date = parseCalendarDate(entry.date);
+        const key = `${entry.date}|${entry.classId}|${entry.sectionId}`;
+        const existing = existingByKey.get(key);
+        if (existing) {
+          await assertAttendanceCorrectionAccess(req);
+          const before = existing.records.map((record: any) => ({ studentId: record.studentId.toString(), status: record.status, remark: record.remark }));
+          existing.records = entry.records.map((record: any) => ({ ...record, studentId: new Types.ObjectId(record.studentId) }));
+          existing.markedBy = new Types.ObjectId(req.user!.userId);
+          await existing.save({ session });
+          await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { recordsCount: entry.records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId, source: "spreadsheet-import" }, session });
+        } else {
+          const [attendance] = await Attendance.create([{ date, classId: entry.classId, sectionId: entry.sectionId, schoolId, markedBy: new Types.ObjectId(req.user!.userId), records: entry.records.map((record: any) => ({ ...record, studentId: new Types.ObjectId(record.studentId) })) }], { session });
+          await createAuditLog({ schoolId, userId: req.user!.userId, action: "CREATE", entity: "Attendance", entityId: attendance._id.toString(), after: { recordsCount: entry.records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId, source: "spreadsheet-import" }, session });
+        }
+      }
+    });
+    return res.status(200).json({ imported: prepared.length, errors: [] });
+  } catch (error) {
+    next(error);
+  } finally {
+    await session.endSession();
+  }
+}
+
+export async function exportAttendanceSpreadsheet(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = req.validatedQuery as any;
+    const schoolId = getTenantId(req);
+    if (!query.classId || !query.sectionId || !query.date) throw AppError.badRequest("classId, sectionId and date are required for attendance export");
+    await assertTeacherClassAccess(req, query.classId);
+    const date = parseCalendarDate(String(query.date));
+    await assertAttendanceDateInCurrentAcademicYear(new Types.ObjectId(schoolId), date);
+    const section = await Section.findOne({ _id: query.sectionId, classId: query.classId, schoolId }).select("_id").lean();
+    if (!section) throw AppError.notFound("Class or section not found");
+    const students = await Student.find({ schoolId, classId: query.classId, sectionId: query.sectionId, status: "active" }).select("admissionNo firstName lastName").sort({ admissionNo: 1 }).lean();
+    const attendance = await Attendance.findOne({ schoolId, classId: query.classId, sectionId: query.sectionId, date }).lean();
+    const recordMap = new Map((attendance?.records ?? []).map((record: any) => [record.studentId.toString(), record]));
+    const data = students.map((student) => {
+      const record = recordMap.get(student._id.toString());
+      return { date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: student.admissionNo, studentName: `${student.firstName} ${student.lastName}`, status: record?.status ?? "present", remark: record?.remark ?? "" };
+    });
+    const workbook = await generateExcelFile(data.length ? data : [{ date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: "", studentName: "", status: "present", remark: "" }], "Attendance");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename=attendance-${query.date}.xlsx`);
+    res.send(workbook);
+  } catch (error) { next(error); }
 }
 
 export async function getStudentAttendance(req: Request, res: Response, next: NextFunction) {
