@@ -5,9 +5,7 @@ import { getTenantId } from "../utils/tenant.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { UserRole } from "@school-erp/shared";
 
-function tenantFilter(req: Request, extra: Record<string, unknown> = {}) {
-  return { schoolId: getTenantId(req), ...extra } as Record<string, any>;
-}
+function tenantFilter(req: Request, extra: Record<string, unknown> = {}) { return { schoolId: getTenantId(req), ...extra } as Record<string, any>; }
 
 async function assertTeacherCanManage(req: Request, homework: { classId: any; subjectId: any }) {
   if (req.user!.role !== UserRole.TEACHER) return;
@@ -55,10 +53,7 @@ export async function getHomework(req: Request, res: Response, next: NextFunctio
     if (req.user!.role === UserRole.PARENT) {
       const children = await Student.find({ schoolId: getTenantId(req), parentIds: req.user!.userId, status: "active" }).select("classId sectionId").lean();
       if (!children.length) return res.json({ data: [], pagination: { page: q.page, limit: q.limit, total: 0, totalPages: 0 } });
-      filter.$or = children.flatMap((child: any) => [
-        { classId: child.classId, sectionId: child.sectionId },
-        { classId: child.classId, sectionId: { $exists: false } },
-      ]);
+      filter.$or = children.flatMap((child: any) => [{ classId: child.classId, sectionId: child.sectionId }, { classId: child.classId, sectionId: { $exists: false } }]);
     }
 
     const skip = (q.page - 1) * q.limit;
@@ -74,7 +69,6 @@ export async function getHomeworkById(req: Request, res: Response, next: NextFun
   try {
     const homework: any = await Homework.findOne(tenantFilter(req, { _id: req.validatedParams.id })).populate("classId sectionId subjectId academicYearId createdBy").lean();
     if (!homework) throw AppError.notFound("Homework not found");
-
     if (req.user!.role === UserRole.STUDENT) {
       const student = await Student.findOne({ schoolId: getTenantId(req), userId: req.user!.userId, classId: homework.classId?._id || homework.classId, $or: [{ sectionId: homework.sectionId?._id || homework.sectionId }, { sectionId: { $exists: false } }] }).select("_id").lean();
       if (!student) throw AppError.forbidden("You can only view homework assigned to your class");
@@ -91,8 +85,8 @@ export async function createHomework(req: Request, res: Response, next: NextFunc
   try {
     const data: any = req.validatedBody;
     await validateAcademicTarget(req, data);
+    await assertTeacherCanManage(req, data);
     const homework = await Homework.create({ ...data, schoolId: getTenantId(req), createdBy: req.user!.userId });
-    await assertTeacherCanManage(req, homework);
     await createAuditLog({ userId: req.user!.userId, action: "CREATE", entity: "Homework", entityId: homework._id.toString(), after: { title: homework.title, classId: homework.classId.toString(), sectionId: homework.sectionId?.toString(), subjectId: homework.subjectId.toString(), dueDate: homework.dueDate } });
     res.status(201).json({ homework });
   } catch (e) { next(e); }
@@ -106,21 +100,11 @@ export async function updateHomework(req: Request, res: Response, next: NextFunc
     const data: any = req.validatedBody;
     const merged = { ...existing.toObject(), ...data };
     await validateAcademicTarget(req, merged);
+    await assertTeacherCanManage(req, merged);
     const before = { title: existing.title, classId: existing.classId.toString(), sectionId: existing.sectionId?.toString(), subjectId: existing.subjectId.toString(), assignedDate: existing.assignedDate, dueDate: existing.dueDate };
     Object.assign(existing, data, { updatedBy: req.user!.userId });
     await existing.save();
     await createAuditLog({ userId: req.user!.userId, action: "UPDATE", entity: "Homework", entityId: existing._id.toString(), before, after: { title: existing.title, classId: existing.classId.toString(), sectionId: existing.sectionId?.toString(), subjectId: existing.subjectId.toString(), assignedDate: existing.assignedDate, dueDate: existing.dueDate } });
     res.json({ homework: existing });
-  } catch (e) { next(e); }
-}
-
-export async function deleteHomework(req: Request, res: Response, next: NextFunction) {
-  try {
-    const homework: any = await Homework.findOne(tenantFilter(req, { _id: req.validatedParams.id }));
-    if (!homework) throw AppError.notFound("Homework not found");
-    await assertTeacherCanManage(req, homework);
-    await Homework.deleteOne({ _id: homework._id, schoolId: getTenantId(req) });
-    await createAuditLog({ userId: req.user!.userId, action: "DELETE", entity: "Homework", entityId: homework._id.toString(), before: { title: homework.title, classId: homework.classId.toString(), dueDate: homework.dueDate } });
-    res.json({ message: "Homework deleted" });
   } catch (e) { next(e); }
 }
