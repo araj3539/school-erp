@@ -14,6 +14,7 @@ const DocumentRecoveryPage = lazy(() => import("../pages/DocumentRecoveryPage"))
 const TeachersPage = lazy(() => import("../pages/TeachersPage"));
 const ClassesPage = lazy(() => import("../pages/ClassesPage"));
 const AttendancePage = lazy(() => import("../pages/AttendancePage"));
+const PortalAttendancePage = lazy(() => import("../pages/PortalAttendancePage"));
 const TeacherWorkspacePage = lazy(() => import("../pages/TeacherWorkspacePage"));
 const TeacherHomeworkPage = lazy(() => import("../pages/TeacherHomeworkPage"));
 const RoleAwareHomeworkPage = lazy(() => import("../pages/RoleAwareHomeworkPage"));
@@ -42,6 +43,8 @@ export const router = createBrowserRouter([
     { path: "/parent-workspace", element: role(["parent"], only("students:read:child", <ParentWorkspacePage />)) },
     { path: "/teacher-workspace", element: role(["teacher"], any(["attendance:read", "timetable:read:own"], <TeacherWorkspacePage />)) },
     { path: "/teacher-homework", element: role(["teacher"], only("homework:write", <TeacherHomeworkPage />)) },
+    { path: "/attendance", element: role(adminRoles, only("attendance:read", <AttendancePage />)) },
+    { path: "/portal-attendance", element: role(["student", "parent"], any(["attendance:read:own", "attendance:read:child"], <PortalAttendancePage />)) },
     { path: "/students", element: any(["students:read", "students:read:own", "students:read:child"], <StudentsPage />) },
     { path: "/students/bulk", element: only("students:write", <StudentBulkOperationsPage />) },
     { path: "/students/:id", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDetailPage />) },
@@ -49,7 +52,6 @@ export const router = createBrowserRouter([
     { path: "/students/:id/document-recovery", element: only("students:read", <StudentDocumentRecoveryPage />) },
     { path: "/teachers", element: only("teachers:read", <TeachersPage />) },
     { path: "/classes", element: only("classes:read", <ClassesPage />) },
-    { path: "/attendance", element: role(adminRoles, only("attendance:read", <AttendancePage />)) },
     { path: "/exams", element: role(adminRoles, any(["exams:read", "marks:read", "results:read"], <ExamsPage />)) },
     { path: "/homework", element: any(["homework:read", "homework:read:own", "homework:read:child", "homework:write"], <RoleAwareHomeworkPage />) },
     { path: "/notices", element: role(adminRoles, only("notices:read", <NoticesPage />)) },
