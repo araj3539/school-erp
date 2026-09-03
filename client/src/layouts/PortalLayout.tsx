@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { ClipboardList, LayoutDashboard, LogOut, Menu, Users, X, BriefcaseBusiness, HeartHandshake, CalendarCheck2 } from "lucide-react";
+import { ClipboardList, LayoutDashboard, LogOut, Menu, Users, X, BriefcaseBusiness, HeartHandshake, CalendarCheck2, Award } from "lucide-react";
 import { useAuth } from "../hooks";
 import { cn } from "../utils";
 import api from "../lib/api";
@@ -14,6 +14,7 @@ const PORTAL_NAV: PortalNavItem[] = [
   { label: "Homework", path: "/teacher-homework", icon: <ClipboardList className="h-5 w-5" aria-hidden="true" />, permissions: ["homework:write"], roles: ["teacher"] },
   { label: "Attendance", path: "/portal-attendance", icon: <CalendarCheck2 className="h-5 w-5" aria-hidden="true" />, permissions: ["attendance:read:own", "attendance:read:child"], roles: ["student", "parent"] },
   { label: "Homework", path: "/homework", icon: <ClipboardList className="h-5 w-5" aria-hidden="true" />, permissions: ["homework:read:own", "homework:read:child"], roles: ["student", "parent"] },
+  { label: "Results", path: "/portal-results", icon: <Award className="h-5 w-5" aria-hidden="true" />, permissions: ["results:read:own", "results:read:child"], roles: ["student", "parent"] },
   { label: "Students", path: "/students", icon: <Users className="h-5 w-5" aria-hidden="true" />, permissions: ["students:read"], roles: ["teacher"] },
 ];
 function roleLabel(role?: string) { return role ? role.replace(/_/g, " ") : ""; }
