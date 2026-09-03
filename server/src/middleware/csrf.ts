@@ -8,6 +8,10 @@ const allowedOrigins = env.CORS_ORIGIN
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const isAllowedOrigin = (origin: string): boolean =>
+  allowedOrigins.includes(origin) ||
+  /^https:\/\/school-[a-z0-9-]+-araj3539s-projects\.vercel\.app$/.test(origin);
+
 /**
  * Blocks unauthorized browser state-changing requests while allowing the
  * legitimate cross-site SPA -> API requests used by the production app.
@@ -26,10 +30,11 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
   const origin = req.get("Origin");
 
   // Browser requests with an Origin must come from an explicitly configured
-  // frontend origin. This permits the legitimate Vercel -> Render flow while
-  // rejecting cross-site state-changing requests from unknown sites.
+  // frontend origin or this project's Vercel deployment namespace. This keeps
+  // preview deployments working without opening state-changing requests to
+  // arbitrary websites.
   if (origin) {
-    if (!allowedOrigins.includes(origin)) {
+    if (!isAllowedOrigin(origin)) {
       res.status(403).json({ error: "Request origin not allowed" });
       return;
     }
