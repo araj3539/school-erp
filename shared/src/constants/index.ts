@@ -9,13 +9,15 @@ export enum PaymentMode { CASH = "cash", UPI = "upi", CARD = "card", BANK_TRANSF
 export enum Gender { MALE = "male", FEMALE = "female", OTHER = "other" }
 export enum BloodGroup { A_POS = "A+", A_NEG = "A-", B_POS = "B+", B_NEG = "B-", AB_POS = "AB+", AB_NEG = "AB-", O_POS = "O+", O_NEG = "O-" }
 export enum DocumentType { BIRTH_CERTIFICATE = "birth_certificate", AADHAR = "aadhar", TRANSFER_CERTIFICATE = "transfer_certificate", MARKSHEET = "marksheet", PHOTO = "photo", SIGNATURE = "signature", OTHER = "other" }
+export enum ExamStatus { DRAFT = "draft", PUBLISHED = "published" }
+export enum ExamResultStatus { DRAFT = "draft", PUBLISHED = "published" }
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.SUPER_ADMIN]: ["*"],
-  [UserRole.PRINCIPAL]: ["students:read", "students:write", "students:delete", "teachers:read", "teachers:write", "teachers:delete", "classes:read", "classes:write", "classes:delete", "attendance:read", "attendance:write", "fees:read", "fees:write", "fees:delete", "payments:read", "payments:reverse", "reports:read", "reports:export", "settings:read", "settings:write", "users:read", "users:write", "audit:read"],
+  [UserRole.PRINCIPAL]: ["students:read", "students:write", "students:delete", "teachers:read", "teachers:write", "teachers:delete", "classes:read", "classes:write", "classes:delete", "attendance:read", "attendance:write", "fees:read", "fees:write", "fees:delete", "payments:read", "payments:reverse", "reports:read", "reports:export", "settings:read", "settings:write", "users:read", "users:write", "audit:read", "exams:read", "exams:write", "exams:publish", "marks:read", "marks:write", "marks:correct", "results:read", "results:publish"],
   [UserRole.ACCOUNTANT]: ["fees:read", "fees:write", "payments:read", "payments:write", "payments:reverse", "expenses:read", "expenses:write", "salary:read", "salary:write", "reports:read", "reports:export"],
   [UserRole.TEACHER]: ["attendance:read", "attendance:write", "homework:read", "homework:write", "marks:read", "marks:write", "students:read", "notices:read"],
-  [UserRole.STUDENT]: ["students:read:own", "attendance:read:own", "homework:read:own", "marks:read:own", "fees:read:own", "payments:read:own", "notices:read"],
-  [UserRole.PARENT]: ["students:read:child", "attendance:read:child", "homework:read:child", "marks:read:child", "fees:read:child", "payments:read:child", "notices:read"],
+  [UserRole.STUDENT]: ["students:read:own", "attendance:read:own", "homework:read:own", "marks:read:own", "fees:read:own", "payments:read:own", "notices:read", "results:read:own"],
+  [UserRole.PARENT]: ["students:read:child", "attendance:read:child", "homework:read:child", "marks:read:child", "fees:read:child", "payments:read:child", "notices:read", "results:read:child"],
 };
 export const FEE_TYPE_LABELS: Record<FeeType, string> = { [FeeType.ADMISSION]: "Admission Fee", [FeeType.MONTHLY]: "Monthly Fee", [FeeType.EXAM]: "Exam Fee", [FeeType.TRANSPORT]: "Transport Fee", [FeeType.HOSTEL]: "Hostel Fee", [FeeType.FINE]: "Fine", [FeeType.OTHER]: "Other" };
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = { [AttendanceStatus.PRESENT]: "Present", [AttendanceStatus.ABSENT]: "Absent", [AttendanceStatus.LATE]: "Late", [AttendanceStatus.HALF_DAY]: "Half Day", [AttendanceStatus.ON_LEAVE]: "On Leave" };
