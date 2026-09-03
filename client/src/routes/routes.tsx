@@ -14,6 +14,7 @@ const DocumentRecoveryPage = lazy(() => import("../pages/DocumentRecoveryPage"))
 const TeachersPage = lazy(() => import("../pages/TeachersPage"));
 const ClassesPage = lazy(() => import("../pages/ClassesPage"));
 const AttendancePage = lazy(() => import("../pages/AttendancePage"));
+const TeacherWorkspacePage = lazy(() => import("../pages/TeacherWorkspacePage"));
 const ExamsPage = lazy(() => import("../pages/ExamsPage"));
 const HomeworkPage = lazy(() => import("../pages/HomeworkPage"));
 const NoticesPage = lazy(() => import("../pages/NoticesPage"));
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
     { path: "/", element: <Navigate to="/dashboard" replace /> },
     { path: "/dashboard", element: <DashboardPage /> },
     { path: "/portal-dashboard", element: any(["attendance:read", "attendance:read:own", "attendance:read:child"], <PortalDashboardPage />) },
+    { path: "/teacher-workspace", element: any(["attendance:read", "timetable:read:own"], <TeacherWorkspacePage />) },
     { path: "/students", element: any(["students:read", "students:read:own", "students:read:child"], <StudentsPage />) },
     { path: "/students/bulk", element: only("students:write", <StudentBulkOperationsPage />) },
     { path: "/students/:id", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDetailPage />) },
@@ -40,7 +42,7 @@ export const router = createBrowserRouter([
     { path: "/classes", element: only("classes:read", <ClassesPage />) },
     { path: "/attendance", element: any(["attendance:read", "attendance:read:own", "attendance:read:child"], <AttendancePage />) },
     { path: "/exams", element: any(["exams:read", "marks:read", "results:read", "results:read:own", "results:read:child"], <ExamsPage />) },
-    { path: "/homework", element: any(["homework:read", "homework:read:own", "homework:read:child"], <HomeworkPage />) },
+    { path: "/homework", element: any(["homework:read", "homework:read:own", "homework:read:child", "homework:write"], <HomeworkPage />) },
     { path: "/notices", element: only("notices:read", <NoticesPage />) },
     { path: "/timetable", element: any(["timetable:read", "timetable:read:own", "timetable:read:child"], <TimetablePage />) },
     { path: "/fees", element: any(["fees:read", "fees:read:own", "fees:read:child"], <FeesPage />) },
