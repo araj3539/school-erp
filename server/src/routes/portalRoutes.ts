@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/index.js";
 import { getPortalDashboard } from "../controllers/portalController.js";
+import { getTeacherWorkspace } from "../controllers/teacherPortalController.js";
 import { UserRole } from "@school-erp/shared";
 
 const router = Router();
@@ -11,5 +12,8 @@ router.get("/dashboard", (req, res, next) => {
     return;
   }
   getPortalDashboard(req, res, next);
+});
+router.get("/teacher/workspace", (req, res, next) => {
+  getTeacherWorkspace(req, res, next);
 });
 export default router;
