@@ -1,14 +1,15 @@
 import { Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Calendar, CalendarClock, ClipboardList, DollarSign, LayoutDashboard, LogOut, Menu, Megaphone, Users, X } from "lucide-react";
+import { Calendar, CalendarClock, ClipboardList, DollarSign, LayoutDashboard, LogOut, Menu, Megaphone, Users, X, BriefcaseBusiness } from "lucide-react";
 import { useAuth } from "../hooks";
 import { cn } from "../utils";
 import api from "../lib/api";
 import { PageLoader } from "../components/ui/Spinner";
 
-interface PortalNavItem { label: string; path: string; icon: React.ReactNode; permissions: string[]; }
+interface PortalNavItem { label: string; path: string; icon: React.ReactNode; permissions: string[]; roles?: string[]; }
 const PORTAL_NAV: PortalNavItem[] = [
   { label: "Home", path: "/dashboard", icon: <LayoutDashboard className="h-5 w-5" aria-hidden="true" />, permissions: [] },
+  { label: "Teaching workspace", path: "/teacher-workspace", icon: <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />, permissions: ["attendance:read", "timetable:read:own"], roles: ["teacher"] },
   { label: "Timetable", path: "/timetable", icon: <CalendarClock className="h-5 w-5" aria-hidden="true" />, permissions: ["timetable:read:own", "timetable:read:child"] },
   { label: "Attendance", path: "/attendance", icon: <Calendar className="h-5 w-5" aria-hidden="true" />, permissions: ["attendance:read:own", "attendance:read:child", "attendance:read"] },
   { label: "Homework", path: "/homework", icon: <ClipboardList className="h-5 w-5" aria-hidden="true" />, permissions: ["homework:read:own", "homework:read:child", "homework:read", "homework:write"] },
@@ -24,7 +25,7 @@ export function PortalLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const items = PORTAL_NAV.filter((item) => item.permissions.length === 0 || item.permissions.some(hasPermission));
+  const items = PORTAL_NAV.filter((item) => (!item.roles || item.roles.includes(user?.role ?? "")) && (item.permissions.length === 0 || item.permissions.some(hasPermission)));
   useEffect(() => setOpen(false), [location.pathname]);
 
   const handleLogout = async () => {
