@@ -10,7 +10,7 @@ Repository baseline: `phase6-notices` on top of `main` at `fb93fec1`
 - Phase 3 Attendance and Administration: `COMPLETED` and retained as a regression gate.
 - Phase 4 Fees and Financial Core: `COMPLETED` for implementation; fixture-dependent populated-payment reversal acceptance remains tracked.
 - Phase 5 Exams and Academic Results: `COMPLETED` and retained as a regression gate.
-- Phase 6 Homework, Notices and Timetable: `IN_PROGRESS`; Homework is complete and the Notices slice is implemented pending focused API/E2E verification.
+- Phase 6 Homework, Notices and Timetable: `IN_PROGRESS`; Homework and Notices are implemented and focused verification is green.
 
 ## Phase 6 completed slices
 
@@ -29,13 +29,14 @@ Repository baseline: `phase6-notices` on top of `main` at `fb93fec1`
 - recipient isolation for students, linked parents and class-assigned teachers;
 - principal/super-admin write boundary with audited create/update;
 - shared validation contracts and explicit RBAC permissions;
-- admin management UI and authenticated API routes.
+- admin management UI and authenticated API routes;
+- focused API/E2E coverage for scheduling, published visibility, class targeting and student write denial.
 
 ## Next delivery
 
-1. Finish focused Notices API/E2E authorization and scheduling coverage.
-2. Implement timetable data model with server-side conflict validation.
-3. Add teacher and student timetable views.
+1. Implement timetable data model with server-side conflict validation.
+2. Add teacher timetable view.
+3. Add student timetable view.
 4. Integrate Homework attachments with the existing private document/storage architecture.
 5. Add consolidated Phase 6 API/E2E regression coverage.
 6. Preserve Phase 1–5 regression gates.
