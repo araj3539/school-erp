@@ -23,9 +23,8 @@ export default function LoginPage() {
   const { login } = useAuthStore();
   const { addToast } = useUIStore();
   const [isLoading, setIsLoading] = useState(false);
-  const from = (location.state as any)?.from?.pathname || "/dashboard";
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/dashboard";
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
-
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
@@ -39,24 +38,13 @@ export default function LoginPage() {
       addToast(message, "error");
     } finally { setIsLoading(false); }
   };
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
-        <p className="text-gray-500 mt-1">Enter your school code for school accounts. Super admins can leave it empty.</p>
-      </div>
-      <Card>
-        <CardContent className="space-y-4 p-6">
-          <div>
-            <Input label="School Code (optional for Super Admin)" type="text" {...register("schoolCode")} error={errors.schoolCode?.message} placeholder="SCH-1234ABCD" autoComplete="organization" />
-            <p className="mt-1 text-xs text-gray-500">School users must enter their school code. Only platform Super Admin can leave it empty.</p>
-          </div>
-          <Input label="Email" type="email" {...register("email")} error={errors.email?.message} placeholder="admin@school.com" autoComplete="email" />
-          <Input label="Password" type="password" {...register("password")} error={errors.password?.message} placeholder="Enter your password" autoComplete="current-password" />
-          <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? "Signing in..." : "Sign In"}</Button>
-        </CardContent>
-      </Card>
-    </form>
-  );
+  return <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+    <div><h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2><p className="text-gray-500 mt-1">Enter your school code for school accounts. Super admins can leave it empty.</p></div>
+    <Card><CardContent className="space-y-4 p-6">
+      <Input label="School Code (optional for Super Admin)" type="text" {...register("schoolCode")} error={errors.schoolCode?.message} hint="School users must enter their school code. Only platform Super Admin can leave it empty." placeholder="SCH-1234ABCD" autoComplete="organization" autoCapitalize="characters" />
+      <Input label="Email" type="email" {...register("email")} error={errors.email?.message} placeholder="admin@school.com" autoComplete="email" autoFocus />
+      <Input label="Password" type="password" {...register("password")} error={errors.password?.message} placeholder="Enter your password" autoComplete="current-password" />
+      <Button type="submit" className="w-full" loading={isLoading}>{isLoading ? "Signing in..." : "Sign In"}</Button>
+    </CardContent></Card>
+  </form>;
 }
