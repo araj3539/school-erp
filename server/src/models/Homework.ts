@@ -1,6 +1,14 @@
 import { Document, Schema, Types, model } from "mongoose";
 
-export interface IHomeworkAttachment { name: string; url: string; size?: number; mimeType?: string; }
+export interface IHomeworkAttachment {
+  _id: Types.ObjectId;
+  name: string;
+  storageKey: string;
+  size?: number;
+  mimeType?: string;
+  uploadedAt: Date;
+}
+
 export interface IHomework extends Document {
   schoolId: Types.ObjectId;
   title: string;
@@ -29,10 +37,12 @@ const HomeworkSchema = new Schema<IHomework>({
   assignedDate: { type: String, required: true },
   dueDate: { type: String, required: true },
   attachments: [{
+    _id: { type: Schema.Types.ObjectId, auto: true },
     name: { type: String, required: true, trim: true, maxlength: 200 },
-    url: { type: String, required: true, maxlength: 2000 },
+    storageKey: { type: String, required: true, maxlength: 1024 },
     size: { type: Number, min: 0 },
     mimeType: { type: String, trim: true, maxlength: 100 },
+    uploadedAt: { type: Date, required: true },
   }],
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -42,6 +52,7 @@ HomeworkSchema.index({ schoolId: 1, academicYearId: 1, classId: 1, sectionId: 1,
 HomeworkSchema.index({ schoolId: 1, subjectId: 1, dueDate: 1 });
 HomeworkSchema.pre("validate", function(next) {
   if (this.assignedDate > this.dueDate) return next(new Error("Due date must be on or after assigned date"));
+  if (this.attachments.length > 10) return next(new Error("Homework cannot have more than 10 attachments"));
   next();
 });
 

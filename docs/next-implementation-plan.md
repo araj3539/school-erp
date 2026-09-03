@@ -1,61 +1,44 @@
 # School ERP — Next Implementation Plan
 
 Updated: 2026-09-03
-Repository baseline: `phase6-notices` on top of `main` at `fb93fec1`
+Production baseline: `main` at `08d27b91`
+Active release branch: `phase6-complete`
 
-## Current verified state
+## Current state
 
-- Phase 1 Production Security and Multi-Tenancy: `COMPLETED` and retained as a regression gate.
-- Phase 2 Core Administration security/ownership exit gate: `COMPLETED` and retained as a regression gate.
-- Phase 3 Attendance and Administration: `COMPLETED` and retained as a regression gate.
-- Phase 4 Fees and Financial Core: `COMPLETED` for implementation; fixture-dependent populated-payment reversal acceptance remains tracked.
-- Phase 5 Exams and Academic Results: `COMPLETED` and retained as a regression gate.
-- Phase 6 Homework, Notices and Timetable: `IN_PROGRESS`; Homework and Notices are implemented and focused verification is green.
+Phase 6 verification is complete on the isolated release branch. The branch contains Homework + private attachments, Notices and Timetable and is ready for one review PR to `main`.
 
-## Phase 6 completed slices
+## Phase 6 release gates — complete
 
-### Homework
+- local sync and clean working tree;
+- shared/server/client production builds;
+- focused Phase 6 schema tests;
+- private Homework attachment API/E2E;
+- Notices scheduling, targeting, tenant and RBAC E2E;
+- Timetable conflict, ownership, visibility and write-boundary E2E;
+- consolidated Phase 1–5 acceptance gates;
+- authenticated Chromium desktop QA for principal, teacher, student and parent;
+- mobile Chromium QA for Phase 6 management dialogs and overflow;
+- post-login console/request-failure scan;
+- living documentation updated with verification results;
+- release branch consolidated to a single commit based on `main`.
 
-- tenant/RBAC-safe CRUD and recipient isolation;
-- academic/class/section/subject ownership validation;
-- bounded attachment metadata;
-- audited create/update operations;
-- admin assignment/filtering UI.
+## Known non-Phase-6 test debt
 
-### Notices
+The repository still has existing full-unit-suite issues: three shared schema tests fail, four server suites fail during collection/tooling setup, and one client utility suite fails because the Vitest setup does not expose `expect`. These failures pre-date the Phase 6 release work and are not blocking Phase 6 acceptance because all Phase 1–5 acceptance gates and all Phase 6 focused tests pass.
 
-- tenant-scoped school/class/section targeting;
-- publication scheduling and expiry;
-- recipient isolation for students, linked parents and class-assigned teachers;
-- principal/super-admin write boundary with audited create/update;
-- shared validation contracts and explicit RBAC permissions;
-- admin management UI and authenticated API routes;
-- focused API/E2E coverage for scheduling, published visibility, class targeting and student write denial.
+## Release sequence
 
-## Next delivery
+1. Open exactly one PR from `phase6-complete` to `main`.
+2. Review the complete diff, security boundaries, verification evidence and known test debt.
+3. Keep `main` and production untouched until approval.
+4. Merge once approved; allow the existing `main` auto-deploy pipeline to handle production.
+5. After merge, verify Render health and Vercel production smoke behavior.
 
-1. Implement timetable data model with server-side conflict validation.
-2. Add teacher timetable view.
-3. Add student timetable view.
-4. Integrate Homework attachments with the existing private document/storage architecture.
-5. Add consolidated Phase 6 API/E2E regression coverage.
-6. Preserve Phase 1–5 regression gates.
+## Next development phase
 
-## Development/deployment quota policy
+After Phase 6 is merged and production smoke verification passes, begin Phase 7 planning from the updated `main` baseline rather than adding more work to the release branch.
 
-To conserve the Vercel Hobby deployment quota, future work follows a batch-release workflow:
+## Quota policy
 
-1. Keep `main` production-safe and untouched during feature development.
-2. Create one feature branch for a coherent vertical slice.
-3. Make related code changes directly on GitHub without pushing unnecessary intermediate commits.
-4. Run builds, tests, and local browser/API verification through Desktop Commander.
-5. Review the complete slice and fix issues before opening the PR.
-6. Open one PR for the completed slice; avoid repeated push/deploy cycles during implementation.
-7. Merge only after review and verification, allowing the single production deployment from `main` to be the release event.
-8. Use Vercel preview deployments only when a deployed-environment check is genuinely necessary.
-
-This policy is now the default workflow for all subsequent School ERP development.
-
-## Verification rule
-
-Every production-affecting implementation must preserve tenant isolation and RBAC, add business-critical tests, pass relevant builds/tests and Phase 1/2 security gates, verify deployment-sensitive behavior when required, and update affected living documentation.
+No intermediate Vercel preview deployment was used for this verification cycle. Continue batching coherent work on feature branches and reserve deployment checks for behavior that cannot be validated locally.

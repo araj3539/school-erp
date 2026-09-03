@@ -7,11 +7,9 @@ function getR2Client(): S3Client {
   assertR2Configured();
   return new S3Client({
     region: "auto",
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
-    },
+    endpoint: env.R2_ENDPOINT || `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    forcePathStyle: Boolean(env.R2_ENDPOINT),
+    credentials: { accessKeyId: env.R2_ACCESS_KEY_ID!, secretAccessKey: env.R2_SECRET_ACCESS_KEY! },
   });
 }
 
@@ -23,13 +21,7 @@ export async function uploadToR2(buffer: Buffer, key: string, contentType: strin
 
 export async function uploadStreamToR2(body: Readable, key: string, contentType?: string, contentLength?: number): Promise<{ key: string }> {
   const client = getR2Client();
-  await client.send(new PutObjectCommand({
-    Bucket: env.R2_BUCKET_NAME!,
-    Key: key,
-    Body: body,
-    ...(contentType ? { ContentType: contentType } : {}),
-    ...(typeof contentLength === "number" ? { ContentLength: contentLength } : {})
-  }));
+  await client.send(new PutObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: key, Body: body, ...(contentType ? { ContentType: contentType } : {}), ...(typeof contentLength === "number" ? { ContentLength: contentLength } : {}) }));
   return { key };
 }
 
@@ -43,12 +35,5 @@ export async function getR2SignedUrl(key: string, expiresIn = 600): Promise<stri
   return getSignedUrl(client, new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: key }), { expiresIn });
 }
 
-export function buildR2Key(parts: string[]): string {
-  return parts.filter(Boolean).map((part) => part.replace(/^\/+|\/+$/g, "")).join("/");
-}
-
-export function sanitizeFileName(fileName: string): string {
-  const normalized = fileName.normalize("NFKC");
-  const cleaned = normalized.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
-  return cleaned || "file";
-}
+export function buildR2Key(parts: string[]): string { return parts.filter(Boolean).map((part) => part.replace(/^\/+|\/+$/g, "")).join("/"); }
+export function sanitizeFileName(fileName: string): string { const normalized = fileName.normalize("NFKC"); const cleaned = normalized.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""); return cleaned || "file"; }

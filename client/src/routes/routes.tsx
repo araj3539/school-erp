@@ -18,6 +18,7 @@ const AttendancePage = lazy(() => import("../pages/AttendancePage"));
 const ExamsPage = lazy(() => import("../pages/ExamsPage"));
 const HomeworkPage = lazy(() => import("../pages/HomeworkPage"));
 const NoticesPage = lazy(() => import("../pages/NoticesPage"));
+const TimetablePage = lazy(() => import("../pages/TimetablePage"));
 const FeesPage = lazy(() => import("../pages/FeesPage"));
 const ReportsPage = lazy(() => import("../pages/ReportsPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
       { path: "/exams", element: <ExamsPage /> },
       { path: "/homework", element: <HomeworkPage /> },
       { path: "/notices", element: <NoticesPage /> },
+      { path: "/timetable", element: <TimetablePage /> },
       { path: "/fees", element: <FeesPage /> },
       { path: "/reports", element: <ReportsPage /> },
       { path: "/settings", element: <SettingsPage /> },
