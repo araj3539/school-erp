@@ -75,13 +75,15 @@ jobs:
           set -euo pipefail
           : > /tmp/r2-changes.txt
 
-          # Compare by content checksum rather than R2 modification time. This
-          # prevents re-uploading an unchanged document just because its remote
-          # metadata/mtime differs from B2.
+          # R2 is the source of truth only for the current document mirror.
+          # Database backups are owned exclusively by mongodb-to-b2-backup.yml
+          # and must never be deleted/recreated by this document sync.
+          # Metadata is also managed by the backup workflows themselves.
           rclone sync "r2:${R2_BUCKET_NAME}" "b2:${B2_BUCKET_NAME}" \
             --checksum \
             --exclude "${RECOVERY_PREFIX}/**" \
             --exclude "metadata/**" \
+            --exclude "database/**" \
             --combined /tmp/r2-changes.txt \
             --fast-list \
             --transfers 4 \
