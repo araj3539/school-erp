@@ -21,8 +21,7 @@ jobs:
       - name: Install MongoDB Database Tools
         run: |
           set -euo pipefail
-          curl -fsSL -o /tmp/mongodb-database-tools.deb \
-            https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.17.0.deb
+          curl -fsSL -o /tmp/mongodb-database-tools.deb https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.17.0.deb
           sudo apt-get update -qq
           sudo apt-get install -y /tmp/mongodb-database-tools.deb
           mongodump --version
@@ -58,7 +57,7 @@ jobs:
           test -n "$B2_BUCKET_NAME" || { echo "Missing required secret: B2_BUCKET_NAME"; exit 1; }
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
-      - name: Create MongoDB dump and stable content fingerprint
+      - name: Create MongoDB dump and business-data fingerprint
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
@@ -66,60 +65,50 @@ jobs:
           test -n "$MONGODB_URI" || { echo "Missing required secret: MONGODB_URI"; exit 1; }
           mkdir -p /tmp/mongodb-backup
 
-          # The archive is the actual restorable backup. Its raw SHA-256 is only
-          # used for integrity verification because mongodump output is not a
-          # stable database-content fingerprint: document order and BSON field
-          # ordering can vary between otherwise identical dumps.
-          mongodump \
-            --uri="$MONGODB_URI" \
-            --archive=/tmp/mongodb-backup/school-erp.archive.gz \
-            --gzip \
-            --numParallelCollections=1
+          # The archive is the actual full, restorable MongoDB backup. The
+          # business-data fingerprint is used only to decide whether a new
+          # historical snapshot is necessary.
+          mongodump --uri="$MONGODB_URI" --archive=/tmp/mongodb-backup/school-erp.archive.gz --gzip --numParallelCollections=1
           test -s /tmp/mongodb-backup/school-erp.archive.gz
           sha256sum /tmp/mongodb-backup/school-erp.archive.gz | tee /tmp/mongodb-backup/sha256.txt
 
-          # Create a second directory-format dump solely for deterministic change
-          # detection. bsondump emits canonical Extended JSON, jq -S canonicalizes
-          # object key order, and sort makes collection document order irrelevant.
+          # A directory dump gives us BSON files that can be canonicalized. Only
+          # application data is fingerprinted: auditlogs and documentrecoveries
+          # are operational history already represented by their dedicated
+          # backup systems and must not make an otherwise unchanged DB look new.
           rm -rf /tmp/mongodb-fingerprint
-          mongodump \
-            --uri="$MONGODB_URI" \
-            --out=/tmp/mongodb-fingerprint \
-            --numParallelCollections=1
+          mongodump --uri="$MONGODB_URI" --out=/tmp/mongodb-fingerprint --numParallelCollections=1
 
           : > /tmp/mongodb-fingerprint-manifest.txt
           while IFS= read -r file; do
             rel="${file#/tmp/mongodb-fingerprint/}"
-            if [[ "$rel" == *.bson ]]; then
-              digest=$(bsondump --type=json "$file" | jq -S -c . | LC_ALL=C sort | sha256sum | awk '{print $1}')
-            elif [[ "$rel" == *.metadata.json ]]; then
-              digest=$(jq -S -c . "$file" | sha256sum | awk '{print $1}')
+            collection="${rel%/*}"
+            [[ "$collection" == "auditlogs" || "$collection" == "documentrecoveries" ]] && continue
+            [[ "$rel" != *.bson ]] && continue
+
+            if [[ "$collection" == "users" ]]; then
+              digest=$(bsondump --type=json "$file" | jq -S -c 'del(.updatedAt, .lastLogin, .refreshTokenVersion)' | LC_ALL=C sort | sha256sum | awk '{print $1}')
             else
-              continue
+              digest=$(bsondump --type=json "$file" | jq -S -c 'del(.updatedAt)' | LC_ALL=C sort | sha256sum | awk '{print $1}')
             fi
             printf '%s  %s\n' "$rel" "$digest" >> /tmp/mongodb-fingerprint-manifest.txt
-          done < <(find /tmp/mongodb-fingerprint -type f \( -name '*.bson' -o -name '*.metadata.json' \) | LC_ALL=C sort)
+          done < <(find /tmp/mongodb-fingerprint -type f -name '*.bson' | LC_ALL=C sort)
 
-          test -s /tmp/mongodb-fingerprint-manifest.txt
+          # An entirely empty data set is valid, so hash the manifest itself even
+          # when no business collection currently contains documents.
           LC_ALL=C sort -o /tmp/mongodb-fingerprint-manifest.txt /tmp/mongodb-fingerprint-manifest.txt
           sha256sum /tmp/mongodb-fingerprint-manifest.txt | awk '{print $1}' | tee /tmp/mongodb-backup/fingerprint.txt
-
+          echo "Fingerprint scope: business-data-v1"
           echo "Archive SHA-256: $(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)"
-          echo "Stable database fingerprint: $(cat /tmp/mongodb-backup/fingerprint.txt)"
-          ls -lh /tmp/mongodb-backup/school-erp.archive.gz
+          echo "Business-data fingerprint: $(cat /tmp/mongodb-backup/fingerprint.txt)"
 
       - name: Clean old MongoDB backup object versions
         env:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          # database/history contains intentionally different snapshot object
-          # names for actual database changes. Keep those distinct snapshots,
-          # but remove any hidden/older B2 versions accidentally created for the
-          # same object name. database/current is a stable current-only object.
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/history"
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/current"
-          echo "Cleaned old B2 versions under database/history and database/current."
 
       - name: Detect database change
         id: change-check
@@ -130,52 +119,36 @@ jobs:
           CURRENT_FINGERPRINT=$(cat /tmp/mongodb-backup/fingerprint.txt)
           PREVIOUS_FINGERPRINT=""
           PREVIOUS_PATH=""
+          PREVIOUS_SCOPE=""
           rm -f /tmp/mongodb-latest.json
 
-          # A missing, empty, or malformed metadata object must not prevent an
-          # initial backup. Treat it as no previous successful backup and let the
-          # upload step replace it with valid metadata after the backup succeeds.
           if rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" > /tmp/mongodb-latest.json 2>/dev/null && [[ -s /tmp/mongodb-latest.json ]]; then
             if python - <<'PY'
           import json
           from pathlib import Path
-          path = Path('/tmp/mongodb-latest.json')
-          data = json.loads(path.read_text(encoding='utf-8'))
+          data = json.loads(Path('/tmp/mongodb-latest.json').read_text(encoding='utf-8'))
           if not data.get('fingerprint') or not (data.get('backupPath') or data.get('currentPath')):
               raise ValueError('missing fingerprint or backup path')
           PY
             then
-              PREVIOUS_FINGERPRINT=$(python - <<'PY'
-          import json
-          with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
-              print(json.load(f)['fingerprint'])
-          PY
-              )
-              PREVIOUS_PATH=$(python - <<'PY'
-          import json
-          with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
-              data = json.load(f)
-          print(data.get('backupPath') or data.get('currentPath') or '')
-          PY
-              )
+              PREVIOUS_FINGERPRINT=$(python -c 'import json; print(json.load(open("/tmp/mongodb-latest.json", encoding="utf-8"))["fingerprint"])')
+              PREVIOUS_PATH=$(python -c 'import json; d=json.load(open("/tmp/mongodb-latest.json", encoding="utf-8")); print(d.get("backupPath") or d.get("currentPath") or "")')
+              PREVIOUS_SCOPE=$(python -c 'import json; print(json.load(open("/tmp/mongodb-latest.json", encoding="utf-8")).get("fingerprintScope", ""))')
             else
-              echo "Previous MongoDB metadata is empty or invalid; treating this as an initial backup."
-              rm -f /tmp/mongodb-latest.json
+              echo "Previous MongoDB metadata is invalid; treating this as an initial backup."
             fi
           else
-            echo "No usable previous MongoDB metadata found; creating an initial backup if needed."
-            rm -f /tmp/mongodb-latest.json
+            echo "No usable previous MongoDB metadata found; creating an initial backup."
           fi
 
-          echo "Current stable database fingerprint:  ${CURRENT_FINGERPRINT}"
-          echo "Previous database fingerprint:        ${PREVIOUS_FINGERPRINT:-<none>}"
+          echo "Current business-data fingerprint:  ${CURRENT_FINGERPRINT}"
+          echo "Previous business-data fingerprint: ${PREVIOUS_FINGERPRINT:-<none>}"
+          echo "Previous fingerprint scope:          ${PREVIOUS_SCOPE:-<legacy/full-db>}"
 
-          if [[ -n "$PREVIOUS_FINGERPRINT" && "$CURRENT_FINGERPRINT" == "$PREVIOUS_FINGERPRINT" && -n "$PREVIOUS_PATH" ]] && \
-             rclone size "$PREVIOUS_PATH" >/dev/null 2>&1; then
+          if [[ "$PREVIOUS_SCOPE" == "business-data-v1" && -n "$PREVIOUS_FINGERPRINT" && "$CURRENT_FINGERPRINT" == "$PREVIOUS_FINGERPRINT" && -n "$PREVIOUS_PATH" ]] && rclone size "$PREVIOUS_PATH" >/dev/null 2>&1; then
             NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
             NOW="$NOW" python - <<'PY'
-          import json
-          import os
+          import json, os
           from pathlib import Path
           path = Path('/tmp/mongodb-latest.json')
           data = json.loads(path.read_text(encoding='utf-8'))
@@ -185,16 +158,18 @@ jobs:
           PY
             rclone copyto /tmp/mongodb-latest.json "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json"
             rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/metadata"
-            echo "No database changes detected."
-            echo "Already backed up — no new B2 backup will be created."
+            echo "No business-data changes detected."
+            echo "Audit logs, document-recovery records, and timestamp-only changes do not create a new MongoDB snapshot."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          if [[ -z "$PREVIOUS_FINGERPRINT" ]]; then
-            echo "No previous fingerprint found; creating the initial change-aware backup."
+          if [[ "$PREVIOUS_SCOPE" != "business-data-v1" ]]; then
+            echo "Fingerprint scope changed; creating one migration snapshot using the new business-data definition."
+          elif [[ -z "$PREVIOUS_FINGERPRINT" ]]; then
+            echo "No previous fingerprint found; creating the initial backup."
           elif [[ "$CURRENT_FINGERPRINT" != "$PREVIOUS_FINGERPRINT" ]]; then
-            echo "Database changes detected; creating a new backup version."
+            echo "Business-data changes detected; creating a new backup version."
           else
             echo "Previous backup object is unavailable; recreating the backup."
           fi
@@ -213,9 +188,6 @@ jobs:
           ARCHIVE_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
           DATABASE_FINGERPRINT=$(cat /tmp/mongodb-backup/fingerprint.txt)
 
-          # Every history object name is unique to a real changed snapshot.
-          # The current object is stable and is cleaned below so it retains only
-          # its latest B2 version.
           rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${HISTORY_BASE}.archive.gz"
           rclone copyto /tmp/mongodb-backup/sha256.txt "${HISTORY_BASE}.sha256"
           rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${CURRENT_BASE}.archive.gz"
@@ -225,6 +197,7 @@ jobs:
           cat > /tmp/mongodb-latest.json <<EOF
           {
             "status": "success",
+            "fingerprintScope": "business-data-v1",
             "fingerprint": "${DATABASE_FINGERPRINT}",
             "archiveSha256": "${ARCHIVE_SHA}",
             "backupPath": "${HISTORY_BASE}.archive.gz",
@@ -236,9 +209,6 @@ jobs:
           EOF
           python -m json.tool /tmp/mongodb-latest.json >/dev/null
           rclone copyto /tmp/mongodb-latest.json "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json"
-
-          # Keep every distinct history snapshot, but never retain multiple B2
-          # versions of the same history object or the stable current object.
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/history"
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/current"
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/metadata"
@@ -257,10 +227,9 @@ jobs:
             rclone size "$CURRENT_PATH"
             echo "MongoDB backup completed successfully."
           else
-            echo "MongoDB backup verification: skipped upload because the database was already backed up."
+            echo "MongoDB backup verification: skipped upload because business data was already backed up."
           fi
 
       - name: Failure notice
         if: failure()
-        run: |
-          echo "MongoDB -> B2 backup FAILED. Check this GitHub Actions run immediately."
+        run: echo "MongoDB -> B2 backup FAILED. Check this GitHub Actions run immediately."
