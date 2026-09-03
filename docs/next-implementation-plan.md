@@ -1,25 +1,39 @@
 # School ERP — Next Implementation Plan
 
 Updated: 2026-09-03
-Production baseline: `main` at `d099331f`
-Active planning branch: `phase7-planning`
+Production baseline: `main` at `ddf9d1bbb4ed8a3a009d486d3d9fb80af950d35`
+Active implementation branch: `phase7-portals`
 
 ## Current state
 
-Phase 6 is complete and released to production. Vercel and Render production smoke checks passed after the merge. `main` is now the correct baseline for Phase 7.
+Phase 6 is complete and released to production. `main` remains the protected production baseline. Phase 7 planning is complete and Stage 0 discovery plus the first Stage 1 portal foundation are now implemented on `phase7-portals`.
 
-Phase 7 planning is complete in `docs/phase7-plan.md` and focuses on role-specific Parent, Student and Teacher portals built on the existing secure ERP APIs and Phase 6 capabilities.
+Discovery is documented in `docs/phase7-discovery.md`. The implementation confirms that the existing backend has useful role-scoped APIs, while several existing frontend pages are admin workflows and must not be reused directly by student/parent users.
 
 ## Phase 7 implementation sequence
 
-1. Baseline/discovery and portal API inventory.
-2. Shared portal shell, route/permission matrix and reusable portal UI patterns.
+1. Baseline/discovery and portal API inventory — **COMPLETE**.
+2. Shared portal shell, route/permission matrix and reusable portal UI patterns — **IN PROGRESS / foundation complete**.
 3. Teacher workspace.
 4. Student workspace.
 5. Parent workspace with server-authorized child switching.
 6. Cross-portal UX/accessibility/responsive consistency pass.
 7. Full Phase 1–7 verification.
 8. One consolidated release PR and production smoke verification.
+
+## Current implementation
+
+The `phase7-portals` branch currently provides:
+
+- a role-aware authenticated layout;
+- dedicated teacher/student/parent portal shell and navigation;
+- additive client-side permission route guards;
+- role-specific portal home orientation;
+- read-only portal student list/detail surfaces so management forms are not exposed to portal users;
+- responsive mobile navigation and keyboard skip/focus behavior;
+- Stage 0 discovery documentation and frontend design direction.
+
+This is intentionally not yet the complete Teacher, Student or Parent portal. The next coding stage is the Teacher workspace, beginning with assignment-aware data access and dashboard aggregation.
 
 ## Phase 7 mandatory principles
 
@@ -48,6 +62,6 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 - dependency audit still reports existing vulnerabilities and must not be addressed with blind `npm audit fix --force`;
 - older PRD/architecture/memory documents contain legacy status claims that must be reconciled against verified implementation during Phase 7 documentation maintenance.
 
-## First implementation task
+## Next implementation task
 
-Start with Stage 0 of `docs/phase7-plan.md`: synchronize local `main`, inspect the actual portal-related backend/frontend implementation, build a role/endpoint permission matrix, and identify only the API gaps that are necessary for a correct portal experience. Do not start visual coding before the role workflows and frontend design direction have been established.
+Build the Teacher workspace. First resolve the known teacher homework academic lookup permission mismatch with a least-privilege assignment-aware read model. Then add the teacher dashboard summary and task-oriented views for timetable, attendance, homework, notices, marks/results and authorized students. Verify assignment and cross-tenant boundaries in API/E2E tests before expanding the teacher UI.
