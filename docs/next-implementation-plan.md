@@ -31,6 +31,10 @@ Phase 6 is complete and released to production. `main` remains the protected pro
 - Added direct profile actions from Student and Parent workspaces to the existing server-authorized student detail surface.
 - Added a dedicated `/portal/attendance` read model for Student and Parent roles. Student queries resolve only from the authenticated user; Parent queries require the selected child to be actively linked in the same school.
 - Added a dedicated `/portal-attendance` consumption page showing a 30-day rate, status counts and daily attendance records, keeping the management attendance screen unavailable to portal roles.
+- Added a dedicated `/portal/results` read model for Student and Parent roles. Student queries resolve from the authenticated user; Parent queries require an actively linked child in the same school. Only published results are returned.
+- Added a dedicated `/portal-results` consumption page with subject marks, outcome/percentage and report-card access while keeping exam management unavailable to portal roles.
+- Added a dedicated `/portal/fees` read model for Student and Parent roles. Student queries resolve from the authenticated user; Parent queries require an actively linked child in the same school. The response exposes fee balances and statuses only; payment collection remains an admin workflow.
+- Added a dedicated `/portal-fees` consumption page with due/paid/balance/overdue summaries and fee records, keeping the management fees screen unavailable to portal roles.
 
 ## Current implementation
 
@@ -51,6 +55,7 @@ The `phase7-portals` branch currently provides:
 - a linked-child-only `/portal/parent/workspace` read model;
 - server-authorized parent child switching through an optional `childId` selection hint;
 - a responsive Parent workspace showing attendance, fee balance, homework, exams, timetable and notices for the selected child;
+- dedicated Student/Parent results and fees consumption surfaces backed by role-safe server read models;
 - a dedicated Student/Parent homework consumption surface with private attachment access;
 - direct Student/Parent profile actions using the existing server-side ownership checks;
 - a dedicated Student/Parent attendance consumption surface backed by a server-side self/linked-child read model;
@@ -86,13 +91,12 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 ## Verification status
 
 - Local branch synchronized from `origin/phase7-portals`: PASS before this slice.
-- Server production build after portal consistency changes: PASS before this slice; re-run after attendance implementation.
-- Client production build after portal consistency changes: PASS before this slice; re-run after attendance implementation.
-- Portal shell smoke at 1440×900, 768×900 and 390×844: PASS before this slice; attendance page still needs viewport QA.
+- Shared/server/client production builds after Results/Fees implementation: PASS after Results/Fees slice.
+- Portal shell smoke at 1440×900, 768×900 and 390×844: PASS before this slice; Results/Fees pages still need authenticated viewport QA.
 - Authenticated role-specific route/API acceptance: PENDING for real Teacher/Student/Parent credentials because local sessions are not exposed.
 - Local authenticated server startup remains blocked by invalid local JWT secret lengths; no secrets were changed or persisted.
 - The latest unauthenticated local startup failure is an environment configuration issue, not evidence of a portal authentication failure.
 
 ## Next implementation task
 
-Continue the consistency pass with role-specific results and fees consumption surfaces, then run authenticated Chromium checks where a real session is available and execute the consolidated Phase 1–6 regression gates. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
+Finish the cross-portal consistency and security review, then run authenticated Chromium checks where a real session is available and execute the consolidated Phase 1–6 regression gates. Resolve any real permission-to-workflow mismatch found during that verification; do not hide it with broader permissions. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
