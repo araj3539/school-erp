@@ -17,6 +17,7 @@ const AttendancePage = lazy(() => import("../pages/AttendancePage"));
 const PortalAttendancePage = lazy(() => import("../pages/PortalAttendancePage"));
 const PortalResultsPage = lazy(() => import("../pages/PortalResultsPage"));
 const PortalFeesPage = lazy(() => import("../pages/PortalFeesPage"));
+const PortalTimetablePage = lazy(() => import("../pages/PortalTimetablePage"));
 const TeacherWorkspacePage = lazy(() => import("../pages/TeacherWorkspacePage"));
 const TeacherHomeworkPage = lazy(() => import("../pages/TeacherHomeworkPage"));
 const RoleAwareHomeworkPage = lazy(() => import("../pages/RoleAwareHomeworkPage"));
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
     { path: "/portal-attendance", element: role(["student", "parent"], any(["attendance:read:own", "attendance:read:child"], <PortalAttendancePage />)) },
     { path: "/portal-results", element: role(["student", "parent"], any(["results:read:own", "results:read:child"], <PortalResultsPage />)) },
     { path: "/portal-fees", element: role(["student", "parent"], any(["fees:read:own", "fees:read:child"], <PortalFeesPage />)) },
+    { path: "/portal-timetable", element: role(portalRoles, any(["timetable:read:own", "timetable:read:child"], <PortalTimetablePage />)) },
     { path: "/students", element: any(["students:read", "students:read:own", "students:read:child"], <StudentsPage />) },
     { path: "/students/bulk", element: only("students:write", <StudentBulkOperationsPage />) },
     { path: "/students/:id", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDetailPage />) },
