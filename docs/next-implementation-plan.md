@@ -27,6 +27,8 @@ Phase 6 is complete and released to production. `main` remains the protected pro
 - Removed those management-shaped destinations from portal navigation so users are not offered links that the portal route policy intentionally rejects.
 - Kept Teacher Students navigation because its role-specific page uses the existing tenant/assignment-scoped student read path.
 - Preserved the dedicated role-aware Homework route because Teacher, Student and Parent each have a role-appropriate read/write surface there.
+- Replaced the generic management-oriented homework screen for Student and Parent roles with a dedicated consumption view. It uses the existing server-scoped `/homework` read path and private signed attachment URL flow without exposing write controls.
+- Added direct profile actions from Student and Parent workspaces to the existing server-authorized student detail surface.
 
 ## Current implementation
 
@@ -47,6 +49,8 @@ The `phase7-portals` branch currently provides:
 - a linked-child-only `/portal/parent/workspace` read model;
 - server-authorized parent child switching through an optional `childId` selection hint;
 - a responsive Parent workspace showing attendance, fee balance, homework, exams, timetable and notices for the selected child;
+- a dedicated Student/Parent homework consumption surface with private attachment access;
+- direct Student/Parent profile actions using the existing server-side ownership checks;
 - broad generic homework reads remain blocked for teachers so the portal read model remains the only teacher read path.
 
 ## Phase 7 mandatory principles
@@ -79,12 +83,13 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 ## Verification status
 
 - Local branch synchronized from `origin/phase7-portals`: PASS.
-- Server production build after consistency changes: PASS.
-- Client production build after consistency changes: PASS.
+- Server production build after portal consistency changes: PASS.
+- Client production build after portal consistency changes: PASS.
 - Portal shell smoke at 1440×900, 768×900 and 390×844: PASS; no horizontal overflow observed.
 - Authenticated role-specific route/API acceptance: PENDING for real Teacher/Student/Parent credentials because local sessions are not exposed.
-- Local authenticated server startup remains blocked by missing environment variables; no test credential was invented or persisted.
+- Local authenticated server startup remains blocked by invalid local JWT secret lengths; no secrets were changed or persisted.
+- The latest unauthenticated local startup failure is an environment configuration issue, not evidence of a portal authentication failure.
 
 ## Next implementation task
 
-Continue the consistency pass with authenticated Chromium checks where a real session is available, then run the consolidated Phase 1–6 regression gates. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
+Continue the consistency pass by reviewing role-specific Student/Parent attendance, results, fees and document surfaces for management-style UI or permission mismatches. Then run authenticated Chromium checks where a real session is available and execute the consolidated Phase 1–6 regression gates. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
