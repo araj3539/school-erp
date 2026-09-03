@@ -6,9 +6,7 @@ Active implementation branch: `phase7-portals`
 
 ## Current state
 
-Phase 6 is complete and released to production. `main` remains the protected production baseline. Phase 7 planning is complete and Stage 0 discovery plus the shared portal foundation are implemented on `phase7-portals`.
-
-Discovery is documented in `docs/phase7-discovery.md`. The implementation confirms that the existing backend has useful role-scoped APIs, while several existing frontend pages are admin workflows and must not be reused directly by student/parent users.
+Phase 6 is complete and released to production. `main` remains the protected production baseline. Phase 7 planning is complete and the portal foundation plus Teacher, Student and Parent workspace slices are implemented on `phase7-portals`.
 
 ## Phase 7 implementation sequence
 
@@ -16,8 +14,8 @@ Discovery is documented in `docs/phase7-discovery.md`. The implementation confir
 2. Shared portal shell, route/permission matrix and reusable portal UI patterns — **FOUNDATION COMPLETE**.
 3. Teacher workspace — **COMPLETE** for Today/Timetable/Attendance and assignment-scoped Homework.
 4. Student workspace — **COMPLETE** for the self-scoped school-day workspace.
-5. Parent workspace with server-authorized child switching — **NEXT**.
-6. Cross-portal UX/accessibility/responsive consistency pass.
+5. Parent workspace with server-authorized child switching — **COMPLETE**.
+6. Cross-portal UX/accessibility/responsive consistency pass — **NEXT**.
 7. Full Phase 1–7 verification.
 8. One consolidated release PR and production smoke verification.
 
@@ -37,14 +35,15 @@ The `phase7-portals` branch currently provides:
 - assignment-scoped teacher homework lookup, reads and creation;
 - a self-scoped `/portal/student/workspace` read model aggregating timetable, attendance, homework, published exams/results, fees and notices;
 - a responsive Student workspace used by the default `/dashboard` route for students;
+- a linked-child-only `/portal/parent/workspace` read model;
+- server-authorized parent child switching through an optional `childId` selection hint;
+- a responsive Parent workspace showing attendance, fee balance, homework, exams, timetable and notices for the selected child;
 - broad generic homework reads remain blocked for teachers so the portal read model remains the only teacher read path;
 - Stage 0/1/2 discovery and implementation documentation.
 
-The Teacher workspace intentionally reuses the existing secure attendance write path rather than creating a parallel attendance mutation. Teachers can mark new attendance only for their `classTeacherOf` classes; existing attendance remains correction-protected by school management.
+## Parent workspace security contract
 
-Teacher Homework follows the same least-privilege principle: lookup options come from the authenticated teacher's own assignments, reads are tenant-scoped and limited to class-teacher or subject scope, and creation is sent through the existing validated, audited homework mutation path.
-
-The Student workspace follows a stricter self-only read model: the backend resolves the student from the authenticated user and school tenant, then derives every timetable, attendance, homework, exam/result, fee and notice query from that student record. No student ID is accepted from the client for the workspace aggregation.
+The parent workspace does not trust client-selected child IDs. The server requires the authenticated parent ID to exist in the child’s `parentIds` and requires the child to belong to the authenticated school tenant and remain active. An invalid, unlinked or cross-tenant `childId` is rejected before child-specific data is queried. Omitting `childId` selects the first active linked child. The authorized child list is returned by the same server-scoped query and drives the client selector.
 
 ## Phase 7 mandatory principles
 
@@ -75,14 +74,13 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 
 ## Verification status
 
-- Local sync from `origin/phase7-portals`: PASS.
-- Server production build after Student slice: PASS.
-- Client production build after Student slice: PASS.
-- Server Vitest: 54 tests passed; 4 inherited collection/tooling suites remain failing as documented.
-- Student workspace browser acceptance with mocked authenticated student/API data: PASS at 1440×900, 768×900 and 390×844; no page errors or horizontal overflow detected.
-- Student workspace authenticated API/browser acceptance against real local credentials: **PENDING** because local student credentials/session are not exposed; no test credential will be invented or persisted.
-- Local server cannot currently be started without environment variables (`MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`), so authenticated local API verification remains blocked by environment configuration rather than by a newly observed application failure.
+- Local branch synchronized from `origin/phase7-portals`: PASS.
+- Server production build after Parent slice: PASS.
+- Client production build after Parent slice: PASS.
+- Parent workspace shell smoke at 1440×900, 768×900 and 390×844: PASS; no horizontal overflow observed.
+- Authenticated parent API/browser acceptance with real local credentials: **PENDING** because local parent credentials/session are not exposed.
+- Local authenticated server startup remains blocked by missing environment variables; no test credential was invented or persisted.
 
 ## Next implementation task
 
-Begin the Parent workspace: inventory the existing linked-child APIs, add only missing parent read models, implement secure server-authorized child switching with URL/query tampering protection, then verify the parent portal at 1440×900, 768px and 390×844.
+Begin the cross-portal consistency pass: review Teacher, Student and Parent navigation, route guards, loading/error/empty states, mobile behavior, keyboard focus, reduced-motion behavior and role leakage. Fix only verified defects, then run the consolidated Phase 1–6 regression gates before final release preparation.
