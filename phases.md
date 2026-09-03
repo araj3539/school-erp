@@ -102,7 +102,7 @@ Teacher can enter marks and authorized users can publish results safely.
 # Phase 6 — Homework, Notices and Timetable
 
 ### Status
-`IN_PROGRESS`
+`COMPLETED`
 
 ### Scope
 - homework and attachments
@@ -112,17 +112,54 @@ Teacher can enter marks and authorized users can publish results safely.
 - teacher timetable
 - student timetable
 
-### Current progress
-Homework vertical slice is implemented and build-verified. Notices and timetable remain to be implemented and regression-tested.
+### Verified completion — 2026-09-03
+
+Phase 6 was implemented, regression-tested and released to production. The release includes tenant-safe Homework CRUD, private Cloudflare R2 attachments with short-lived signed delivery, tenant-scoped Notices, conflict-safe Timetable management, responsive management UI, and authenticated Chromium coverage across principal, teacher, student and parent roles.
+
+Phase 6 remains a mandatory regression gate for subsequent work.
 
 ---
 
-# Phase 7 — Parent/Student/Teacher Portals
+# Phase 7 — Parent / Student / Teacher Portals
 
-Create role-specific experiences using existing tenant and ownership rules.
+### Status
+`NOT_STARTED`
+
+### Planning status
+`PLANNING_COMPLETE` — 2026-09-03
+
+### Objective
+Create role-specific web experiences for teachers, students and parents using the existing tenant, ownership and RBAC foundations rather than duplicating the admin application.
+
+### Scope
+- shared role-aware portal shell;
+- teacher dashboard and daily teaching workspace;
+- student self-service workspace;
+- parent child-focused workspace with server-authorized child switching;
+- timetable, attendance, homework, notices and results consumption;
+- authorized fee/document visibility where existing contracts support it;
+- responsive and accessible web experience;
+- role-specific loading/error/empty states;
+- portal-focused API/E2E and Chromium coverage;
+- distinctive, intentional frontend design using `frontend-design_skill.md` plus the existing `design.md` system.
+
+### Explicit exclusions
+Native mobile app, SMS/push/email providers, WhatsApp, SaaS billing, library/transport/inventory, payroll, speculative AI, microservices and a second UI component library remain outside Phase 7.
 
 ### Exit criteria
-Users can access only their own or explicitly assigned records.
+
+1. Teacher can perform core daily academic tasks within assigned scope.
+2. Student can view only their own authorized academic/fee information.
+3. Parent can view only explicitly linked children's authorized information.
+4. Cross-tenant access is blocked for all portal roles.
+5. Phase 1–6 regression gates remain green.
+6. Critical portal workflows have API/E2E and authenticated Chromium coverage.
+7. Desktop, tablet and mobile behavior is verified.
+8. Accessibility and keyboard/focus behavior are verified for major workflows.
+9. Portal visual direction is documented and consistent with the established component system.
+10. Production build and post-merge production smoke pass.
+
+See `docs/phase7-plan.md` for the complete stage-by-stage implementation, security, UX, testing and release plan.
 
 ---
 
@@ -177,13 +214,12 @@ Only after core data quality is strong. AI must never make authoritative financi
 ## Current Implementation Order
 
 ```text
-1. Phase 6 — Homework/notices/timetable
-2. Parent/Student/Teacher portals
-3. Notifications
-4. Mobile
-5. SaaS administration/billing
-6. Reliability/scale
-7. AI/advanced analytics
+1. Phase 7 — Parent/Student/Teacher portals
+2. Notifications
+3. Mobile
+4. SaaS administration/billing
+5. Reliability/scale
+6. AI/advanced analytics
 ```
 
 Do not prioritize microservices, Kubernetes, GPS/WhatsApp automation, speculative AI decisioning or broad caching before the core ERP is correct and regression-gated.
