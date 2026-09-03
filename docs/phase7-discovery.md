@@ -70,16 +70,16 @@ This follows `frontend-design_skill.md` while evolving `design.md` rather than c
 
 Stage 1 added the aggregated `/portal/dashboard` read model for teacher, student and parent orientation.
 
-Stage 2 now adds `/portal/teacher/workspace?date=YYYY-MM-DD` for the teacher workflow. It returns only the authenticated teacher’s school-scoped profile, class-teacher classes, active students in those classes, sections, date-specific timetable entries assigned to that teacher, and attendance groups for those class-teacher classes. Attendance marking continues through the existing `/attendance` write endpoint, whose backend checks teacher class-teacher ownership and preserves the management-only correction boundary.
+Stage 2 added `/portal/teacher/workspace?date=YYYY-MM-DD` for the teacher workflow. It returns only the authenticated teacher’s school-scoped profile, class-teacher classes, active students in those classes, sections, date-specific timetable entries assigned to that teacher, and attendance groups for those class-teacher classes. Attendance marking continues through the existing `/attendance` write endpoint, whose backend checks teacher class-teacher ownership and preserves the management-only correction boundary.
 
-The teacher workspace deliberately does not request admin class/academic-year lookup endpoints, so the known `classes:read` / `settings:read` permission mismatch is not worked around by broadening teacher permissions.
+Teacher homework then added assignment-scoped lookup/read/creation models under `/portal/teacher/homework*`, and broad generic homework reads remain blocked for teachers.
 
-Remaining portal API work should add only read models that materially improve student/parent workflows or later teacher assignment-specific workflows:
+Student workspace adds `/portal/student/workspace` because the existing individual APIs were secure but would require several client round trips and exposed management-shaped responses. The new model resolves the student from `req.user.userId` plus the tenant, then aggregates only that student’s timetable, recent attendance, upcoming homework, published exams/results, current academic-year fees and applicable notices. No student ID is accepted from the client.
 
-1. Student dashboard/read models beyond the current dashboard summary.
-2. Parent dashboard plus secure child switching state.
-3. Teacher subject-assignment-specific student access where a timetable subject assignment is sufficient for a read workflow.
-4. Teacher homework workflow once its assignment-scoped lookup requirements are mapped.
+Remaining portal API work should add only read models that materially improve the parent workflow or later teacher assignment-specific workflows:
+
+1. Parent dashboard plus secure child switching state.
+2. Teacher subject-assignment-specific student access where a timetable subject assignment is sufficient for a read workflow.
 
 ## Teacher workspace security decisions
 
@@ -90,7 +90,18 @@ Remaining portal API work should add only read models that materially improve st
 - Attendance roster data is limited to the teacher’s `classTeacherOf` classes.
 - Attendance writes still pass through the existing attendance authorization and validation path; an existing attendance record cannot be corrected by a teacher.
 - No admin lookup permission was added to make the portal render.
-- Development CORS now permits localhost origins only while `NODE_ENV=development`, allowing local browser verification without changing production origin policy.
+- Development CORS permits localhost origins only while `NODE_ENV=development`, allowing local browser verification without changing production origin policy.
+
+## Student workspace security decisions
+
+- The workspace route requires the student’s existing own-read permissions and rejects non-student roles.
+- Student identity is resolved only from the authenticated user and tenant.
+- Timetable, homework and notices are restricted to the student’s current class/section.
+- Attendance is restricted to records containing the authenticated student.
+- Exams are limited to the current academic year, student class and published status.
+- Results are limited to the authenticated student and published status.
+- Fees are limited to the authenticated student and current academic year.
+- No student ID, class ID or fee/result filter is accepted from the workspace client.
 
 ## Stage 0/1 acceptance
 
@@ -105,9 +116,11 @@ Remaining portal API work should add only read models that materially improve st
 
 - Teacher workspace backend read model: IMPLEMENTED.
 - Teacher workspace responsive UI: IMPLEMENTED.
-- Default `/dashboard` now uses the data-driven portal dashboard for Teacher/Student/Parent roles: VERIFIED in Chromium for Teacher.
+- Teacher homework assignment-scoped read/write workflow: IMPLEMENTED.
+- Default `/dashboard` uses the data-driven portal dashboard for Teacher/Student/Parent roles.
 - Teacher workspace navigation entry: IMPLEMENTED.
-- Server production build: PASS.
-- Client production build: PASS.
-- Authenticated teacher workspace API: PASS (HTTP 200 against local MongoDB-backed server).
-- Teacher workspace Chromium smoke: PASS at 390×844 and 768×900; authenticated 1440×900 workspace re-check remains pending because the browser session was not retained after the viewport transition.
+- Student workspace backend read model: IMPLEMENTED.
+- Student workspace responsive UI: IMPLEMENTED.
+- Student default `/dashboard` now uses the self-scoped Student workspace.
+- Server/client builds after Student implementation: PENDING verification in local environment.
+- Authenticated student workspace API/browser acceptance: PENDING because local student credentials/session are not exposed.

@@ -15,8 +15,8 @@ Discovery is documented in `docs/phase7-discovery.md`. The implementation confir
 1. Baseline/discovery and portal API inventory — **COMPLETE**.
 2. Shared portal shell, route/permission matrix and reusable portal UI patterns — **FOUNDATION COMPLETE**.
 3. Teacher workspace — **COMPLETE** for Today/Timetable/Attendance and assignment-scoped Homework.
-4. Student workspace — **NEXT**.
-5. Parent workspace with server-authorized child switching.
+4. Student workspace — **COMPLETE** for the self-scoped school-day workspace.
+5. Parent workspace with server-authorized child switching — **NEXT**.
 6. Cross-portal UX/accessibility/responsive consistency pass.
 7. Full Phase 1–7 verification.
 8. One consolidated release PR and production smoke verification.
@@ -34,16 +34,17 @@ The `phase7-portals` branch currently provides:
 - responsive mobile navigation and keyboard skip/focus behavior;
 - a teacher-specific `/portal/teacher/workspace?date=YYYY-MM-DD` read model;
 - a responsive Teacher workspace for assigned class-teacher attendance, active rosters and date-specific teacher timetable;
-- a least-privilege `/portal/teacher/homework/options` lookup model derived from the authenticated teacher's class-teacher and subject assignments;
-- an assignment-scoped `/portal/teacher/homework` read model;
-- teacher homework creation routed through the existing validated, audited homework mutation path;
-- a role-aware `/homework` page that selects the teacher workspace for teachers while preserving the existing management/consumption page for other roles;
-- broad generic homework reads are blocked for teachers so the portal read model remains the only teacher read path;
+- assignment-scoped teacher homework lookup, reads and creation;
+- a self-scoped `/portal/student/workspace` read model aggregating timetable, attendance, homework, published exams/results, fees and notices;
+- a responsive Student workspace used by the default `/dashboard` route for students;
+- broad generic homework reads remain blocked for teachers so the portal read model remains the only teacher read path;
 - Stage 0/1/2 discovery and implementation documentation.
 
 The Teacher workspace intentionally reuses the existing secure attendance write path rather than creating a parallel attendance mutation. Teachers can mark new attendance only for their `classTeacherOf` classes; existing attendance remains correction-protected by school management.
 
-Teacher Homework follows the same least-privilege principle: lookup options come from the authenticated teacher's own assignments, reads are tenant-scoped and limited to class-teacher or subject scope, and creation is sent through the existing `CreateHomeworkSchema` plus the existing homework service/controller authorization and audit path.
+Teacher Homework follows the same least-privilege principle: lookup options come from the authenticated teacher's own assignments, reads are tenant-scoped and limited to class-teacher or subject scope, and creation is sent through the existing validated, audited homework mutation path.
+
+The Student workspace follows a stricter self-only read model: the backend resolves the student from the authenticated user and school tenant, then derives every timetable, attendance, homework, exam/result, fee and notice query from that student record. No student ID is accepted from the client for the workspace aggregation.
 
 ## Phase 7 mandatory principles
 
@@ -75,13 +76,13 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 ## Verification status
 
 - Local sync from `origin/phase7-portals`: PASS.
-- Server production build: PASS.
-- Client production build: PASS.
+- Server production build before Student slice: PASS.
+- Client production build before Student slice: PASS.
 - Teacher workspace API was previously verified authenticated against local MongoDB: PASS.
 - Teacher workspace Chromium smoke: PASS at 390×844 and 768×900; 1440×900 re-check was limited by local browser authentication state.
-- Teacher homework endpoints require authentication and teacher permissions; unauthenticated access correctly returns `401` in local API smoke checks.
-- Full authenticated Teacher Homework API/browser acceptance remains pending because the local environment does not expose `E2E_FIXTURE_PASSWORD`/teacher access token variables. No test credential was invented or persisted.
+- Teacher homework unauthenticated local API smoke: PASS (`401`).
+- Student workspace authenticated API/browser acceptance: **PENDING** until local student credentials/session are available; no test credential will be invented or persisted.
 
 ## Next implementation task
 
-Begin the Student workspace: map the existing self-only attendance/homework/results/fees/timetable APIs, add only missing student read models, then build a task-oriented student portal page with self-scope enforced server-side. Verify it at 1440×900, 768px and 390×844 before moving to secure parent child switching.
+Begin the Parent workspace: inventory the existing linked-child APIs, add only missing parent read models, implement secure server-authorized child switching with URL/query tampering protection, then verify the parent portal at 1440×900, 768px and 390×844.
