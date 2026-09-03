@@ -13,7 +13,7 @@ const statuses = [
 type Status = typeof statuses[number][0];
 type Student = { _id: string; admissionNo: string; firstName: string; lastName: string; classId: string | { _id: string; displayName: string }; sectionId?: string | { _id: string; name: string } };
 type Section = { _id: string; name: string; classId: string };
-type WorkspaceData = { date: string; assignedClasses: { _id: string; displayName: string; sectionIds: string[] }[]; assignedSections: Section[]; assignedStudents: Student[]; todayTimetable: any[]; attendance: any[]; };
+type WorkspaceData = { teacher: { _id: string; firstName: string; lastName: string }; date: string; assignedClasses: { _id: string; displayName: string; sectionIds: string[] }[]; assignedSections: Section[]; assignedStudents: Student[]; todayTimetable: any[]; attendance: any[] };
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function id(value: unknown) { return typeof value === "string" ? value : (value as { _id?: string })?._id ?? ""; }
@@ -60,7 +60,7 @@ export default function TeacherWorkspacePage() {
   return <div className="space-y-6">
     <section className="overflow-hidden rounded-2xl bg-slate-950 px-5 py-6 text-white sm:px-7">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-300">Teacher workspace</p><h1 className="mt-2 text-2xl font-bold tracking-tight">Good day, {data.teacher?.firstName ?? "Teacher"}</h1><p className="mt-1 max-w-2xl text-sm text-slate-300">See your assigned classes, today’s periods and attendance tasks in one place.</p></div>
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-300">Teacher workspace</p><h1 className="mt-2 text-2xl font-bold tracking-tight">Good day, {data.teacher.firstName}</h1><p className="mt-1 max-w-2xl text-sm text-slate-300">See your assigned classes, today’s periods and attendance tasks in one place.</p></div>
         <Input label="Working date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="w-full sm:w-48" />
       </div>
     </section>
