@@ -15,6 +15,7 @@ const TeachersPage = lazy(() => import("../pages/TeachersPage"));
 const ClassesPage = lazy(() => import("../pages/ClassesPage"));
 const AttendancePage = lazy(() => import("../pages/AttendancePage"));
 const TeacherWorkspacePage = lazy(() => import("../pages/TeacherWorkspacePage"));
+const TeacherHomeworkPage = lazy(() => import("../pages/TeacherHomeworkPage"));
 const ExamsPage = lazy(() => import("../pages/ExamsPage"));
 const HomeworkPage = lazy(() => import("../pages/HomeworkPage"));
 const NoticesPage = lazy(() => import("../pages/NoticesPage"));
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
     { path: "/dashboard", element: <DashboardPage /> },
     { path: "/portal-dashboard", element: any(["attendance:read", "attendance:read:own", "attendance:read:child"], <PortalDashboardPage />) },
     { path: "/teacher-workspace", element: any(["attendance:read", "timetable:read:own"], <TeacherWorkspacePage />) },
+    { path: "/teacher-homework", element: only("homework:write", <TeacherHomeworkPage />) },
     { path: "/students", element: any(["students:read", "students:read:own", "students:read:child"], <StudentsPage />) },
     { path: "/students/bulk", element: only("students:write", <StudentBulkOperationsPage />) },
     { path: "/students/:id", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDetailPage />) },
