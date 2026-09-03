@@ -8,7 +8,7 @@ export const HomeworkAttachmentSchema = z.object({
   mimeType: z.string().trim().max(100).optional(),
 });
 
-export const CreateHomeworkSchema = z.object({
+const HomeworkFieldsSchema = z.object({
   title: z.string().trim().min(2).max(150),
   description: z.string().trim().max(5000).optional(),
   classId: ObjectIdSchema,
@@ -18,13 +18,15 @@ export const CreateHomeworkSchema = z.object({
   assignedDate: DateOnlySchema,
   dueDate: DateOnlySchema,
   attachments: z.array(HomeworkAttachmentSchema).max(10).default([]),
-}).superRefine((value, ctx) => {
+});
+
+export const CreateHomeworkSchema = HomeworkFieldsSchema.superRefine((value, ctx) => {
   if (value.assignedDate > value.dueDate) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["dueDate"], message: "Due date must be on or after assigned date" });
   }
 });
 
-export const UpdateHomeworkSchema = CreateHomeworkSchema.partial().superRefine((value, ctx) => {
+export const UpdateHomeworkSchema = HomeworkFieldsSchema.partial().superRefine((value, ctx) => {
   if (value.assignedDate && value.dueDate && value.assignedDate > value.dueDate) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["dueDate"], message: "Due date must be on or after assigned date" });
   }
