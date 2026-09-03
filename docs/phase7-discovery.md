@@ -76,21 +76,17 @@ Teacher homework then added assignment-scoped lookup/read/creation models under 
 
 Student workspace adds `/portal/student/workspace` because the existing individual APIs were secure but would require several client round trips and exposed management-shaped responses. The new model resolves the student from `req.user.userId` plus the tenant, then aggregates only that student’s timetable, recent attendance, upcoming homework, published exams/results, current academic-year fees and applicable notices. No student ID is accepted from the client.
 
-Remaining portal API work should add only read models that materially improve the parent workflow or later teacher assignment-specific workflows:
+Parent workspace adds `/portal/parent/workspace` as a server-aggregated, linked-child-only read model. It accepts an optional `childId` solely as a selection hint; the backend re-resolves that ID against the authenticated parent’s `parentIds` relationship and school tenant. An unlinked, cross-tenant or inactive child is rejected. With no child ID, the first active linked child is selected. The response aggregates only that selected child’s timetable, attendance, homework, published exams, fees and applicable notices and also returns the authorized child list for switching.
 
-1. Parent dashboard plus secure child switching state.
-2. Teacher subject-assignment-specific student access where a timetable subject assignment is sufficient for a read workflow.
+## Parent workspace security decisions
 
-## Teacher workspace security decisions
-
-- The workspace route is authenticated and rejects non-teacher roles at the controller boundary.
-- Every query is tenant-scoped with the authenticated school ID.
-- Teacher identity is resolved from the authenticated user, not a client-supplied teacher ID.
-- Timetable entries are selected by the authenticated teacher’s teacher ID and requested day.
-- Attendance roster data is limited to the teacher’s `classTeacherOf` classes.
-- Attendance writes still pass through the existing attendance authorization and validation path; an existing attendance record cannot be corrected by a teacher.
-- No admin lookup permission was added to make the portal render.
-- Development CORS permits localhost origins only while `NODE_ENV=development`, allowing local browser verification without changing production origin policy.
+- Parent workspace requires the existing child-read permissions; no new permission is introduced.
+- Parent identity comes only from the authenticated user.
+- Every child lookup requires both the authenticated parent ID in `parentIds` and the authenticated school tenant.
+- `childId` is never trusted as authorization; it is re-validated server-side before any child data query runs.
+- No-child accounts return an explicit empty state rather than broad student data.
+- Child switching is represented by a URL query parameter for shareable state, but the parameter cannot bypass server ownership checks.
+- Parent navigation does not expose teacher/admin management workflows.
 
 ## Student workspace security decisions
 
@@ -101,26 +97,13 @@ Remaining portal API work should add only read models that materially improve th
 - Exams are limited to the current academic year, student class and published status.
 - Results are limited to the authenticated student and published status.
 - Fees are limited to the authenticated student and current academic year.
-- No student ID, class ID or fee/result filter is accepted from the workspace client.
+- No student ID, class ID or fee/result filter is accepted for the workspace aggregation.
 
-## Stage 0/1 acceptance
+## Verification status
 
 - Local branch synchronized from GitHub: PASS.
-- Client production build after portal foundation: PASS.
-- Teacher/student/parent portal home smoke render at 390×844 with mocked authenticated role: PASS.
-- Teacher/student/parent desktop navigation smoke render at 1440×900 with mocked authenticated role: PASS.
-- Portal UI produced no page errors in those Chromium checks: PASS.
-- Existing client Vitest suite remains blocked by inherited `expect is not defined` setup debt in `src/utils/utils.test.ts`; no new test failure was introduced by the portal foundation.
-
-## Stage 2 implementation status
-
-- Teacher workspace backend read model: IMPLEMENTED.
-- Teacher workspace responsive UI: IMPLEMENTED.
-- Teacher homework assignment-scoped read/write workflow: IMPLEMENTED.
-- Default `/dashboard` uses the data-driven portal dashboard for Teacher/Student/Parent roles.
-- Teacher workspace navigation entry: IMPLEMENTED.
-- Student workspace backend read model: IMPLEMENTED.
-- Student workspace responsive UI: IMPLEMENTED.
-- Student default `/dashboard` now uses the self-scoped Student workspace.
-- Server/client builds after Student implementation: PENDING verification in local environment.
-- Authenticated student workspace API/browser acceptance: PENDING because local student credentials/session are not exposed.
+- Server production build after Parent implementation: PASS.
+- Client production build after Parent implementation: PASS.
+- Parent workspace browser shell smoke: PASS for responsive page loading at 390×844, 768×900 and 1440×900; no horizontal overflow observed.
+- Authenticated parent API/browser acceptance: PENDING because local parent credentials/session are not exposed.
+- Local authenticated server startup remains blocked by missing environment variables; no test credential was invented or persisted.
