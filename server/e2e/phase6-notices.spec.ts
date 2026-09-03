@@ -6,10 +6,9 @@ config({ path: resolve(process.cwd(), ".env") });
 
 const apiUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
+const studentToken = process.env.E2E_STUDENT_A_ACCESS_TOKEN;
 const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const principalEmail = "principal.a@phase1.example.com";
-const studentEmail = process.env.E2E_STUDENT_EMAIL;
-const studentPassword = process.env.E2E_STUDENT_PASSWORD || fixturePassword;
 
 async function login(request: any, email: string, password: string) {
   const response = await request.post("/api/v1/auth/login", {
@@ -27,14 +26,12 @@ function auth(token: string) {
 test.beforeAll(() => {
   expect(apiUrl, "E2E_API_URL is required").toBeTruthy();
   expect(fixturePassword, "E2E_FIXTURE_PASSWORD is required").toBeTruthy();
-  expect(studentEmail, "E2E_STUDENT_EMAIL is required").toBeTruthy();
-  expect(studentPassword, "E2E_STUDENT_PASSWORD or E2E_FIXTURE_PASSWORD is required").toBeTruthy();
+  expect(studentToken, "E2E_STUDENT_A_ACCESS_TOKEN is required").toBeTruthy();
 });
 
 test.describe("Phase 6 Notices API isolation", () => {
   test("scheduled school notice stays hidden until publication", async ({ request }) => {
     const principalToken = await login(request, principalEmail, fixturePassword!);
-    const studentToken = await login(request, studentEmail!, studentPassword!);
     const publishAt = new Date(Date.now() + 60_000).toISOString();
     const title = `Phase 6 Notice ${Date.now()}`;
 
@@ -51,7 +48,7 @@ test.describe("Phase 6 Notices API isolation", () => {
     const createBody = await create.json().catch(() => ({}));
     expect(create.status(), JSON.stringify(createBody)).toBe(201);
 
-    const before = await request.get("/api/v1/notices?limit=100", auth(studentToken));
+    const before = await request.get("/api/v1/notices?limit=100", auth(studentToken!));
     expect(before.status()).toBe(200);
     const beforeBody = await before.json();
     expect(beforeBody.data.some((notice: any) => notice.title === title)).toBe(false);
