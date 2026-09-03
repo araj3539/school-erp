@@ -37,10 +37,17 @@ const allowedOrigins = env.CORS_ORIGIN
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Vercel generates a new preview hostname for each deployment. Keep the
+// allowlist explicit for production/custom domains while permitting only
+// this project's Vercel deployment namespace for previews.
+const isAllowedOrigin = (origin: string): boolean =>
+  allowedOrigins.includes(origin) ||
+  /^https:\/\/school-[a-z0-9-]+-araj3539s-projects\.vercel\.app$/.test(origin);
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (isAllowedOrigin(origin)) return callback(null, true);
     return callback(new Error("CORS origin not allowed"));
   },
   credentials: true,
