@@ -28,6 +28,7 @@
     "test:e2e:phase3:dashboard": "playwright test e2e/phase3-dashboard.spec.ts --workers=1",
     "test:e2e:phase3": "node scripts/phase3-gate.mjs",
     "test:e2e:phase4:finance": "playwright test e2e/phase4-financial.spec.ts --workers=1",
+    "test:e2e:phase5:exams": "playwright test e2e/phase5-exams-results.spec.ts --workers=1",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {

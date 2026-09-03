@@ -28,3 +28,7 @@ export { AuditLog } from "./AuditLog.js";
 export type { IAuditLog } from "./AuditLog.js";
 export { DocumentRecovery } from "./DocumentRecovery.js";
 export type { IDocumentRecovery, DocumentRecoverySource, DocumentRecoveryStatus } from "./DocumentRecovery.js";
+export { Exam } from "./Exam.js";
+export type { IExam, IExamSubject, IGradeRule } from "./Exam.js";
+export { ExamResult } from "./ExamResult.js";
+export type { IExamResult, IMark } from "./ExamResult.js";

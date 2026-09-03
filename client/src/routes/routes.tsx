@@ -15,25 +15,5 @@ import AttendancePage from "../pages/AttendancePage";
 import FeesPage from "../pages/FeesPage";
 import ReportsPage from "../pages/ReportsPage";
 import SettingsPage from "../pages/SettingsPage";
-
-export const router = createBrowserRouter([
-  { element: <AuthLayout />, children: [{ path: "/login", element: <LoginPage /> }] },
-  {
-    element: <RequireAuth><AdminLayout /></RequireAuth>,
-    children: [
-      { path: "/", element: <Navigate to="/dashboard" replace /> },
-      { path: "/dashboard", element: <DashboardPage /> },
-      { path: "/students", element: <StudentsPage /> },
-      { path: "/students/bulk", element: <StudentBulkOperationsPage /> },
-      { path: "/students/:id", element: <StudentDetailPage /> },
-      { path: "/document-recovery", element: <DocumentRecoveryPage /> },
-      { path: "/students/:id/document-recovery", element: <StudentDocumentRecoveryPage /> },
-      { path: "/teachers", element: <TeachersPage /> },
-      { path: "/classes", element: <ClassesPage /> },
-      { path: "/attendance", element: <AttendancePage /> },
-      { path: "/fees", element: <FeesPage /> },
-      { path: "/reports", element: <ReportsPage /> },
-      { path: "/settings", element: <SettingsPage /> }
-    ]
-  }
-]);
+import ExamsPage from "../pages/ExamsPage";
+export const router = createBrowserRouter([{ element:<AuthLayout/>, children:[{path:"/login",element:<LoginPage/>}] },{element:<RequireAuth><AdminLayout/></RequireAuth>,children:[{path:"/",element:<Navigate to="/dashboard" replace/>},{path:"/dashboard",element:<DashboardPage/>},{path:"/students",element:<StudentsPage/>},{path:"/students/bulk",element:<StudentBulkOperationsPage/>},{path:"/students/:id",element:<StudentDetailPage/>},{path:"/document-recovery",element:<DocumentRecoveryPage/>},{path:"/students/:id/document-recovery",element:<StudentDocumentRecoveryPage/>},{path:"/teachers",element:<TeachersPage/>},{path:"/classes",element:<ClassesPage/>},{path:"/attendance",element:<AttendancePage/>},{path:"/exams",element:<ExamsPage/>},{path:"/fees",element:<FeesPage/>},{path:"/reports",element:<ReportsPage/>},{path:"/settings",element:<SettingsPage/>}]}]);
