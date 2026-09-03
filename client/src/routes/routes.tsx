@@ -2,7 +2,7 @@ import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { RoleAwareLayout } from "../layouts/RoleAwareLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
-import { RequireAuth } from "./guards";
+import { RequireAnyPermission, RequireAuth, RequirePermission } from "./guards";
 import RouteErrorPage from "../pages/RouteErrorPage";
 
 const LoginPage = lazy(() => import("../pages/LoginPage"));
@@ -24,6 +24,9 @@ const ReportsPage = lazy(() => import("../pages/ReportsPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 
+const any = (permissions: string[], element: React.ReactNode) => <RequireAnyPermission permissions={permissions}>{element}</RequireAnyPermission>;
+const only = (permission: string, element: React.ReactNode) => <RequirePermission permission={permission}>{element}</RequirePermission>;
+
 export const router = createBrowserRouter([
   { element: <AuthLayout />, errorElement: <RouteErrorPage />, children: [{ path: "/login", element: <LoginPage /> }] },
   {
@@ -32,21 +35,21 @@ export const router = createBrowserRouter([
     children: [
       { path: "/", element: <Navigate to="/dashboard" replace /> },
       { path: "/dashboard", element: <DashboardPage /> },
-      { path: "/students", element: <StudentsPage /> },
-      { path: "/students/bulk", element: <StudentBulkOperationsPage /> },
-      { path: "/students/:id", element: <StudentDetailPage /> },
-      { path: "/document-recovery", element: <DocumentRecoveryPage /> },
-      { path: "/students/:id/document-recovery", element: <StudentDocumentRecoveryPage /> },
-      { path: "/teachers", element: <TeachersPage /> },
-      { path: "/classes", element: <ClassesPage /> },
-      { path: "/attendance", element: <AttendancePage /> },
-      { path: "/exams", element: <ExamsPage /> },
-      { path: "/homework", element: <HomeworkPage /> },
-      { path: "/notices", element: <NoticesPage /> },
-      { path: "/timetable", element: <TimetablePage /> },
-      { path: "/fees", element: <FeesPage /> },
-      { path: "/reports", element: <ReportsPage /> },
-      { path: "/settings", element: <SettingsPage /> },
+      { path: "/students", element: any(["students:read", "students:read:own", "students:read:child"], <StudentsPage />) },
+      { path: "/students/bulk", element: only("students:write", <StudentBulkOperationsPage />) },
+      { path: "/students/:id", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDetailPage />) },
+      { path: "/document-recovery", element: only("students:read", <DocumentRecoveryPage />) },
+      { path: "/students/:id/document-recovery", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDocumentRecoveryPage />) },
+      { path: "/teachers", element: only("teachers:read", <TeachersPage />) },
+      { path: "/classes", element: only("classes:read", <ClassesPage />) },
+      { path: "/attendance", element: any(["attendance:read", "attendance:read:own", "attendance:read:child"], <AttendancePage />) },
+      { path: "/exams", element: any(["exams:read", "marks:read", "results:read", "results:read:own", "results:read:child"], <ExamsPage />) },
+      { path: "/homework", element: any(["homework:read", "homework:read:own", "homework:read:child"], <HomeworkPage />) },
+      { path: "/notices", element: only("notices:read", <NoticesPage />) },
+      { path: "/timetable", element: any(["timetable:read", "timetable:read:own", "timetable:read:child"], <TimetablePage />) },
+      { path: "/fees", element: any(["fees:read", "fees:read:own", "fees:read:child"], <FeesPage />) },
+      { path: "/reports", element: only("reports:read", <ReportsPage />) },
+      { path: "/settings", element: only("settings:read", <SettingsPage />) },
       { path: "*", element: <NotFoundPage /> }
     ]
   }
