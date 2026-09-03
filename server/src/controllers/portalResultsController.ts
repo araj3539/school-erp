@@ -9,23 +9,28 @@ async function resolveStudents(req: Request) {
   if (req.user!.role === UserRole.STUDENT) {
     const student = await Student.findOne({ schoolId, userId: req.user!.userId, status: "active" }).select("_id firstName lastName admissionNo classId sectionId").populate("classId sectionId").lean();
     if (!student) throw AppError.notFound("Student record not found");
-    return [student];
+    return { selected: [student], selectable: [student] };
   }
   if (req.user!.role === UserRole.PARENT) {
     const childId = String(req.query.childId || "").trim();
     const filter: any = { schoolId, parentIds: req.user!.userId, status: "active" };
-    if (childId) filter._id = childId;
-    const children = await Student.find(filter).select("_id firstName lastName admissionNo classId sectionId").populate("classId sectionId").lean();
-    if (!children.length) throw AppError.notFound(childId ? "Child not found" : "No linked children found");
-    return children;
+    const selectable = await Student.find(filter).select("_id firstName lastName admissionNo classId sectionId").populate("classId sectionId").sort({ firstName: 1, lastName: 1 }).lean();
+    if (!selectable.length) throw AppError.notFound("No linked children found");
+    const selected = childId ? selectable.filter((student: any) => student._id.toString() === childId) : selectable;
+    if (!selected.length) throw AppError.notFound("Child not found");
+    return { selected, selectable };
   }
   throw AppError.forbidden("Portal results are not available for this role");
 }
 
+function formatStudent(student: any) {
+  return { _id: student._id, firstName: student.firstName, lastName: student.lastName, admissionNo: student.admissionNo, class: student.classId?.displayName || "", section: student.sectionId?.name || "" };
+}
+
 export async function getPortalResults(req: Request, res: Response, next: NextFunction) {
   try {
-    const students = await resolveStudents(req);
-    const studentIds = students.map((student: any) => student._id);
+    const scope = await resolveStudents(req);
+    const studentIds = scope.selected.map((student: any) => student._id);
     const schoolId = getTenantId(req);
     const results = await ExamResult.find({ schoolId, studentId: { $in: studentIds }, status: "published" })
       .populate("examId studentId classId sectionId marks.subjectId")
@@ -49,6 +54,6 @@ export async function getPortalResults(req: Request, res: Response, next: NextFu
       outcome: result.result,
       publishedAt: result.publishedAt || null,
     }));
-    res.json({ students: students.map((student: any) => ({ _id: student._id, firstName: student.firstName, lastName: student.lastName, admissionNo: student.admissionNo, class: student.classId?.displayName || "", section: student.sectionId?.name || "" })), results: exams });
+    res.json({ students: scope.selectable.map(formatStudent), selectedStudentId: scope.selected.length === 1 ? scope.selected[0]._id : null, results: exams });
   } catch (error) { next(error); }
 }
