@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CreateHomeworkSchema, HomeworkQuerySchema } from "./phase6";
+import { CreateHomeworkSchema, HomeworkQuerySchema } from "./phase6.js";
 
 const ids = {
   classId: "507f1f77bcf86cd799439011",
