@@ -90,6 +90,7 @@ Remaining portal API work should add only read models that materially improve st
 - Attendance roster data is limited to the teacher’s `classTeacherOf` classes.
 - Attendance writes still pass through the existing attendance authorization and validation path; an existing attendance record cannot be corrected by a teacher.
 - No admin lookup permission was added to make the portal render.
+- Development CORS now permits localhost origins only while `NODE_ENV=development`, allowing local browser verification without changing production origin policy.
 
 ## Stage 0/1 acceptance
 
@@ -104,6 +105,9 @@ Remaining portal API work should add only read models that materially improve st
 
 - Teacher workspace backend read model: IMPLEMENTED.
 - Teacher workspace responsive UI: IMPLEMENTED.
-- Default `/dashboard` now uses the data-driven portal dashboard for Teacher/Student/Parent roles.
+- Default `/dashboard` now uses the data-driven portal dashboard for Teacher/Student/Parent roles: VERIFIED in Chromium for Teacher.
 - Teacher workspace navigation entry: IMPLEMENTED.
-- Local build/browser/API acceptance: PENDING after the current GitHub changes are synchronized locally.
+- Server production build: PASS.
+- Client production build: PASS.
+- Authenticated teacher workspace API: PASS (HTTP 200 against local MongoDB-backed server).
+- Teacher workspace Chromium smoke: PASS at 390×844 and 768×900; authenticated 1440×900 workspace re-check remains pending because the browser session was not retained after the viewport transition.
