@@ -9,6 +9,7 @@ import { getPortalAttendance } from "../controllers/portalAttendanceController.j
 import { getPortalResults } from "../controllers/portalResultsController.js";
 import { getPortalFees } from "../controllers/portalFeesController.js";
 import { getPortalTimetable } from "../controllers/portalTimetableController.js";
+import { getPortalNotices } from "../controllers/portalNoticesController.js";
 import { createHomework } from "../controllers/homeworkController.js";
 import { CreateHomeworkSchema } from "../validators/index.js";
 import { UserRole } from "@school-erp/shared";
@@ -16,6 +17,7 @@ import { UserRole } from "@school-erp/shared";
 const router = Router();
 router.use(authenticate);
 router.get("/dashboard", (req, res, next) => { if (![UserRole.TEACHER, UserRole.STUDENT, UserRole.PARENT].includes(req.user!.role)) return res.status(403).json({ error: "Portal dashboard is not available for this role" }); return getPortalDashboard(req, res, next); });
+router.get("/notices", requirePermission("notices:read"), (req, res, next) => { if (![UserRole.TEACHER, UserRole.STUDENT, UserRole.PARENT].includes(req.user!.role)) return res.status(403).json({ error: "Portal notices are not available for this role" }); return getPortalNotices(req, res, next); });
 router.get("/attendance", (req, res, next) => { if (req.user!.role === UserRole.STUDENT) return requirePermission("attendance:read:own")(req, res, next); if (req.user!.role === UserRole.PARENT) return requirePermission("attendance:read:child")(req, res, next); return res.status(403).json({ error: "Portal attendance is not available for this role" }); }, getPortalAttendance);
 router.get("/results", (req, res, next) => { if (req.user!.role === UserRole.STUDENT) return requirePermission("results:read:own")(req, res, next); if (req.user!.role === UserRole.PARENT) return requirePermission("results:read:child")(req, res, next); return res.status(403).json({ error: "Portal results are not available for this role" }); }, getPortalResults);
 router.get("/fees", (req, res, next) => { if (req.user!.role === UserRole.STUDENT) return requirePermission("fees:read:own")(req, res, next); if (req.user!.role === UserRole.PARENT) return requirePermission("fees:read:child")(req, res, next); return res.status(403).json({ error: "Portal fees are not available for this role" }); }, getPortalFees);
