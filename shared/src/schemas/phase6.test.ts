@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CreateHomeworkSchema, HomeworkQuerySchema } from "./phase6.js";
+import { CreateHomeworkSchema, HomeworkQuerySchema, CreateNoticeSchema, NoticeQuerySchema } from "./phase6.js";
 
 const ids = {
   classId: "507f1f77bcf86cd799439011",
@@ -47,5 +47,35 @@ describe("phase 6 homework schemas", () => {
     const result = HomeworkQuerySchema.parse({ page: "2", limit: "25", classId: ids.classId });
     expect(result.page).toBe(2);
     expect(result.limit).toBe(25);
+  });
+});
+
+describe("phase 6 notice schemas", () => {
+  it("accepts a scheduled school notice", () => {
+    const result = CreateNoticeSchema.safeParse({
+      title: "Parent meeting",
+      message: "Meeting on Friday.",
+      audience: "school",
+      publishAt: "2026-09-04T10:00:00Z",
+      expiresAt: "2026-09-05T10:00:00Z",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("requires class and section for a section notice", () => {
+    expect(CreateNoticeSchema.safeParse({ title: "Section notice", message: "Test", audience: "section", classId: ids.classId }).success).toBe(false);
+  });
+
+  it("rejects a school notice with class targeting", () => {
+    expect(CreateNoticeSchema.safeParse({ title: "Bad target", message: "Test", audience: "school", classId: ids.classId }).success).toBe(false);
+  });
+
+  it("rejects expiry before publication", () => {
+    expect(CreateNoticeSchema.safeParse({ title: "Bad dates", message: "Test", audience: "school", publishAt: "2026-09-05T10:00:00Z", expiresAt: "2026-09-04T10:00:00Z" }).success).toBe(false);
+  });
+
+  it("coerces includeUnpublished query values", () => {
+    const result = NoticeQuerySchema.parse({ page: "1", limit: "20", includeUnpublished: "true" });
+    expect(result.includeUnpublished).toBe(true);
   });
 });

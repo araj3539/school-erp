@@ -1,60 +1,61 @@
 # School ERP — Next Implementation Plan
 
 Updated: 2026-09-03
-Repository baseline: `ui-refresh-legacy-merge` after Phase 5 completion and Phase 6 homework slice
+Repository baseline: `phase6-notices` on top of `main` at `fb93fec1`
 
 ## Current verified state
 
 - Phase 1 Production Security and Multi-Tenancy: `COMPLETED` and retained as a regression gate.
 - Phase 2 Core Administration security/ownership exit gate: `COMPLETED` and retained as a regression gate.
-- Phase 3 Attendance and Administration: `COMPLETED`; attendance, bulk attendance, student search/bulk, teacher administration, attendance-report and dashboard acceptance suites were verified green.
-- Phase 4 Fees and Financial Core: `COMPLETED` for implementation; focused financial regression coverage and available deployed reconciliation/receipt acceptance checks were green. Full populated-payment reversal acceptance remains fixture-dependent.
-- Phase 5 Exams and Academic Results: `COMPLETED`; exam setup, marks entry, grade rules, publishing, audited correction and report-card delivery were implemented and covered by focused acceptance/regression work.
-- Phase 6 Homework, Notices and Timetable: `IN_PROGRESS`; the homework vertical slice is implemented and shared/server/client builds pass.
+- Phase 3 Attendance and Administration: `COMPLETED` and retained as a regression gate.
+- Phase 4 Fees and Financial Core: `COMPLETED` for implementation; fixture-dependent populated-payment reversal acceptance remains tracked.
+- Phase 5 Exams and Academic Results: `COMPLETED` and retained as a regression gate.
+- Phase 6 Homework, Notices and Timetable: `IN_PROGRESS`; Homework and Notices are implemented and focused verification is green.
 
-## Phase 6 homework slice — completed
+## Phase 6 completed slices
 
-- shared Zod contracts for homework create/update/query;
-- bounded attachment metadata and assigned/due date validation;
-- tenant-scoped Homework model and query indexes;
-- authenticated list/detail/create/update API routes;
-- teacher class/subject write authorization;
-- student class/section read isolation;
-- parent linked-child read isolation;
-- academic-year/class/subject/section ownership validation;
-- create/update audit events;
-- admin Homework page with filters and assignment form;
-- Homework navigation and route.
+### Homework
 
-## Verification record
+- tenant/RBAC-safe CRUD and recipient isolation;
+- academic/class/section/subject ownership validation;
+- bounded attachment metadata;
+- audited create/update operations;
+- admin assignment/filtering UI.
 
-```text
-Shared build: PASS
-Server build: PASS
-Client build: PASS
-```
+### Notices
 
-The broader shared Vitest command currently encounters a repository test-tooling problem: tracked generated `shared/src/**/*.js` files are CommonJS while `shared/package.json` declares ESM. The existing permission suite also loads stale generated permission artifacts. This is recorded as technical debt and is not being counted as a Phase 6 feature failure.
+- tenant-scoped school/class/section targeting;
+- publication scheduling and expiry;
+- recipient isolation for students, linked parents and class-assigned teachers;
+- principal/super-admin write boundary with audited create/update;
+- shared validation contracts and explicit RBAC permissions;
+- admin management UI and authenticated API routes;
+- focused API/E2E coverage for scheduling, published visibility, class targeting and student write denial.
 
 ## Next delivery
 
-Phase 6 continuation:
+1. Implement timetable data model with server-side conflict validation.
+2. Add teacher timetable view.
+3. Add student timetable view.
+4. Integrate Homework attachments with the existing private document/storage architecture.
+5. Add consolidated Phase 6 API/E2E regression coverage.
+6. Preserve Phase 1–5 regression gates.
 
-1. implement tenant/RBAC-safe Notices;
-2. add scheduled/class-specific notice targeting;
-3. implement timetable model with conflict validation;
-4. add teacher and student timetable views;
-5. integrate homework attachments with the existing private document/storage architecture;
-6. add focused API/E2E coverage for homework, notices and timetable;
-7. preserve Phase 1–5 regression gates.
+## Development/deployment quota policy
+
+To conserve the Vercel Hobby deployment quota, future work follows a batch-release workflow:
+
+1. Keep `main` production-safe and untouched during feature development.
+2. Create one feature branch for a coherent vertical slice.
+3. Make related code changes directly on GitHub without pushing unnecessary intermediate commits.
+4. Run builds, tests, and local browser/API verification through Desktop Commander.
+5. Review the complete slice and fix issues before opening the PR.
+6. Open one PR for the completed slice; avoid repeated push/deploy cycles during implementation.
+7. Merge only after review and verification, allowing the single production deployment from `main` to be the release event.
+8. Use Vercel preview deployments only when a deployed-environment check is genuinely necessary.
+
+This policy is now the default workflow for all subsequent School ERP development.
 
 ## Verification rule
 
-Every production-affecting implementation must:
-
-1. preserve tenant isolation and RBAC;
-2. add business-critical tests;
-3. pass relevant builds and tests;
-4. pass Phase 1/2 security gates;
-5. verify deployed behavior when the change is deployment-sensitive;
-6. update affected living documentation.
+Every production-affecting implementation must preserve tenant isolation and RBAC, add business-critical tests, pass relevant builds/tests and Phase 1/2 security gates, verify deployment-sensitive behavior when required, and update affected living documentation.
