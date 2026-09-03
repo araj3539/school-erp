@@ -15,9 +15,18 @@ Phase 6 is complete and released to production. `main` remains the protected pro
 3. Teacher workspace — **COMPLETE** for Today/Timetable/Attendance and assignment-scoped Homework.
 4. Student workspace — **COMPLETE** for the self-scoped school-day workspace.
 5. Parent workspace with server-authorized child switching — **COMPLETE**.
-6. Cross-portal UX/accessibility/responsive consistency pass — **NEXT**.
+6. Cross-portal UX/accessibility/responsive consistency pass — **IN PROGRESS**.
 7. Full Phase 1–7 verification.
 8. One consolidated release PR and production smoke verification.
+
+## Consistency pass completed so far
+
+- Added explicit role guards to Teacher, Student and Parent workspace routes.
+- Added an explicit portal-role guard to `/portal-dashboard` so administrative roles cannot open the portal dashboard directly.
+- Restricted management-shaped Attendance, Exams, Notices, Timetable and Fees routes to Principal, Accountant and Super Admin roles. Portal roles must use their dedicated workspaces instead of loading broad management screens.
+- Removed those management-shaped destinations from portal navigation so users are not offered links that the portal route policy intentionally rejects.
+- Kept Teacher Students navigation because its role-specific page uses the existing tenant/assignment-scoped student read path.
+- Preserved the dedicated role-aware Homework route because Teacher, Student and Parent each have a role-appropriate read/write surface there.
 
 ## Current implementation
 
@@ -38,12 +47,7 @@ The `phase7-portals` branch currently provides:
 - a linked-child-only `/portal/parent/workspace` read model;
 - server-authorized parent child switching through an optional `childId` selection hint;
 - a responsive Parent workspace showing attendance, fee balance, homework, exams, timetable and notices for the selected child;
-- broad generic homework reads remain blocked for teachers so the portal read model remains the only teacher read path;
-- Stage 0/1/2 discovery and implementation documentation.
-
-## Parent workspace security contract
-
-The parent workspace does not trust client-selected child IDs. The server requires the authenticated parent ID to exist in the child’s `parentIds` and requires the child to belong to the authenticated school tenant and remain active. An invalid, unlinked or cross-tenant `childId` is rejected before child-specific data is queried. Omitting `childId` selects the first active linked child. The authorized child list is returned by the same server-scoped query and drives the client selector.
+- broad generic homework reads remain blocked for teachers so the portal read model remains the only teacher read path.
 
 ## Phase 7 mandatory principles
 
@@ -75,12 +79,12 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 ## Verification status
 
 - Local branch synchronized from `origin/phase7-portals`: PASS.
-- Server production build after Parent slice: PASS.
-- Client production build after Parent slice: PASS.
-- Parent workspace shell smoke at 1440×900, 768×900 and 390×844: PASS; no horizontal overflow observed.
-- Authenticated parent API/browser acceptance with real local credentials: **PENDING** because local parent credentials/session are not exposed.
+- Server production build after consistency changes: PASS.
+- Client production build after consistency changes: PASS.
+- Portal shell smoke at 1440×900, 768×900 and 390×844: PASS; no horizontal overflow observed.
+- Authenticated role-specific route/API acceptance: PENDING for real Teacher/Student/Parent credentials because local sessions are not exposed.
 - Local authenticated server startup remains blocked by missing environment variables; no test credential was invented or persisted.
 
 ## Next implementation task
 
-Begin the cross-portal consistency pass: review Teacher, Student and Parent navigation, route guards, loading/error/empty states, mobile behavior, keyboard focus, reduced-motion behavior and role leakage. Fix only verified defects, then run the consolidated Phase 1–6 regression gates before final release preparation.
+Continue the consistency pass with authenticated Chromium checks where a real session is available, then run the consolidated Phase 1–6 regression gates. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
