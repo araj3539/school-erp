@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect, request as playwrightRequest } from "@playwright/test";
 
 config({ path: resolve(process.cwd(), ".env") });
 
@@ -16,7 +16,8 @@ async function login(request: any, email: string, password: string) {
   });
   const body = await response.json().catch(() => ({}));
   expect(response.status(), JSON.stringify(body)).toBe(200);
-  return body.accessToken ?? body.data?.accessToken;
+  expect(body.user?.role).toBeDefined();
+  return { token: body.accessToken ?? body.data?.accessToken, role: body.user?.role };
 }
 
 function auth(token: string) {
@@ -29,13 +30,16 @@ test.beforeAll(() => {
 });
 
 test.describe("Phase 6 Notices API isolation", () => {
-  test("scheduled school notice stays hidden until publication", async ({ request }) => {
-    const principalToken = await login(request, principalEmail, fixturePassword!);
-    const studentToken = await login(request, studentEmail, fixturePassword!);
+  test("scheduled school notice stays hidden until publication", async () => {
+    const api = await playwrightRequest.newContext({ baseURL: apiUrl });
+    const principal = await login(api, principalEmail, fixturePassword!);
+    const student = await login(api, studentEmail, fixturePassword!);
+    expect(principal.role).toBe("principal");
+    expect(student.role).toBe("student");
+
     const publishAt = new Date(Date.now() + 60_000).toISOString();
     const title = `Phase 6 Notice ${Date.now()}`;
-
-    const create = await request.post("/api/v1/notices", {
+    const create = await api.post("/api/v1/notices", {
       data: {
         title,
         message: "Scheduled verification notice",
@@ -43,14 +47,15 @@ test.describe("Phase 6 Notices API isolation", () => {
         priority: "high",
         publishAt,
       },
-      ...auth(principalToken),
+      ...auth(principal.token),
     });
     const createBody = await create.json().catch(() => ({}));
     expect(create.status(), JSON.stringify(createBody)).toBe(201);
 
-    const before = await request.get("/api/v1/notices?limit=100", auth(studentToken));
+    const before = await api.get("/api/v1/notices?limit=100", auth(student.token));
     expect(before.status()).toBe(200);
     const beforeBody = await before.json();
     expect(beforeBody.data.some((notice: any) => notice.title === title)).toBe(false);
+    await api.dispose();
   });
 });
