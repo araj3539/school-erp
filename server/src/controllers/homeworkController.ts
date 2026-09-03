@@ -42,20 +42,17 @@ export async function getHomework(req: Request, res: Response, next: NextFunctio
     if (q.academicYearId) filter.academicYearId = q.academicYearId;
     if (q.assignedDate) filter.assignedDate = q.assignedDate;
     if (q.dueDate) filter.dueDate = q.dueDate;
-
     if (req.user!.role === UserRole.STUDENT) {
       const student = await Student.findOne({ schoolId: getTenantId(req), userId: req.user!.userId, status: "active" }).select("classId sectionId").lean();
       if (!student) return res.json({ data: [], pagination: { page: q.page, limit: q.limit, total: 0, totalPages: 0 } });
       filter.classId = student.classId;
       filter.$or = [{ sectionId: student.sectionId }, { sectionId: { $exists: false } }];
     }
-
     if (req.user!.role === UserRole.PARENT) {
       const children = await Student.find({ schoolId: getTenantId(req), parentIds: req.user!.userId, status: "active" }).select("classId sectionId").lean();
       if (!children.length) return res.json({ data: [], pagination: { page: q.page, limit: q.limit, total: 0, totalPages: 0 } });
       filter.$or = children.flatMap((child: any) => [{ classId: child.classId, sectionId: child.sectionId }, { classId: child.classId, sectionId: { $exists: false } }]);
     }
-
     const skip = (q.page - 1) * q.limit;
     const [data, total] = await Promise.all([
       Homework.find(filter).populate("classId sectionId subjectId academicYearId createdBy").sort({ dueDate: 1, assignedDate: -1, createdAt: -1 }).skip(skip).limit(q.limit).lean(),
@@ -67,7 +64,8 @@ export async function getHomework(req: Request, res: Response, next: NextFunctio
 
 export async function getHomeworkById(req: Request, res: Response, next: NextFunction) {
   try {
-    const homework: any = await Homework.findOne(tenantFilter(req, { _id: req.validatedParams.id })).populate("classId sectionId subjectId academicYearId createdBy").lean();
+    const { id } = req.validatedParams as { id: string };
+    const homework: any = await Homework.findOne(tenantFilter(req, { _id: id })).populate("classId sectionId subjectId academicYearId createdBy").lean();
     if (!homework) throw AppError.notFound("Homework not found");
     if (req.user!.role === UserRole.STUDENT) {
       const student = await Student.findOne({ schoolId: getTenantId(req), userId: req.user!.userId, classId: homework.classId?._id || homework.classId, $or: [{ sectionId: homework.sectionId?._id || homework.sectionId }, { sectionId: { $exists: false } }] }).select("_id").lean();
@@ -94,7 +92,8 @@ export async function createHomework(req: Request, res: Response, next: NextFunc
 
 export async function updateHomework(req: Request, res: Response, next: NextFunction) {
   try {
-    const existing: any = await Homework.findOne(tenantFilter(req, { _id: req.validatedParams.id }));
+    const { id } = req.validatedParams as { id: string };
+    const existing: any = await Homework.findOne(tenantFilter(req, { _id: id }));
     if (!existing) throw AppError.notFound("Homework not found");
     await assertTeacherCanManage(req, existing);
     const data: any = req.validatedBody;
