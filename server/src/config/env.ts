@@ -10,6 +10,7 @@ const EnvSchema = z.object({
   JWT_REFRESH_EXPIRY: z.string().default("7d"),
   CORS_ORIGIN: z.string().min(1),
   PHASE1_BOOTSTRAP_SECRET: z.string().optional(),
+  R2_ENDPOINT: z.string().url().optional(),
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),

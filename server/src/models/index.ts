@@ -36,3 +36,5 @@ export { Homework } from "./Homework.js";
 export type { IHomework, IHomeworkAttachment } from "./Homework.js";
 export { Notice } from "./Notice.js";
 export type { INotice, NoticeAudience, NoticePriority } from "./Notice.js";
+export { Timetable } from "./Timetable.js";
+export type { ITimetable } from "./Timetable.js";
