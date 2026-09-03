@@ -68,20 +68,28 @@ This follows `frontend-design_skill.md` while evolving `design.md` rather than c
 
 ## API gaps identified
 
-No new dashboard API was added in Stage 1. The existing endpoints are sufficient to establish the shell and secure role navigation.
+Stage 1 added the aggregated `/portal/dashboard` read model for teacher, student and parent orientation.
 
-The next implementation stages should add only the read models that materially improve portal workflows:
+Stage 2 now adds `/portal/teacher/workspace?date=YYYY-MM-DD` for the teacher workflow. It returns only the authenticated teacher’s school-scoped profile, class-teacher classes, active students in those classes, sections, date-specific timetable entries assigned to that teacher, and attendance groups for those class-teacher classes. Attendance marking continues through the existing `/attendance` write endpoint, whose backend checks teacher class-teacher ownership and preserves the management-only correction boundary.
 
-1. Teacher dashboard summary / next-class data, preferably aggregated server-side.
-2. Student dashboard summary / next-class, attendance and upcoming homework data.
-3. Parent dashboard summary plus secure child switching state.
-4. Assignment-aware teacher class/student read model if existing list filtering is not sufficient for the teacher workflow.
+The teacher workspace deliberately does not request admin class/academic-year lookup endpoints, so the known `classes:read` / `settings:read` permission mismatch is not worked around by broadening teacher permissions.
 
-Before adding each endpoint, verify whether the existing controller can support the required query without broad client-side filtering or N+1 requests.
+Remaining portal API work should add only read models that materially improve student/parent workflows or later teacher assignment-specific workflows:
 
-## Known permission mismatch to resolve before teacher workflow completion
+1. Student dashboard/read models beyond the current dashboard summary.
+2. Parent dashboard plus secure child switching state.
+3. Teacher subject-assignment-specific student access where a timetable subject assignment is sufficient for a read workflow.
+4. Teacher homework workflow once its assignment-scoped lookup requirements are mapped.
 
-The existing homework UI can attempt academic-year/class lookup requests for teacher users even though the teacher permission set does not include the corresponding admin lookup permissions. Stage 2 must replace this with an assignment-scoped read model or another least-privilege lookup path. The error must not be hidden by frontend console filtering.
+## Teacher workspace security decisions
+
+- The workspace route is authenticated and rejects non-teacher roles at the controller boundary.
+- Every query is tenant-scoped with the authenticated school ID.
+- Teacher identity is resolved from the authenticated user, not a client-supplied teacher ID.
+- Timetable entries are selected by the authenticated teacher’s teacher ID and requested day.
+- Attendance roster data is limited to the teacher’s `classTeacherOf` classes.
+- Attendance writes still pass through the existing attendance authorization and validation path; an existing attendance record cannot be corrected by a teacher.
+- No admin lookup permission was added to make the portal render.
 
 ## Stage 0/1 acceptance
 
@@ -91,3 +99,11 @@ The existing homework UI can attempt academic-year/class lookup requests for tea
 - Teacher/student/parent desktop navigation smoke render at 1440×900 with mocked authenticated role: PASS.
 - Portal UI produced no page errors in those Chromium checks: PASS.
 - Existing client Vitest suite remains blocked by inherited `expect is not defined` setup debt in `src/utils/utils.test.ts`; no new test failure was introduced by the portal foundation.
+
+## Stage 2 implementation status
+
+- Teacher workspace backend read model: IMPLEMENTED.
+- Teacher workspace responsive UI: IMPLEMENTED.
+- Default `/dashboard` now uses the data-driven portal dashboard for Teacher/Student/Parent roles.
+- Teacher workspace navigation entry: IMPLEMENTED.
+- Local build/browser/API acceptance: PENDING after the current GitHub changes are synchronized locally.
