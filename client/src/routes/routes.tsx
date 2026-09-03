@@ -7,9 +7,9 @@ import RouteErrorPage from "../pages/RouteErrorPage";
 
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const DashboardPage = lazy(() => import("../pages/RoleDashboardPage"));
-const StudentsPage = lazy(() => import("../pages/StudentsPage"));
+const StudentsPage = lazy(() => import("../pages/RoleAwareStudentsPage"));
+const StudentDetailPage = lazy(() => import("../pages/RoleAwareStudentDetailPage"));
 const StudentBulkOperationsPage = lazy(() => import("../pages/StudentBulkOperationsPage"));
-const StudentDetailPage = lazy(() => import("../pages/StudentDetailPage"));
 const StudentDocumentRecoveryPage = lazy(() => import("../pages/StudentDocumentRecoveryPage"));
 const DocumentRecoveryPage = lazy(() => import("../pages/DocumentRecoveryPage"));
 const TeachersPage = lazy(() => import("../pages/TeachersPage"));
