@@ -34,3 +34,5 @@ export { ExamResult } from "./ExamResult.js";
 export type { IExamResult, IMark } from "./ExamResult.js";
 export { Homework } from "./Homework.js";
 export type { IHomework, IHomeworkAttachment } from "./Homework.js";
+export { Notice } from "./Notice.js";
+export type { INotice, NoticeAudience, NoticePriority } from "./Notice.js";
