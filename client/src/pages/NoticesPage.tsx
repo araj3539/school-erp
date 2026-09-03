@@ -24,9 +24,18 @@ export default function NoticesPage() {
   const [publishAt, setPublishAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
 
-  const { data: classes } = useQuery({ queryKey: ["classes", "notices"], queryFn: async () => (await api.get("/academics/classes?limit=100")).data });
-  const { data: sections } = useQuery({ queryKey: ["sections", "notices", classId], enabled: !!classId && audience === "section", queryFn: async () => (await api.get(`/academics/sections?classId=${classId}`)).data });
-  const { data: noticesData } = useQuery({ queryKey: ["notices"], queryFn: async () => (await api.get("/notices?limit=100&includeUnpublished=true")).data });
+  const { data: classes } = useQuery({
+    queryKey: ["classes", "notices"], enabled: canWrite,
+    queryFn: async () => (await api.get("/academics/classes?limit=100")).data,
+  });
+  const { data: sections } = useQuery({
+    queryKey: ["sections", "notices", classId], enabled: canWrite && !!classId && audience === "section",
+    queryFn: async () => (await api.get(`/academics/sections?classId=${classId}`)).data,
+  });
+  const { data: noticesData } = useQuery({
+    queryKey: ["notices"],
+    queryFn: async () => (await api.get("/notices?limit=100&includeUnpublished=true")).data,
+  });
 
   const createMutation = useMutation({
     mutationFn: (payload: any) => api.post("/notices", payload),
