@@ -72,6 +72,19 @@ jobs:
           sha256sum /tmp/mongodb-backup/school-erp.archive.gz | tee /tmp/mongodb-backup/sha256.txt
           ls -lh /tmp/mongodb-backup/school-erp.archive.gz
 
+      - name: Clean old MongoDB backup object versions
+        env:
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          # database/history contains intentionally different snapshot object
+          # names for actual database changes. Keep those distinct snapshots,
+          # but remove any hidden/older B2 versions accidentally created for the
+          # same object name. database/current is a stable current-only object.
+          rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/history"
+          rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/current"
+          echo "Cleaned old B2 versions under database/history and database/current."
+
       - name: Detect database change
         id: change-check
         env:
@@ -163,6 +176,9 @@ jobs:
           CURRENT_BASE="b2:${B2_BUCKET_NAME}/database/current/school-erp"
           CURRENT_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
 
+          # Every history object name is unique to a real changed snapshot.
+          # The current object is stable and is cleaned below so it retains only
+          # its latest B2 version.
           rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${HISTORY_BASE}.archive.gz"
           rclone copyto /tmp/mongodb-backup/sha256.txt "${HISTORY_BASE}.sha256"
           rclone copyto /tmp/mongodb-backup/school-erp.archive.gz "${CURRENT_BASE}.archive.gz"
@@ -183,9 +199,9 @@ jobs:
           python -m json.tool /tmp/mongodb-latest.json >/dev/null
           rclone copyto /tmp/mongodb-latest.json "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json"
 
-          # B2 keeps old object versions by default. The history files above are
-          # intentionally unique; only the stable current object should have one
-          # retained version so it never accumulates redundant B2 versions.
+          # Keep every distinct history snapshot, but never retain multiple B2
+          # versions of the same history object or the stable current object.
+          rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/history"
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/database/current"
           rclone backend cleanup-hidden "b2:${B2_BUCKET_NAME}/metadata"
 
