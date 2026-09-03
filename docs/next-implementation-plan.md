@@ -76,12 +76,12 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 ## Verification status
 
 - Local sync from `origin/phase7-portals`: PASS.
-- Server production build before Student slice: PASS.
-- Client production build before Student slice: PASS.
-- Teacher workspace API was previously verified authenticated against local MongoDB: PASS.
-- Teacher workspace Chromium smoke: PASS at 390×844 and 768×900; 1440×900 re-check was limited by local browser authentication state.
-- Teacher homework unauthenticated local API smoke: PASS (`401`).
-- Student workspace authenticated API/browser acceptance: **PENDING** until local student credentials/session are available; no test credential will be invented or persisted.
+- Server production build after Student slice: PASS.
+- Client production build after Student slice: PASS.
+- Server Vitest: 54 tests passed; 4 inherited collection/tooling suites remain failing as documented.
+- Student workspace browser acceptance with mocked authenticated student/API data: PASS at 1440×900, 768×900 and 390×844; no page errors or horizontal overflow detected.
+- Student workspace authenticated API/browser acceptance against real local credentials: **PENDING** because local student credentials/session are not exposed; no test credential will be invented or persisted.
+- Local server cannot currently be started without environment variables (`MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`), so authenticated local API verification remains blocked by environment configuration rather than by a newly observed application failure.
 
 ## Next implementation task
 
