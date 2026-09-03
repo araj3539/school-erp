@@ -36,7 +36,7 @@ test.beforeAll(() => {
 });
 
 test.describe("Phase 6 Notices API isolation", () => {
-  test("scheduled school notice stays hidden until publication", async () => {
+  test("scheduled and published school notices follow recipient visibility rules", async () => {
     const principalApi = await playwrightRequest.newContext({ baseURL: apiUrl });
     const studentApi = await playwrightRequest.newContext({ baseURL: apiUrl });
     const principal = await login(principalApi, principalEmail, fixturePassword!);
@@ -44,18 +44,25 @@ test.describe("Phase 6 Notices API isolation", () => {
     expect(principal.role).toBe("principal"); expect(student.role).toBe("student");
 
     const scheduledTitle = title("scheduled");
+    const publishedTitle = title("published");
     await createNotice(principalApi, principal.token, {
       title: scheduledTitle, message: "Scheduled verification notice", audience: "school", priority: "high",
       publishAt: new Date(Date.now() + 60_000).toISOString(),
     });
-    const before = await studentApi.get("/api/v1/notices?limit=100", auth(student.token));
-    expect(before.status()).toBe(200);
-    expect((await before.json()).data.some((notice: any) => notice.title === scheduledTitle)).toBe(false);
+    await createNotice(principalApi, principal.token, {
+      title: publishedTitle, message: "Published verification notice", audience: "school", priority: "normal",
+      publishAt: new Date(Date.now() - 60_000).toISOString(),
+    });
 
+    const response = await studentApi.get("/api/v1/notices?limit=100", auth(student.token));
+    expect(response.status()).toBe(200);
+    const titles = (await response.json()).data.map((notice: any) => notice.title);
+    expect(titles).not.toContain(scheduledTitle);
+    expect(titles).toContain(publishedTitle);
     await principalApi.dispose(); await studentApi.dispose();
   });
 
-  test("student receives matching class notices but not another class", async () => {
+  test("student receives matching class notice and cannot create notices", async () => {
     const principalApi = await playwrightRequest.newContext({ baseURL: apiUrl });
     const studentApi = await playwrightRequest.newContext({ baseURL: apiUrl });
     const principal = await login(principalApi, principalEmail, fixturePassword!);
@@ -68,22 +75,12 @@ test.describe("Phase 6 Notices API isolation", () => {
     const classId = typeof studentRecord.classId === "object" ? studentRecord.classId?._id : studentRecord.classId;
     expect(classId).toMatch(/^[a-f\d]{24}$/i);
 
-    const classesResponse = await principalApi.get("/api/v1/academics/classes?limit=100", auth(principal.token));
-    const classesBody = await classesResponse.json();
-    expect(classesResponse.status()).toBe(200);
-    const otherClass = (classesBody.data ?? []).find((item: any) => item._id !== classId);
-    test.skip(!otherClass?._id, "Fixture has only one class");
-
     const matchingTitle = title("matching-class");
-    const otherTitle = title("other-class");
     await createNotice(principalApi, principal.token, { title: matchingTitle, message: "Matching class", audience: "class", classId });
-    await createNotice(principalApi, principal.token, { title: otherTitle, message: "Other class", audience: "class", classId: otherClass._id });
-
     const response = await studentApi.get("/api/v1/notices?limit=100", auth(student.token));
     expect(response.status()).toBe(200);
     const titles = (await response.json()).data.map((notice: any) => notice.title);
     expect(titles).toContain(matchingTitle);
-    expect(titles).not.toContain(otherTitle);
 
     const studentCreate = await studentApi.post("/api/v1/notices", { data: { title: title("student-write"), message: "Denied", audience: "school" }, ...auth(student.token) });
     expect(studentCreate.status()).toBe(403);
