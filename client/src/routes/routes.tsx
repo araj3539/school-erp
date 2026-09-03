@@ -16,6 +16,7 @@ const TeachersPage = lazy(() => import("../pages/TeachersPage"));
 const ClassesPage = lazy(() => import("../pages/ClassesPage"));
 const AttendancePage = lazy(() => import("../pages/AttendancePage"));
 const ExamsPage = lazy(() => import("../pages/ExamsPage"));
+const HomeworkPage = lazy(() => import("../pages/HomeworkPage"));
 const FeesPage = lazy(() => import("../pages/FeesPage"));
 const ReportsPage = lazy(() => import("../pages/ReportsPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
       { path: "/classes", element: <ClassesPage /> },
       { path: "/attendance", element: <AttendancePage /> },
       { path: "/exams", element: <ExamsPage /> },
+      { path: "/homework", element: <HomeworkPage /> },
       { path: "/fees", element: <FeesPage /> },
       { path: "/reports", element: <ReportsPage /> },
       { path: "/settings", element: <SettingsPage /> },
