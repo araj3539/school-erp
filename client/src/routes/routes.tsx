@@ -1,12 +1,14 @@
 import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AdminLayout } from "../layouts/AdminLayout";
+import { PortalLayout } from "../layouts/PortalLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
-import { RequireAuth } from "./guards";
+import { RequireAuth, RequireRole } from "./guards";
 import RouteErrorPage from "../pages/RouteErrorPage";
 
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const DashboardPage = lazy(() => import("../pages/DashboardPage"));
+const PortalHomePage = lazy(() => import("../pages/PortalHomePage"));
 const StudentsPage = lazy(() => import("../pages/StudentsPage"));
 const StudentBulkOperationsPage = lazy(() => import("../pages/StudentBulkOperationsPage"));
 const StudentDetailPage = lazy(() => import("../pages/StudentDetailPage"));
@@ -47,6 +49,23 @@ export const router = createBrowserRouter([
       { path: "/fees", element: <FeesPage /> },
       { path: "/reports", element: <ReportsPage /> },
       { path: "/settings", element: <SettingsPage /> },
+      { path: "*", element: <NotFoundPage /> }
+    ]
+  },
+  {
+    element: <RequireAuth><RequireRole roles={["teacher", "student", "parent"]}><PortalLayout /></RequireRole></RequireAuth>,
+    errorElement: <RouteErrorPage />,
+    children: [
+      { path: "/portal", element: <Navigate to="/dashboard" replace /> },
+      { path: "/dashboard", element: <PortalHomePage /> },
+      { path: "/students", element: <StudentsPage /> },
+      { path: "/students/:id", element: <StudentDetailPage /> },
+      { path: "/attendance", element: <AttendancePage /> },
+      { path: "/exams", element: <ExamsPage /> },
+      { path: "/homework", element: <HomeworkPage /> },
+      { path: "/notices", element: <NoticesPage /> },
+      { path: "/timetable", element: <TimetablePage /> },
+      { path: "/fees", element: <FeesPage /> },
       { path: "*", element: <NotFoundPage /> }
     ]
   }
