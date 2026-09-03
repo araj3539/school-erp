@@ -26,6 +26,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y /tmp/mongodb-database-tools.deb
           mongodump --version
+          bsondump --version
 
       - name: Install rclone
         run: |
@@ -57,19 +58,54 @@ jobs:
           test -n "$B2_BUCKET_NAME" || { echo "Missing required secret: B2_BUCKET_NAME"; exit 1; }
           rclone lsd "b2:${B2_BUCKET_NAME}"
 
-      - name: Create compressed MongoDB dump and fingerprint
+      - name: Create MongoDB dump and stable content fingerprint
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
           set -euo pipefail
           test -n "$MONGODB_URI" || { echo "Missing required secret: MONGODB_URI"; exit 1; }
           mkdir -p /tmp/mongodb-backup
+
+          # The archive is the actual restorable backup. Its raw SHA-256 is only
+          # used for integrity verification because mongodump output is not a
+          # stable database-content fingerprint: document order and BSON field
+          # ordering can vary between otherwise identical dumps.
           mongodump \
             --uri="$MONGODB_URI" \
             --archive=/tmp/mongodb-backup/school-erp.archive.gz \
-            --gzip
+            --gzip \
+            --numParallelCollections=1
           test -s /tmp/mongodb-backup/school-erp.archive.gz
           sha256sum /tmp/mongodb-backup/school-erp.archive.gz | tee /tmp/mongodb-backup/sha256.txt
+
+          # Create a second directory-format dump solely for deterministic change
+          # detection. bsondump emits canonical Extended JSON, jq -S canonicalizes
+          # object key order, and sort makes collection document order irrelevant.
+          rm -rf /tmp/mongodb-fingerprint
+          mongodump \
+            --uri="$MONGODB_URI" \
+            --out=/tmp/mongodb-fingerprint \
+            --numParallelCollections=1
+
+          : > /tmp/mongodb-fingerprint-manifest.txt
+          while IFS= read -r file; do
+            rel="${file#/tmp/mongodb-fingerprint/}"
+            if [[ "$rel" == *.bson ]]; then
+              digest=$(bsondump --type=json "$file" | jq -S -c . | LC_ALL=C sort | sha256sum | awk '{print $1}')
+            elif [[ "$rel" == *.metadata.json ]]; then
+              digest=$(jq -S -c . "$file" | sha256sum | awk '{print $1}')
+            else
+              continue
+            fi
+            printf '%s  %s\n' "$rel" "$digest" >> /tmp/mongodb-fingerprint-manifest.txt
+          done < <(find /tmp/mongodb-fingerprint -type f \( -name '*.bson' -o -name '*.metadata.json' \) | LC_ALL=C sort)
+
+          test -s /tmp/mongodb-fingerprint-manifest.txt
+          LC_ALL=C sort -o /tmp/mongodb-fingerprint-manifest.txt /tmp/mongodb-fingerprint-manifest.txt
+          sha256sum /tmp/mongodb-fingerprint-manifest.txt | awk '{print $1}' | tee /tmp/mongodb-backup/fingerprint.txt
+
+          echo "Archive SHA-256: $(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)"
+          echo "Stable database fingerprint: $(cat /tmp/mongodb-backup/fingerprint.txt)"
           ls -lh /tmp/mongodb-backup/school-erp.archive.gz
 
       - name: Clean old MongoDB backup object versions
@@ -91,8 +127,8 @@ jobs:
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          CURRENT_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
-          PREVIOUS_SHA=""
+          CURRENT_FINGERPRINT=$(cat /tmp/mongodb-backup/fingerprint.txt)
+          PREVIOUS_FINGERPRINT=""
           PREVIOUS_PATH=""
           rm -f /tmp/mongodb-latest.json
 
@@ -109,7 +145,7 @@ jobs:
               raise ValueError('missing fingerprint or backup path')
           PY
             then
-              PREVIOUS_SHA=$(python - <<'PY'
+              PREVIOUS_FINGERPRINT=$(python - <<'PY'
           import json
           with open('/tmp/mongodb-latest.json', encoding='utf-8') as f:
               print(json.load(f)['fingerprint'])
@@ -131,10 +167,10 @@ jobs:
             rm -f /tmp/mongodb-latest.json
           fi
 
-          echo "Current database fingerprint:  ${CURRENT_SHA}"
-          echo "Previous database fingerprint: ${PREVIOUS_SHA:-<none>}"
+          echo "Current stable database fingerprint:  ${CURRENT_FINGERPRINT}"
+          echo "Previous database fingerprint:        ${PREVIOUS_FINGERPRINT:-<none>}"
 
-          if [[ -n "$PREVIOUS_SHA" && "$CURRENT_SHA" == "$PREVIOUS_SHA" && -n "$PREVIOUS_PATH" ]] && \
+          if [[ -n "$PREVIOUS_FINGERPRINT" && "$CURRENT_FINGERPRINT" == "$PREVIOUS_FINGERPRINT" && -n "$PREVIOUS_PATH" ]] && \
              rclone size "$PREVIOUS_PATH" >/dev/null 2>&1; then
             NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
             NOW="$NOW" python - <<'PY'
@@ -155,9 +191,9 @@ jobs:
             exit 0
           fi
 
-          if [[ -z "$PREVIOUS_SHA" ]]; then
+          if [[ -z "$PREVIOUS_FINGERPRINT" ]]; then
             echo "No previous fingerprint found; creating the initial change-aware backup."
-          elif [[ "$CURRENT_SHA" != "$PREVIOUS_SHA" ]]; then
+          elif [[ "$CURRENT_FINGERPRINT" != "$PREVIOUS_FINGERPRINT" ]]; then
             echo "Database changes detected; creating a new backup version."
           else
             echo "Previous backup object is unavailable; recreating the backup."
@@ -174,7 +210,8 @@ jobs:
           TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
           HISTORY_BASE="b2:${B2_BUCKET_NAME}/database/history/${DATE}/school-erp-${TIMESTAMP}"
           CURRENT_BASE="b2:${B2_BUCKET_NAME}/database/current/school-erp"
-          CURRENT_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
+          ARCHIVE_SHA=$(awk '{print $1}' /tmp/mongodb-backup/sha256.txt)
+          DATABASE_FINGERPRINT=$(cat /tmp/mongodb-backup/fingerprint.txt)
 
           # Every history object name is unique to a real changed snapshot.
           # The current object is stable and is cleaned below so it retains only
@@ -188,7 +225,8 @@ jobs:
           cat > /tmp/mongodb-latest.json <<EOF
           {
             "status": "success",
-            "fingerprint": "${CURRENT_SHA}",
+            "fingerprint": "${DATABASE_FINGERPRINT}",
+            "archiveSha256": "${ARCHIVE_SHA}",
             "backupPath": "${HISTORY_BASE}.archive.gz",
             "currentPath": "${CURRENT_BASE}.archive.gz",
             "createdAt": "${NOW}",
@@ -212,10 +250,10 @@ jobs:
           set -euo pipefail
           if [[ "${{ steps.change-check.outputs.changed }}" == "true" ]]; then
             CURRENT_PATH="b2:${B2_BUCKET_NAME}/database/current/school-erp.archive.gz"
-            CURRENT_SHA=$(rclone cat "b2:${B2_BUCKET_NAME}/database/current/school-erp.sha256" | head -n 1 | awk '{print $1}')
-            LATEST_SHA=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" | python -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
-            test -n "$CURRENT_SHA"
-            test "$CURRENT_SHA" = "$LATEST_SHA"
+            CURRENT_ARCHIVE_SHA=$(rclone cat "b2:${B2_BUCKET_NAME}/database/current/school-erp.sha256" | head -n 1 | awk '{print $1}')
+            LATEST_ARCHIVE_SHA=$(rclone cat "b2:${B2_BUCKET_NAME}/metadata/mongodb-latest.json" | python -c 'import json,sys; print(json.load(sys.stdin)["archiveSha256"])')
+            test -n "$CURRENT_ARCHIVE_SHA"
+            test "$CURRENT_ARCHIVE_SHA" = "$LATEST_ARCHIVE_SHA"
             rclone size "$CURRENT_PATH"
             echo "MongoDB backup completed successfully."
           else
