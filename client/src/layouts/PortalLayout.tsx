@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Calendar, CalendarClock, ClipboardList, DollarSign, LayoutDashboard, LogOut, Menu, Megaphone, Users, X, BriefcaseBusiness, HeartHandshake } from "lucide-react";
+import { ClipboardList, LayoutDashboard, LogOut, Menu, Users, X, BriefcaseBusiness, HeartHandshake } from "lucide-react";
 import { useAuth } from "../hooks";
 import { cn } from "../utils";
 import api from "../lib/api";
@@ -11,14 +11,9 @@ const PORTAL_NAV: PortalNavItem[] = [
   { label: "Home", path: "/dashboard", icon: <LayoutDashboard className="h-5 w-5" aria-hidden="true" />, permissions: [] },
   { label: "Family workspace", path: "/parent-workspace", icon: <HeartHandshake className="h-5 w-5" aria-hidden="true" />, permissions: ["students:read:child"], roles: ["parent"] },
   { label: "Teaching workspace", path: "/teacher-workspace", icon: <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />, permissions: ["attendance:read", "timetable:read:own"], roles: ["teacher"] },
-  { label: "Timetable", path: "/timetable", icon: <CalendarClock className="h-5 w-5" aria-hidden="true" />, permissions: ["timetable:read:own", "timetable:read:child"] },
-  { label: "Attendance", path: "/attendance", icon: <Calendar className="h-5 w-5" aria-hidden="true" />, permissions: ["attendance:read:own", "attendance:read:child", "attendance:read"] },
   { label: "Homework", path: "/teacher-homework", icon: <ClipboardList className="h-5 w-5" aria-hidden="true" />, permissions: ["homework:write"], roles: ["teacher"] },
   { label: "Homework", path: "/homework", icon: <ClipboardList className="h-5 w-5" aria-hidden="true" />, permissions: ["homework:read:own", "homework:read:child"], roles: ["student", "parent"] },
-  { label: "Exams & results", path: "/exams", icon: <ClipboardList className="h-5 w-5" aria-hidden="true" />, permissions: ["results:read:own", "results:read:child", "results:read", "marks:read"] },
-  { label: "Fees", path: "/fees", icon: <DollarSign className="h-5 w-5" aria-hidden="true" />, permissions: ["fees:read:own", "fees:read:child", "fees:read"] },
-  { label: "Notices", path: "/notices", icon: <Megaphone className="h-5 w-5" aria-hidden="true" />, permissions: ["notices:read"] },
-  { label: "Students", path: "/students", icon: <Users className="h-5 w-5" aria-hidden="true" />, permissions: ["students:read"] },
+  { label: "Students", path: "/students", icon: <Users className="h-5 w-5" aria-hidden="true" />, permissions: ["students:read"], roles: ["teacher"] },
 ];
 function roleLabel(role?: string) { return role ? role.replace(/_/g, " ") : ""; }
 export function PortalLayout() {
