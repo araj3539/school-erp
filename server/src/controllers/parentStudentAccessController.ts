@@ -8,12 +8,18 @@ function assertParent(req: Request): void {
   if (req.user?.role !== "parent") throw AppError.forbidden("Parent access required");
 }
 
+const linkedChildFilter = (req: Request, id?: string) => ({
+  ...(id ? { _id: id } : {}),
+  schoolId: getTenantId(req),
+  parentIds: req.user!.userId,
+  status: "active",
+});
+
 export async function getParentStudents(req: Request, res: Response, next: NextFunction) {
   try {
     assertParent(req);
     const { page = 1, limit = 20, sortBy, sortOrder } = req.validatedQuery as any;
-    const schoolId = getTenantId(req);
-    const query: any = { schoolId, parentIds: req.user!.userId };
+    const query: any = { schoolId: getTenantId(req), parentIds: req.user!.userId, status: "active" };
     const sort: any = {};
     if (sortBy) sort[sortBy] = sortOrder === "asc" ? 1 : -1;
     else sort.createdAt = -1;
@@ -30,11 +36,7 @@ export async function getParentStudentById(req: Request, res: Response, next: Ne
   try {
     assertParent(req);
     const { id } = req.validatedParams as { id: string };
-    const student = await Student.findOne({
-      _id: id,
-      schoolId: getTenantId(req),
-      parentIds: req.user!.userId,
-    }).select("-documents.url -documents.publicId").populate("classId sectionId userId");
+    const student = await Student.findOne(linkedChildFilter(req, id)).select("-documents.url -documents.publicId").populate("classId sectionId userId");
     if (!student) throw AppError.notFound("Student not found");
     res.json({ student });
   } catch (error) { next(error); }
@@ -44,11 +46,7 @@ export async function getParentStudentDocumentUrl(req: Request, res: Response, n
   try {
     assertParent(req);
     const { id, documentId } = req.validatedParams as { id: string; documentId: string };
-    const student = await Student.findOne({
-      _id: id,
-      schoolId: getTenantId(req),
-      parentIds: req.user!.userId,
-    }).select("documents").lean();
+    const student = await Student.findOne(linkedChildFilter(req, id)).select("documents").lean();
     if (!student) throw AppError.notFound("Student not found");
     const document = (student.documents as any[]).find((item) => item._id?.toString() === documentId);
     if (!document?.url) throw AppError.notFound("Document not found");
