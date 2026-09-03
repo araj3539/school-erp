@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { Exam, ExamResult, Student } from "../models/index.js";
+import { ExamResult, Student } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
 import { UserRole } from "@school-erp/shared";
@@ -28,7 +28,7 @@ export async function getPortalResults(req: Request, res: Response, next: NextFu
     const studentIds = students.map((student: any) => student._id);
     const schoolId = getTenantId(req);
     const results = await ExamResult.find({ schoolId, studentId: { $in: studentIds }, status: "published" })
-      .populate("examId classId sectionId marks.subjectId")
+      .populate("examId studentId classId sectionId marks.subjectId")
       .sort({ createdAt: -1 }).limit(50).lean();
     const exams = results.map((result: any) => ({
       _id: result._id,
@@ -37,7 +37,7 @@ export async function getPortalResults(req: Request, res: Response, next: NextFu
       examType: result.examId?.examType || "",
       startDate: result.examId?.startDate || null,
       endDate: result.examId?.endDate || null,
-      studentId: result.studentId,
+      studentId: result.studentId?._id || result.studentId,
       studentName: `${result.studentId?.firstName || ""} ${result.studentId?.lastName || ""}`.trim(),
       class: result.classId?.displayName || "",
       section: result.sectionId?.name || "",
