@@ -39,7 +39,7 @@ export const router = createBrowserRouter([
       { path: "/students/bulk", element: only("students:write", <StudentBulkOperationsPage />) },
       { path: "/students/:id", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDetailPage />) },
       { path: "/document-recovery", element: only("students:read", <DocumentRecoveryPage />) },
-      { path: "/students/:id/document-recovery", element: any(["students:read", "students:read:own", "students:read:child"], <StudentDocumentRecoveryPage />) },
+      { path: "/students/:id/document-recovery", element: only("students:read", <StudentDocumentRecoveryPage />) },
       { path: "/teachers", element: only("teachers:read", <TeachersPage />) },
       { path: "/classes", element: only("classes:read", <ClassesPage />) },
       { path: "/attendance", element: any(["attendance:read", "attendance:read:own", "attendance:read:child"], <AttendancePage />) },
