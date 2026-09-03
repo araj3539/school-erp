@@ -13,7 +13,8 @@ const statuses = [
 type Status = typeof statuses[number][0];
 type Student = { _id: string; admissionNo: string; firstName: string; lastName: string; classId: string | { _id: string; displayName: string }; sectionId?: string | { _id: string; name: string } };
 type Section = { _id: string; name: string; classId: string };
-type WorkspaceData = { teacher: { _id: string; firstName: string; lastName: string }; date: string; assignedClasses: { _id: string; displayName: string; sectionIds: string[] }[]; assignedSections: Section[]; assignedStudents: Student[]; todayTimetable: any[]; attendance: any[] };
+type AttendanceRecord = { studentId: string; status: Status; remark?: string };
+type WorkspaceData = { teacher: { _id: string; firstName: string; lastName: string }; date: string; assignedClasses: { _id: string; displayName: string; sectionIds: string[] }[]; assignedSections: Section[]; assignedStudents: Student[]; todayTimetable: any[]; attendance: { _id: string; classId: any; sectionId: any; records: AttendanceRecord[] }[] };
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function id(value: unknown) { return typeof value === "string" ? value : (value as { _id?: string })?._id ?? ""; }
@@ -45,7 +46,7 @@ export default function TeacherWorkspacePage() {
     setSelectedSection((current) => sections.some((item) => item._id === current) ? current : sections[0]?._id ?? "");
   }, [selectedClass, sections]);
   useEffect(() => {
-    const existing = new Map((existingAttendance?.records ?? []).map((record: any) => [id(record.studentId), record]));
+    const existing = new Map<string, AttendanceRecord>((existingAttendance?.records ?? []).map((record) => [id(record.studentId), record]));
     setDraft(Object.fromEntries(students.map((student) => { const record = existing.get(student._id); return [student._id, { status: record?.status ?? "present", remark: record?.remark ?? "" }]; })));
   }, [students, existingAttendance, date]);
 
