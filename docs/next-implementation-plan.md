@@ -38,6 +38,8 @@ Phase 6 is complete and released to production. `main` remains the protected pro
 - Added a dedicated `/portal/fees` read model for Student and Parent roles. Student queries resolve from the authenticated user; Parent queries require an actively linked child in the same school. The response now exposes a consumption-safe fee DTO rather than populated fee documents.
 - Added a dedicated `/portal-fees` consumption page with due/paid/balance/overdue summaries and fee records, keeping the management fees screen unavailable to portal roles.
 - Added a parent child selector to the Fees page; the selected ID remains only a server-authorized query hint.
+- Added a dedicated `/portal/timetable` read model for Teacher, Student and Parent roles. Teacher access resolves from the authenticated teacher profile; Student access resolves from the authenticated student and class/section; Parent access resolves only active linked children and optionally one selected child.
+- Added a dedicated `/portal-timetable` weekly consumption page with role-appropriate schedule details and parent child switching. The existing management timetable page remains admin-only.
 
 ## Current implementation
 
@@ -60,6 +62,8 @@ The `phase7-portals` branch currently provides:
 - a responsive Parent workspace showing attendance, fee balance, homework, exams, timetable and notices for the selected child;
 - dedicated Student/Parent results and fees consumption surfaces backed by role-safe server read models;
 - parent child selection on Results and Fees pages, with authorization retained server-side;
+- a dedicated Student/Parent timetable consumption surface backed by the current academic year and self/linked-child authorization;
+- parent child selection on the timetable page, with authorization retained server-side;
 - a dedicated Student/Parent homework consumption surface with private attachment access;
 - direct Student/Parent profile actions using the existing server-side ownership checks;
 - a dedicated Student/Parent attendance consumption surface backed by a server-side self/linked-child read model;
@@ -98,11 +102,11 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 - Shared production build: PASS after latest consistency changes.
 - Server production build: PASS after latest consistency changes.
 - Client production build: PASS after latest consistency changes.
-- Portal shell smoke at 1440×900, 768×900 and 390×844: PASS before Results/Fees changes; Results/Fees pages still need authenticated viewport QA.
+- Portal shell smoke at 1440×900, 768×900 and 390×844: PASS before Results/Fees changes; Results/Fees/Timetable pages still need authenticated viewport QA.
 - Authenticated role-specific route/API acceptance: PENDING for real Teacher/Student/Parent credentials because local sessions are not exposed.
 - Local authenticated server startup remains blocked by invalid local JWT secret lengths; no secrets were changed or persisted.
 - The latest unauthenticated local startup failure is an environment configuration issue, not evidence of a portal authentication failure.
 
 ## Next implementation task
 
-Run authenticated Chromium checks for the Teacher, Student and Parent portals at 1440×900, 768×900 and 390×844 where a real session is available, including Results/Fees child switching and report-card authorization. Then execute the consolidated Phase 1–6 regression gates. Resolve any real permission-to-workflow mismatch found during that verification; do not hide it with broader permissions. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
+Run authenticated Chromium checks for the Teacher, Student and Parent portals at 1440×900, 768×900 and 390×844 where a real session is available, including Results/Fees/Timetable child switching and report-card authorization. Then execute the consolidated Phase 1–6 regression gates. Resolve any real permission-to-workflow mismatch found during that verification; do not hide it with broader permissions. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
