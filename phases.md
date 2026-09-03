@@ -83,6 +83,9 @@ A school can operate its fee collection process safely, issue correctly branded 
 
 # Phase 5 — Exams and Academic Results
 
+### Status
+`COMPLETED`
+
 ### Scope
 - exams
 - marks entry
@@ -98,6 +101,9 @@ Teacher can enter marks and authorized users can publish results safely.
 
 # Phase 6 — Homework, Notices and Timetable
 
+### Status
+`IN_PROGRESS`
+
 ### Scope
 - homework and attachments
 - notices
@@ -105,6 +111,9 @@ Teacher can enter marks and authorized users can publish results safely.
 - timetable
 - teacher timetable
 - student timetable
+
+### Current progress
+Homework vertical slice is implemented and build-verified. Notices and timetable remain to be implemented and regression-tested.
 
 ---
 
@@ -168,14 +177,13 @@ Only after core data quality is strong. AI must never make authoritative financi
 ## Current Implementation Order
 
 ```text
-1. Phase 5 — Exams/results
-2. Homework/notices/timetable
-3. Parent/Student/Teacher portals
-4. Notifications
-5. Mobile
-6. SaaS administration/billing
-7. Reliability/scale
-8. AI/advanced analytics
+1. Phase 6 — Homework/notices/timetable
+2. Parent/Student/Teacher portals
+3. Notifications
+4. Mobile
+5. SaaS administration/billing
+6. Reliability/scale
+7. AI/advanced analytics
 ```
 
 Do not prioritize microservices, Kubernetes, GPS/WhatsApp automation, speculative AI decisioning or broad caching before the core ERP is correct and regression-gated.

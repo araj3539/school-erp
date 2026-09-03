@@ -1,7 +1,9 @@
 {
   "name": "school-erp",
   "private": true,
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix shared\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run build --prefix shared && npm run build --prefix server && npm run build --prefix client",
@@ -15,11 +17,12 @@
     "prepare": "node .husky/install.mjs"
   },
   "devDependencies": {
-    "turbo": "^2.0.0",
-    "prettier": "^3.3.0",
+    "concurrently": "^8.2.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.2.0",
-    "concurrently": "^8.2.0"
+    "prettier": "^3.3.0",
+    "tsx": "^4.23.13",
+    "turbo": "^2.0.0"
   },
   "packageManager": "npm@10.8.0",
   "workspaces": [
