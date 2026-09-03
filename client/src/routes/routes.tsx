@@ -31,12 +31,13 @@ const any = (permissions: string[], element: React.ReactNode) => <RequireAnyPerm
 const only = (permission: string, element: React.ReactNode) => <RequirePermission permission={permission}>{element}</RequirePermission>;
 const role = (roles: string[], element: React.ReactNode) => <RequireRole roles={roles}>{element}</RequireRole>;
 const adminRoles = ["principal", "accountant", "super_admin"];
+const portalRoles = ["teacher", "student", "parent"];
 export const router = createBrowserRouter([
   { element: <AuthLayout />, errorElement: <RouteErrorPage />, children: [{ path: "/login", element: <LoginPage /> }] },
   { element: <RequireAuth><RoleAwareLayout /></RequireAuth>, errorElement: <RouteErrorPage />, children: [
     { path: "/", element: <Navigate to="/dashboard" replace /> },
     { path: "/dashboard", element: <DashboardPage /> },
-    { path: "/portal-dashboard", element: any(["attendance:read", "attendance:read:own", "attendance:read:child"], <PortalDashboardPage />) },
+    { path: "/portal-dashboard", element: role(portalRoles, any(["attendance:read", "attendance:read:own", "attendance:read:child"], <PortalDashboardPage />)) },
     { path: "/student-workspace", element: role(["student"], only("students:read:own", <StudentWorkspacePage />)) },
     { path: "/parent-workspace", element: role(["parent"], only("students:read:child", <ParentWorkspacePage />)) },
     { path: "/teacher-workspace", element: role(["teacher"], any(["attendance:read", "timetable:read:own"], <TeacherWorkspacePage />)) },
