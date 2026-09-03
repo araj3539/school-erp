@@ -1,6 +1,6 @@
 # School ERP — Next Implementation Plan
 
-Updated: 2026-09-03
+Updated: 2026-09-04
 Production baseline: `main` at `ddf9d1bbb4ed8a3a009d486d3d9fb80af950d35`
 Active implementation branch: `phase7-portals`
 
@@ -32,9 +32,12 @@ Phase 6 is complete and released to production. `main` remains the protected pro
 - Added a dedicated `/portal/attendance` read model for Student and Parent roles. Student queries resolve only from the authenticated user; Parent queries require the selected child to be actively linked in the same school.
 - Added a dedicated `/portal-attendance` consumption page showing a 30-day rate, status counts and daily attendance records, keeping the management attendance screen unavailable to portal roles.
 - Added a dedicated `/portal/results` read model for Student and Parent roles. Student queries resolve from the authenticated user; Parent queries require an actively linked child in the same school. Only published results are returned.
+- Hardened the Results read model to populate student metadata before shaping the response, so portal result cards identify the correct student without exposing the raw result document.
 - Added a dedicated `/portal-results` consumption page with subject marks, outcome/percentage and report-card access while keeping exam management unavailable to portal roles.
-- Added a dedicated `/portal/fees` read model for Student and Parent roles. Student queries resolve from the authenticated user; Parent queries require an actively linked child in the same school. The response exposes fee balances and statuses only; payment collection remains an admin workflow.
+- Added a parent child selector to the Results page; the selected ID remains only a server-authorized query hint.
+- Added a dedicated `/portal/fees` read model for Student and Parent roles. Student queries resolve from the authenticated user; Parent queries require an actively linked child in the same school. The response now exposes a consumption-safe fee DTO rather than populated fee documents.
 - Added a dedicated `/portal-fees` consumption page with due/paid/balance/overdue summaries and fee records, keeping the management fees screen unavailable to portal roles.
+- Added a parent child selector to the Fees page; the selected ID remains only a server-authorized query hint.
 
 ## Current implementation
 
@@ -56,6 +59,7 @@ The `phase7-portals` branch currently provides:
 - server-authorized parent child switching through an optional `childId` selection hint;
 - a responsive Parent workspace showing attendance, fee balance, homework, exams, timetable and notices for the selected child;
 - dedicated Student/Parent results and fees consumption surfaces backed by role-safe server read models;
+- parent child selection on Results and Fees pages, with authorization retained server-side;
 - a dedicated Student/Parent homework consumption surface with private attachment access;
 - direct Student/Parent profile actions using the existing server-side ownership checks;
 - a dedicated Student/Parent attendance consumption surface backed by a server-side self/linked-child read model;
@@ -90,13 +94,15 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 
 ## Verification status
 
-- Local branch synchronized from `origin/phase7-portals`: PASS before this slice.
-- Shared/server/client production builds after Results/Fees implementation: PASS after Results/Fees slice.
-- Portal shell smoke at 1440×900, 768×900 and 390×844: PASS before this slice; Results/Fees pages still need authenticated viewport QA.
+- Local branch synchronized from `origin/phase7-portals`: PASS after latest consistency changes.
+- Shared production build: PASS after latest consistency changes.
+- Server production build: PASS after latest consistency changes.
+- Client production build: PASS after latest consistency changes.
+- Portal shell smoke at 1440×900, 768×900 and 390×844: PASS before Results/Fees changes; Results/Fees pages still need authenticated viewport QA.
 - Authenticated role-specific route/API acceptance: PENDING for real Teacher/Student/Parent credentials because local sessions are not exposed.
 - Local authenticated server startup remains blocked by invalid local JWT secret lengths; no secrets were changed or persisted.
 - The latest unauthenticated local startup failure is an environment configuration issue, not evidence of a portal authentication failure.
 
 ## Next implementation task
 
-Finish the cross-portal consistency and security review, then run authenticated Chromium checks where a real session is available and execute the consolidated Phase 1–6 regression gates. Resolve any real permission-to-workflow mismatch found during that verification; do not hide it with broader permissions. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
+Run authenticated Chromium checks for the Teacher, Student and Parent portals at 1440×900, 768×900 and 390×844 where a real session is available, including Results/Fees child switching and report-card authorization. Then execute the consolidated Phase 1–6 regression gates. Resolve any real permission-to-workflow mismatch found during that verification; do not hide it with broader permissions. Do not merge to `main` until the full Phase 7 verification matrix is green or every remaining limitation is explicitly documented.
