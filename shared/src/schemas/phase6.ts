@@ -77,6 +77,35 @@ export const NoticeQuerySchema = PaginationSchema.extend({
   includeUnpublished: z.coerce.boolean().default(false),
 });
 
+export const TimetableDaySchema = z.number().int().min(1).max(7);
+export const TimetableTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Time must use HH:mm format");
+const TimetableFieldsSchema = z.object({
+  academicYearId: ObjectIdSchema,
+  classId: ObjectIdSchema,
+  sectionId: ObjectIdSchema.optional(),
+  subjectId: ObjectIdSchema,
+  teacherId: ObjectIdSchema,
+  dayOfWeek: TimetableDaySchema,
+  startTime: TimetableTimeSchema,
+  endTime: TimetableTimeSchema,
+  roomNumber: z.string().trim().max(50).optional(),
+  periodLabel: z.string().trim().max(50).optional(),
+});
+const validateTimetableTime = (value: any, ctx: z.RefinementCtx) => {
+  if (value.startTime >= value.endTime) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endTime"], message: "End time must be after start time" });
+  }
+};
+export const CreateTimetableSchema = TimetableFieldsSchema.superRefine(validateTimetableTime);
+export const UpdateTimetableSchema = TimetableFieldsSchema.partial();
+export const TimetableQuerySchema = PaginationSchema.extend({
+  academicYearId: ObjectIdSchema.optional(),
+  classId: ObjectIdSchema.optional(),
+  sectionId: ObjectIdSchema.optional(),
+  teacherId: ObjectIdSchema.optional(),
+  dayOfWeek: z.coerce.number().int().min(1).max(7).optional(),
+});
+
 export type HomeworkAttachment = z.infer<typeof HomeworkAttachmentSchema>;
 export type CreateHomework = z.infer<typeof CreateHomeworkSchema>;
 export type UpdateHomework = z.infer<typeof UpdateHomeworkSchema>;
@@ -84,3 +113,6 @@ export type HomeworkQuery = z.infer<typeof HomeworkQuerySchema>;
 export type CreateNotice = z.infer<typeof CreateNoticeSchema>;
 export type UpdateNotice = z.infer<typeof UpdateNoticeSchema>;
 export type NoticeQuery = z.infer<typeof NoticeQuerySchema>;
+export type CreateTimetable = z.infer<typeof CreateTimetableSchema>;
+export type UpdateTimetable = z.infer<typeof UpdateTimetableSchema>;
+export type TimetableQuery = z.infer<typeof TimetableQuerySchema>;

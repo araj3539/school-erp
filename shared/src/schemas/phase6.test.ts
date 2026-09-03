@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { CreateHomeworkSchema, HomeworkQuerySchema, CreateNoticeSchema, NoticeQuerySchema } from "./phase6.js";
+import { CreateHomeworkSchema, HomeworkQuerySchema, CreateNoticeSchema, NoticeQuerySchema, CreateTimetableSchema, TimetableQuerySchema } from "./phase6.js";
 
 const ids = {
   classId: "507f1f77bcf86cd799439011",
   sectionId: "507f1f77bcf86cd799439012",
   subjectId: "507f1f77bcf86cd799439013",
   academicYearId: "507f1f77bcf86cd799439014",
+  teacherId: "507f1f77bcf86cd799439015",
 };
 
 describe("phase 6 homework schemas", () => {
@@ -77,5 +78,25 @@ describe("phase 6 notice schemas", () => {
   it("coerces includeUnpublished query values", () => {
     const result = NoticeQuerySchema.parse({ page: "1", limit: "20", includeUnpublished: "true" });
     expect(result.includeUnpublished).toBe(true);
+  });
+});
+
+describe("phase 6 timetable schemas", () => {
+  it("accepts a valid period", () => {
+    expect(CreateTimetableSchema.safeParse({ ...ids, dayOfWeek: 1, startTime: "09:00", endTime: "09:45" }).success).toBe(true);
+  });
+
+  it("rejects an invalid time range", () => {
+    expect(CreateTimetableSchema.safeParse({ ...ids, dayOfWeek: 1, startTime: "10:00", endTime: "09:45" }).success).toBe(false);
+  });
+
+  it("rejects invalid day and time formats", () => {
+    expect(CreateTimetableSchema.safeParse({ ...ids, dayOfWeek: 8, startTime: "9:00", endTime: "09:45" }).success).toBe(false);
+  });
+
+  it("coerces timetable query values", () => {
+    const result = TimetableQuerySchema.parse({ page: "2", limit: "50", dayOfWeek: "3" });
+    expect(result.page).toBe(2);
+    expect(result.dayOfWeek).toBe(3);
   });
 });

@@ -1,57 +1,53 @@
 # School ERP — Phase 6 Homework Progress
 
 Review date: 2026-09-03
-Branch: `phase6-notices`
+Branch: `phase6-timetable`
 Phase state: `IN_PROGRESS`
 
-## Implemented in this slice
+## Implemented slices
 
-- shared Zod contracts for homework creation, update and filtered pagination;
-- attachment metadata contract with bounded attachment count;
-- assigned/due date ordering validation;
-- tenant-scoped Homework model with academic/class/section/subject ownership references;
-- indexes for school/class/section/date and school/subject/due-date queries;
-- authenticated homework list/detail/create/update API routes;
-- teacher write authorization based on assigned class or subject;
-- student read isolation to the student's class/section, including class-wide homework;
-- parent read isolation to explicitly linked active children;
-- academic year, class, subject and section ownership validation;
-- create/update audit events;
-- admin Homework page with class/section/subject/year filters and assignment form;
-- Homework navigation and route for roles with homework read permissions.
+### Homework
+- tenant/RBAC-safe CRUD and recipient isolation;
+- academic/class/section/subject ownership validation;
+- bounded attachment metadata;
+- audited create/update operations;
+- admin assignment/filtering UI.
 
-## Notices slice
-
-- tenant-scoped Notice model with school/class/section audiences;
-- publication scheduling and optional expiry window;
-- tenant ownership validation for class and section targets;
+### Notices
+- tenant-scoped school/class/section targeting;
+- publication scheduling and expiry;
 - recipient isolation for students, linked parents and class-assigned teachers;
-- principal/super-admin notice management with audited create/update;
-- shared Notice schemas and explicit `notices:read` / `notices:write` RBAC permissions;
-- Notices page with audience, priority and scheduling controls;
-- Notices navigation and authenticated API routes.
+- principal/super-admin write boundary with audited create/update;
+- shared validation contracts, RBAC permissions, management UI and focused API/E2E coverage.
+
+### Timetable
+- tenant-scoped academic-year timetable entries;
+- class/optional-section, subject and active-teacher ownership validation;
+- strict HH:mm time-range validation;
+- server-side class, teacher and room overlap conflict detection;
+- teacher, student and parent recipient scoping;
+- principal/super-admin create/update/delete boundary with audit events;
+- weekly timetable UI with manager filters and role-specific views;
+- focused schema tests plus fixture-backed API/E2E coverage prepared for the release gate.
 
 ## Verification
 
 ```text
+Local sync: PASS — phase6-timetable matches origin after each verification cycle
 Shared build: PASS
 Server build: PASS
 Client build: PASS
-Focused Phase 6 schema tests: PASS (9/9)
-Focused Notices API/E2E: PASS (2/2)
+Focused Phase 6 schema tests: PASS (13/13)
+Focused Timetable API/E2E: PENDING — local environment has no MONGODB_URI/JWT/CORS runtime configuration; production API still runs the pre-timetable main deployment.
+Browser QA: PENDING — requires a runnable authenticated local or deployment environment.
 ```
 
-The focused API/E2E coverage verifies scheduled notices remain hidden before publication, published school notices are visible to students, matching class notices are visible to the student, and student notice creation is rejected by RBAC.
+The client build retains the existing non-blocking Vite warning about `client/src/lib/api.ts` being both dynamically and statically imported. This is pre-existing tooling behavior, not a timetable TypeScript failure.
 
-Client build retains the existing non-blocking Vite warning about `client/src/lib/api.ts` being both dynamically and statically imported. No new TypeScript/build failure was introduced.
+## Next release gates
 
-The broader shared Vitest setup still has the previously recorded generated-source ESM/CommonJS tooling debt; the focused Phase 6 suites are green.
-
-## Next slice
-
-1. Timetable data model and server-side conflict validation.
-2. Teacher timetable view.
-3. Student timetable view.
-4. Homework attachment storage integration using the existing private document/storage architecture rather than ad-hoc public uploads.
-5. Consolidated Phase 6 API/E2E regression coverage.
-6. Preserve Phase 1–5 regression gates.
+1. Run fixture-backed Timetable API/E2E against a timetable-enabled environment.
+2. Run authenticated Chromium QA for manager, teacher and student timetable views.
+3. Review the complete Phase 6 slice and open one PR from `phase6-timetable`.
+4. Squash/merge once approved, then allow the single `main` deployment to release the slice.
+5. Next implementation after timetable release: private Homework attachment storage integration, followed by consolidated Phase 6 regression coverage.

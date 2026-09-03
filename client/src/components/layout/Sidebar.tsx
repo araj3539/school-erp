@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useUIStore } from "../../store/uiStore";
 import { cn } from "../../utils";
-import { LayoutDashboard, Users, UserCheck, Building2, Calendar, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore, FileSpreadsheet, BookOpen, ClipboardList, Megaphone, X } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Building2, Calendar, CalendarClock, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore, FileSpreadsheet, BookOpen, ClipboardList, Megaphone, X } from "lucide-react";
 import { useAuth } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
 import api from "../../lib/api";
@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Exams & Results", path: "/exams", icon: <BookOpen className="w-5 h-5" aria-hidden="true" />, permissions: ["exams:read", "marks:read", "results:read", "results:read:own", "results:read:child"] },
   { label: "Homework", path: "/homework", icon: <ClipboardList className="w-5 h-5" aria-hidden="true" />, permissions: ["homework:read", "homework:read:own", "homework:read:child"] },
   { label: "Notices", path: "/notices", icon: <Megaphone className="w-5 h-5" aria-hidden="true" />, permissions: ["notices:read"] },
+  { label: "Timetable", path: "/timetable", icon: <CalendarClock className="w-5 h-5" aria-hidden="true" />, permissions: ["timetable:read", "timetable:read:own", "timetable:read:child"] },
   { label: "Fees", path: "/fees", icon: <DollarSign className="w-5 h-5" aria-hidden="true" />, permissions: ["fees:read"] },
   { label: "Reports", path: "/reports", icon: <BarChart3 className="w-5 h-5" aria-hidden="true" />, permissions: ["reports:read"] },
   { label: "Settings", path: "/settings", icon: <Settings className="w-5 h-5" aria-hidden="true" />, permissions: ["settings:read"] }

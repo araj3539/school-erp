@@ -1,7 +1,7 @@
 # School ERP — Next Implementation Plan
 
 Updated: 2026-09-03
-Repository baseline: `phase6-notices` on top of `main` at `fb93fec1`
+Repository baseline: `main` at `08d27b91`
 
 ## Current verified state
 
@@ -10,12 +10,11 @@ Repository baseline: `phase6-notices` on top of `main` at `fb93fec1`
 - Phase 3 Attendance and Administration: `COMPLETED` and retained as a regression gate.
 - Phase 4 Fees and Financial Core: `COMPLETED` for implementation; fixture-dependent populated-payment reversal acceptance remains tracked.
 - Phase 5 Exams and Academic Results: `COMPLETED` and retained as a regression gate.
-- Phase 6 Homework, Notices and Timetable: `IN_PROGRESS`; Homework and Notices are implemented and focused verification is green.
+- Phase 6 Homework, Notices and Timetable: `IN_PROGRESS`; Homework, Notices and the first Timetable vertical slice are implemented.
 
 ## Phase 6 completed slices
 
 ### Homework
-
 - tenant/RBAC-safe CRUD and recipient isolation;
 - academic/class/section/subject ownership validation;
 - bounded attachment metadata;
@@ -23,23 +22,28 @@ Repository baseline: `phase6-notices` on top of `main` at `fb93fec1`
 - admin assignment/filtering UI.
 
 ### Notices
-
 - tenant-scoped school/class/section targeting;
 - publication scheduling and expiry;
 - recipient isolation for students, linked parents and class-assigned teachers;
 - principal/super-admin write boundary with audited create/update;
-- shared validation contracts and explicit RBAC permissions;
-- admin management UI and authenticated API routes;
-- focused API/E2E coverage for scheduling, published visibility, class targeting and student write denial.
+- shared validation contracts, RBAC permissions, management UI and focused API/E2E coverage.
+
+### Timetable — current slice
+- tenant-scoped academic-year timetable entries;
+- class/optional-section, subject and active-teacher ownership validation;
+- HH:mm time-range validation;
+- server-side class, teacher and room overlap conflict detection;
+- teacher, student and parent recipient scoping;
+- principal/super-admin create/update/delete boundary with audit events;
+- weekly timetable UI with manager filters and role-specific views;
+- focused schema and API/E2E regression coverage.
 
 ## Next delivery
 
-1. Implement timetable data model with server-side conflict validation.
-2. Add teacher timetable view.
-3. Add student timetable view.
-4. Integrate Homework attachments with the existing private document/storage architecture.
-5. Add consolidated Phase 6 API/E2E regression coverage.
-6. Preserve Phase 1–5 regression gates.
+1. Complete Timetable editing/management polish and full browser QA.
+2. Integrate Homework attachments with the existing private document/storage architecture.
+3. Add consolidated Phase 6 API/E2E regression coverage for Homework, Notices and Timetable.
+4. Preserve Phase 1–5 regression gates.
 
 ## Development/deployment quota policy
 
@@ -47,14 +51,14 @@ To conserve the Vercel Hobby deployment quota, future work follows a batch-relea
 
 1. Keep `main` production-safe and untouched during feature development.
 2. Create one feature branch for a coherent vertical slice.
-3. Make related code changes directly on GitHub without pushing unnecessary intermediate commits.
+3. Make related code changes directly on GitHub without unnecessary intermediate deployment cycles.
 4. Run builds, tests, and local browser/API verification through Desktop Commander.
 5. Review the complete slice and fix issues before opening the PR.
-6. Open one PR for the completed slice; avoid repeated push/deploy cycles during implementation.
-7. Merge only after review and verification, allowing the single production deployment from `main` to be the release event.
+6. Open one PR for the completed slice and preferably squash the feature history before release.
+7. Merge only after review and verification; let the single production deployment from `main` be the release event.
 8. Use Vercel preview deployments only when a deployed-environment check is genuinely necessary.
 
-This policy is now the default workflow for all subsequent School ERP development.
+This policy is the default workflow for all subsequent School ERP development.
 
 ## Verification rule
 
