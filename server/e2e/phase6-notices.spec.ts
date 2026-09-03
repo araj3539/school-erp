@@ -31,15 +31,16 @@ test.beforeAll(() => {
 
 test.describe("Phase 6 Notices API isolation", () => {
   test("scheduled school notice stays hidden until publication", async () => {
-    const api = await playwrightRequest.newContext({ baseURL: apiUrl });
-    const principal = await login(api, principalEmail, fixturePassword!);
-    const student = await login(api, studentEmail, fixturePassword!);
+    const principalApi = await playwrightRequest.newContext({ baseURL: apiUrl });
+    const studentApi = await playwrightRequest.newContext({ baseURL: apiUrl });
+    const principal = await login(principalApi, principalEmail, fixturePassword!);
+    const student = await login(studentApi, studentEmail, fixturePassword!);
     expect(principal.role).toBe("principal");
     expect(student.role).toBe("student");
 
     const publishAt = new Date(Date.now() + 60_000).toISOString();
     const title = `Phase 6 Notice ${Date.now()}`;
-    const create = await api.post("/api/v1/notices", {
+    const create = await principalApi.post("/api/v1/notices", {
       data: {
         title,
         message: "Scheduled verification notice",
@@ -52,10 +53,11 @@ test.describe("Phase 6 Notices API isolation", () => {
     const createBody = await create.json().catch(() => ({}));
     expect(create.status(), JSON.stringify(createBody)).toBe(201);
 
-    const before = await api.get("/api/v1/notices?limit=100", auth(student.token));
+    const before = await studentApi.get("/api/v1/notices?limit=100", auth(student.token));
     expect(before.status()).toBe(200);
     const beforeBody = await before.json();
     expect(beforeBody.data.some((notice: any) => notice.title === title)).toBe(false);
-    await api.dispose();
+    await principalApi.dispose();
+    await studentApi.dispose();
   });
 });
