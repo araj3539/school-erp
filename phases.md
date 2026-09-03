@@ -123,10 +123,13 @@ Phase 6 remains a mandatory regression gate for subsequent work.
 # Phase 7 — Parent / Student / Teacher Portals
 
 ### Status
-`NOT_STARTED`
+`IN_PROGRESS`
 
 ### Planning status
 `PLANNING_COMPLETE` — 2026-09-03
+
+### Implementation status
+`STAGE_0_COMPLETE` · `STAGE_1_FOUNDATION_COMPLETE` — 2026-09-03
 
 ### Objective
 Create role-specific web experiences for teachers, students and parents using the existing tenant, ownership and RBAC foundations rather than duplicating the admin application.
