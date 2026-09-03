@@ -23,16 +23,28 @@ async function asyncTargetFilter(req: Request) {
   if (req.user!.role === UserRole.STUDENT) {
     const student: any = await Student.findOne({ schoolId: getTenantId(req), userId: req.user!.userId, status: "active" }).select("classId sectionId").lean();
     if (!student) return { _id: null };
-    return { $or: [{ audience: "school" }, { audience: "class", classId: student.classId }, { audience: "section", classId: student.classId, sectionId: student.sectionId }] };
+    const targets: any[] = [{ audience: "school" }, { audience: "class", classId: student.classId }];
+    if (student.sectionId) targets.push({ audience: "section", classId: student.classId, sectionId: student.sectionId });
+    return { $or: targets };
   }
   if (req.user!.role === UserRole.PARENT) {
     const children: any[] = await Student.find({ schoolId: getTenantId(req), parentIds: req.user!.userId, status: "active" }).select("classId sectionId").lean();
     if (!children.length) return { _id: null };
-    return { $or: [{ audience: "school" }, ...children.flatMap((child) => [{ audience: "class", classId: child.classId }, { audience: "section", classId: child.classId, sectionId: child.sectionId }])] };
+    const targets: any[] = [{ audience: "school" }];
+    for (const child of children) {
+      targets.push({ audience: "class", classId: child.classId });
+      if (child.sectionId) targets.push({ audience: "section", classId: child.classId, sectionId: child.sectionId });
+    }
+    return { $or: targets };
   }
   if (req.user!.role === UserRole.TEACHER) {
     const teacher: any = await Teacher.findOne({ schoolId: getTenantId(req), userId: req.user!.userId }).select("classTeacherOf").lean();
-    return teacher?.classTeacherOf?.length ? { $or: [{ audience: "school" }, { audience: "class", classId: { $in: teacher.classTeacherOf } }] } : { audience: "school" };
+    if (!teacher?.classTeacherOf?.length) return { audience: "school" };
+    return { $or: [
+      { audience: "school" },
+      { audience: "class", classId: { $in: teacher.classTeacherOf } },
+      { audience: "section", classId: { $in: teacher.classTeacherOf } },
+    ] };
   }
   return { audience: "school" };
 }
