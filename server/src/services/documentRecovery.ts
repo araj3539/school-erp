@@ -18,6 +18,7 @@ const RECOVERY_PREFIX = "recovery/r2-deleted/";
 const METADATA_PREFIX = "metadata/";
 const DATABASE_PREFIX = "database/";
 const PRESERVED_PREFIXES = [RECOVERY_PREFIX, METADATA_PREFIX, DATABASE_PREFIX];
+const SOURCE_ETAG_METADATA_KEY = "school-erp-source-etag";
 
 type B2VersionRef = { Key: string; VersionId: string };
 type BackupResult = { objectCount: number; bytes: number; deletedCount: number };
@@ -36,6 +37,10 @@ function getR2Client(): S3Client {
 
 function isProtectedB2Key(key: string): boolean {
   return PRESERVED_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+function normalizeEtag(etag?: string): string | undefined {
+  return etag?.replace(/^\"|\"$/g, "");
 }
 
 async function deleteB2Versions(b2: S3Client, bucket: string, objects: B2VersionRef[]): Promise<void> {
@@ -156,14 +161,19 @@ async function runBackupR2ToB2(): Promise<BackupResult> {
       if (!item.Key) continue;
       currentKeys.add(item.Key);
 
+      const sourceEtag = normalizeEtag(item.ETag);
       let needsUpload = true;
       try {
         const existing = await b2.send(new HeadObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: item.Key }));
         const sourceSize = Number(item.Size ?? 0);
         const destinationSize = Number(existing.ContentLength ?? -1);
-        const sourceEtag = item.ETag?.replace(/^\"|\"$/g, "");
-        const destinationEtag = existing.ETag?.replace(/^\"|\"$/g, "");
-        needsUpload = destinationSize !== sourceSize || !sourceEtag || !destinationEtag || sourceEtag !== destinationEtag;
+        const storedSourceEtag = normalizeEtag(existing.Metadata?.[SOURCE_ETAG_METADATA_KEY]);
+
+        // Compare the R2 ETag that was captured at the time of the last upload,
+        // rather than comparing R2's ETag with B2's own provider-specific ETag.
+        // Missing metadata intentionally triggers one migration upload so every
+        // mirrored object is brought onto the stronger comparison scheme.
+        needsUpload = destinationSize !== sourceSize || !sourceEtag || storedSourceEtag !== sourceEtag;
       } catch {
         needsUpload = true;
       }
@@ -176,7 +186,16 @@ async function runBackupR2ToB2(): Promise<BackupResult> {
 
       const source = await r2.send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: item.Key }));
       if (!source.Body) continue;
-      await b2.send(new PutObjectCommand({ Bucket: env.B2_BUCKET_NAME!, Key: item.Key, Body: source.Body as Readable, ContentType: source.ContentType, ContentLength: source.ContentLength }));
+      await b2.send(new PutObjectCommand({
+        Bucket: env.B2_BUCKET_NAME!,
+        Key: item.Key,
+        Body: source.Body as Readable,
+        ContentType: source.ContentType,
+        ContentLength: source.ContentLength,
+        Metadata: {
+          [SOURCE_ETAG_METADATA_KEY]: sourceEtag ?? "",
+        },
+      }));
       objectCount += 1;
       bytes += Number(source.ContentLength ?? item.Size ?? 0);
     }
