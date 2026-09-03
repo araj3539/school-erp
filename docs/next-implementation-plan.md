@@ -6,15 +6,15 @@ Active implementation branch: `phase7-portals`
 
 ## Current state
 
-Phase 6 is complete and released to production. `main` remains the protected production baseline. Phase 7 planning is complete and Stage 0 discovery plus the first Stage 1 portal foundation are now implemented on `phase7-portals`.
+Phase 6 is complete and released to production. `main` remains the protected production baseline. Phase 7 planning is complete and Stage 0 discovery plus the shared portal foundation are implemented on `phase7-portals`.
 
 Discovery is documented in `docs/phase7-discovery.md`. The implementation confirms that the existing backend has useful role-scoped APIs, while several existing frontend pages are admin workflows and must not be reused directly by student/parent users.
 
 ## Phase 7 implementation sequence
 
 1. Baseline/discovery and portal API inventory — **COMPLETE**.
-2. Shared portal shell, route/permission matrix and reusable portal UI patterns — **IN PROGRESS / foundation complete**.
-3. Teacher workspace.
+2. Shared portal shell, route/permission matrix and reusable portal UI patterns — **FOUNDATION COMPLETE**.
+3. Teacher workspace — **IN PROGRESS**.
 4. Student workspace.
 5. Parent workspace with server-authorized child switching.
 6. Cross-portal UX/accessibility/responsive consistency pass.
@@ -28,12 +28,15 @@ The `phase7-portals` branch currently provides:
 - a role-aware authenticated layout;
 - dedicated teacher/student/parent portal shell and navigation;
 - additive client-side permission route guards;
-- role-specific portal home orientation;
+- a server-aggregated `/portal/dashboard` read model for teacher/student/parent orientation;
+- a default role dashboard that uses the data-driven portal dashboard for portal roles;
 - read-only portal student list/detail surfaces so management forms are not exposed to portal users;
 - responsive mobile navigation and keyboard skip/focus behavior;
-- Stage 0 discovery documentation and frontend design direction.
+- a teacher-specific `/portal/teacher/workspace?date=YYYY-MM-DD` read model;
+- a responsive Teacher workspace for assigned class-teacher attendance, active rosters and date-specific teacher timetable;
+- Stage 0/1/2 discovery and implementation documentation.
 
-This is intentionally not yet the complete Teacher, Student or Parent portal. The next coding stage is the Teacher workspace, beginning with assignment-aware data access and dashboard aggregation.
+The Teacher workspace intentionally reuses the existing secure attendance write path rather than creating a parallel attendance mutation. Teachers can mark new attendance only for their `classTeacherOf` classes; existing attendance remains correction-protected by school management.
 
 ## Phase 7 mandatory principles
 
@@ -64,4 +67,4 @@ Batch coherent work on `phase7-*` feature branches. Avoid intermediate Vercel pr
 
 ## Next implementation task
 
-Build the Teacher workspace. First resolve the known teacher homework academic lookup permission mismatch with a least-privilege assignment-aware read model. Then add the teacher dashboard summary and task-oriented views for timetable, attendance, homework, notices, marks/results and authorized students. Verify assignment and cross-tenant boundaries in API/E2E tests before expanding the teacher UI.
+Finish Teacher workspace verification first: synchronize the branch locally, run server/client production builds, exercise the new teacher workspace API with the existing test environment, and run Chromium checks at 1440×900, 768px and 390×844. Fix any real permission, ownership, responsive or accessibility defects found. Then extend the teacher workspace with assignment-scoped Homework using a least-privilege lookup/read model before moving to the Student workspace.
