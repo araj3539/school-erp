@@ -42,7 +42,7 @@ const allowedOrigins = env.CORS_ORIGIN
 // this project's Vercel deployment namespace for previews.
 const isAllowedOrigin = (origin: string): boolean =>
   allowedOrigins.includes(origin) ||
-  (isDevelopment && /^https?:\/\/localhost:\d+$/.test(origin)) ||
+  (isDevelopment && /^https?:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin)) ||
   /^https:\/\/school-[a-z0-9-]+-araj3539s-projects\.vercel\.app$/.test(origin);
 
 app.use(cors({
