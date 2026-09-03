@@ -38,18 +38,20 @@ Shared build: PASS
 Server build: PASS
 Client build: PASS
 Focused Phase 6 schema tests: PASS (9/9)
+Focused Notices API/E2E: PASS (2/2)
 ```
+
+The focused API/E2E coverage verifies scheduled notices remain hidden before publication, published school notices are visible to students, matching class notices are visible to the student, and student notice creation is rejected by RBAC.
 
 Client build retains the existing non-blocking Vite warning about `client/src/lib/api.ts` being both dynamically and statically imported. No new TypeScript/build failure was introduced.
 
-The broader shared Vitest setup still has the previously recorded generated-source ESM/CommonJS tooling debt; the focused Phase 6 schema suite is green.
-
-Focused API/E2E authorization and scheduling coverage remains the next verification task before this slice is considered release-ready.
+The broader shared Vitest setup still has the previously recorded generated-source ESM/CommonJS tooling debt; the focused Phase 6 suites are green.
 
 ## Next slice
 
-1. Complete focused Notices API/E2E isolation and scheduling coverage.
-2. Timetable data model and conflict validation.
-3. Teacher/student timetable views.
-4. Homework attachment storage integration using the existing document/storage architecture rather than ad-hoc public uploads.
-5. Preserve Phase 1–5 regression gates.
+1. Timetable data model and server-side conflict validation.
+2. Teacher timetable view.
+3. Student timetable view.
+4. Homework attachment storage integration using the existing private document/storage architecture rather than ad-hoc public uploads.
+5. Consolidated Phase 6 API/E2E regression coverage.
+6. Preserve Phase 1–5 regression gates.
