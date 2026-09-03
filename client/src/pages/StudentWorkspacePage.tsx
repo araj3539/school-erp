@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, CheckCircle2, ClipboardList, CreditCard, Megaphone, Trophy } from "lucide-react";
+import { Link } from "react-router-dom";
+import { CheckCircle2, ClipboardList, CreditCard, Megaphone, UserRound, Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import api from "../lib/api";
 import { useAuth } from "../hooks";
@@ -13,17 +14,11 @@ export default function StudentWorkspacePage() {
   const fee = data?.fees?.summary;
   const latest = data?.latestResults?.[0];
   return <div className="space-y-6">
-    <header>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-600">Student workspace</p>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Good day, {student?.firstName || "student"}</h1>
-      <p className="mt-1 text-sm text-slate-500">{student?.classId?.displayName || "Class not assigned"}{student?.sectionId?.name ? ` · ${student.sectionId.name}` : ""} · {data?.academicYear?.name || "Current academic year"}</p>
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-600">Student workspace</p><h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Good day, {student?.firstName || "student"}</h1><p className="mt-1 text-sm text-slate-500">{student?.classId?.displayName || "Class not assigned"}{student?.sectionId?.name ? ` · ${student.sectionId.name}` : ""} · {data?.academicYear?.name || "Current academic year"}</p></div>
+      {student?._id && <Link to={`/students/${student._id}`} className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"><UserRound className="h-4 w-4" aria-hidden="true" />View profile</Link>}
     </header>
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Your key numbers">
-      <Stat label="Attendance" value={`${data?.summary?.attendanceRate ?? 0}%`} icon={CheckCircle2}/>
-      <Stat label="Homework due" value={data?.upcomingHomework?.length ?? 0} icon={ClipboardList}/>
-      <Stat label="Fee balance" value={`₹${Number(fee?.balance ?? 0).toLocaleString("en-IN")}`} icon={CreditCard}/>
-      <Stat label="Latest result" value={latest ? `${latest.percentage}%` : "—"} icon={Trophy}/>
-    </section>
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Your key numbers"><Stat label="Attendance" value={`${data?.summary?.attendanceRate ?? 0}%`} icon={CheckCircle2}/><Stat label="Homework due" value={data?.upcomingHomework?.length ?? 0} icon={ClipboardList}/><Stat label="Fee balance" value={`₹${Number(fee?.balance ?? 0).toLocaleString("en-IN")}`} icon={CreditCard}/><Stat label="Latest result" value={latest ? `${latest.percentage}%` : "—"} icon={Trophy}/></section>
     <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <Card><CardHeader><h2 className="text-base font-semibold text-slate-900">Today&apos;s timetable</h2></CardHeader><CardContent>{data?.todayClasses?.length ? <div className="space-y-2">{data.todayClasses.map((item: any, index: number) => <div key={`${item._id || index}`} className="flex items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3"><div><p className="text-sm font-semibold text-slate-800">{item.subjectId?.name || "Subject"}</p><p className="text-xs text-slate-500">{item.teacherId ? `${item.teacherId.firstName || ""} ${item.teacherId.lastName || ""}`.trim() : "Teacher"}{item.sectionId?.name ? ` · ${item.sectionId.name}` : ""}</p></div><p className="shrink-0 text-xs font-semibold text-slate-600">{item.startTime}–{item.endTime}</p></div>)}</div> : <Empty text="No classes are scheduled today." />}</CardContent></Card>
       <Card><CardHeader><h2 className="text-base font-semibold text-slate-900">Upcoming homework</h2></CardHeader><CardContent>{data?.upcomingHomework?.length ? <List items={data.upcomingHomework.slice(0, 5).map((item: any) => `${item.subjectId?.name || "Subject"} · ${item.title}`)} /> : <Empty text="You are all caught up." />}</CardContent></Card>
