@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UserRole, UserStatus, StudentStatus, TeacherStatus, AttendanceStatus, FeeType, FeeStatus, PaymentMode, Gender, BloodGroup, DocumentType, ExamStatus, ExamResultStatus } from "../constants";
+import { UserRole, UserStatus, StudentStatus, TeacherStatus, AttendanceStatus, FeeType, FeeStatus, PaymentMode, Gender, BloodGroup, DocumentType, ExamStatus, ExamResultStatus } from "../constants/index.js";
 export const ObjectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
 export const SchoolCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,30}$/, "Invalid school code");
 export const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").refine((value) => { const [year, month, day] = value.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day; }, "Invalid date");

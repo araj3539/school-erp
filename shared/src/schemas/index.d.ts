@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UserRole, StudentStatus, TeacherStatus, AttendanceStatus, FeeType, FeeStatus, PaymentMode, Gender, BloodGroup, DocumentType } from "../constants";
+import { UserRole, StudentStatus, TeacherStatus, AttendanceStatus, FeeType, FeeStatus, PaymentMode, Gender, BloodGroup, DocumentType } from "../constants/index.js";
 export declare const ObjectIdSchema: z.ZodString;
 export declare const PaginationSchema: z.ZodObject<{
     page: z.ZodDefault<z.ZodNumber>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CreateSchoolSchema, LoginSchema, SchoolCodeSchema } from "./index";
+import { CreateSchoolSchema, LoginSchema, SchoolCodeSchema } from "./index.js";
 
 describe("tenant authentication schemas", () => {
   it("normalizes school codes to uppercase", () => {

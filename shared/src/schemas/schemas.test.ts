@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CreateStudentSchema, CreateTeacherSchema, CreateClassSchema, CreateSchoolSchema, LoginSchema, ObjectIdSchema, MarkAttendanceSchema } from "./index";
+import { CreateStudentSchema, CreateTeacherSchema, CreateClassSchema, CreateSchoolSchema, LoginSchema, ObjectIdSchema, MarkAttendanceSchema } from "./index.js";
 
 describe("Shared Schemas", () => {
   describe("ObjectIdSchema", () => {

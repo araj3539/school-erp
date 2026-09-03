@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BulkAttendanceSchema } from "./index";
+import { BulkAttendanceSchema } from "./index.js";
 
 const id = "507f1f77bcf86cd799439011";
 const entry = (date: string) => ({
