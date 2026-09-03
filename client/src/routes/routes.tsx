@@ -16,8 +16,8 @@ const ClassesPage = lazy(() => import("../pages/ClassesPage"));
 const AttendancePage = lazy(() => import("../pages/AttendancePage"));
 const TeacherWorkspacePage = lazy(() => import("../pages/TeacherWorkspacePage"));
 const TeacherHomeworkPage = lazy(() => import("../pages/TeacherHomeworkPage"));
+const RoleAwareHomeworkPage = lazy(() => import("../pages/RoleAwareHomeworkPage"));
 const ExamsPage = lazy(() => import("../pages/ExamsPage"));
-const HomeworkPage = lazy(() => import("../pages/HomeworkPage"));
 const NoticesPage = lazy(() => import("../pages/NoticesPage"));
 const TimetablePage = lazy(() => import("../pages/TimetablePage"));
 const FeesPage = lazy(() => import("../pages/FeesPage"));
@@ -44,7 +44,7 @@ export const router = createBrowserRouter([
     { path: "/classes", element: only("classes:read", <ClassesPage />) },
     { path: "/attendance", element: any(["attendance:read", "attendance:read:own", "attendance:read:child"], <AttendancePage />) },
     { path: "/exams", element: any(["exams:read", "marks:read", "results:read", "results:read:own", "results:read:child"], <ExamsPage />) },
-    { path: "/homework", element: any(["homework:read", "homework:read:own", "homework:read:child", "homework:write"], <HomeworkPage />) },
+    { path: "/homework", element: any(["homework:read", "homework:read:own", "homework:read:child", "homework:write"], <RoleAwareHomeworkPage />) },
     { path: "/notices", element: only("notices:read", <NoticesPage />) },
     { path: "/timetable", element: any(["timetable:read", "timetable:read:own", "timetable:read:child"], <TimetablePage />) },
     { path: "/fees", element: any(["fees:read", "fees:read:own", "fees:read:child"], <FeesPage />) },
