@@ -1,4 +1,4 @@
-import { test, expect, type BrowserContext, type Page } from "@playwright/test";
+import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 const uiBaseUrl = process.env.UI_BASE_URL;
 const password = process.env.E2E_FIXTURE_PASSWORD;
@@ -59,7 +59,7 @@ test.describe("Phase 7 production responsive browser acceptance", () => {
     expect(visibleFocus).toBe(true);
   }
 
-  async function authenticatedContext(browser: Parameters<typeof test>[1] extends never ? never : any, email: string): Promise<BrowserContext> {
+  async function authenticatedContext(browser: Browser, email: string): Promise<BrowserContext> {
     const context = await browser.newContext({ viewport: viewports[0] });
     await login(await context.newPage(), email);
     return context;
