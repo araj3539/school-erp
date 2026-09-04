@@ -1,4 +1,4 @@
-import { test, expect, type BrowserContext, type Page } from "@playwright/test";
+import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 const uiBaseUrl = process.env.UI_BASE_URL;
 const apiBaseUrl = process.env.E2E_API_URL || "http://127.0.0.1:5000";
@@ -68,7 +68,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     expect(found, "expected at least one visible keyboard-focusable target").toBe(true);
   }
 
-  async function authenticatedContext(browser: Parameters<typeof test>[0]["browser"], email: string): Promise<BrowserContext> {
+  async function authenticatedContext(browser: Browser, email: string): Promise<BrowserContext> {
     const context = await browser.newContext({ viewport: viewports[0] });
     const page = await context.newPage();
     await login(page, email);
@@ -94,14 +94,8 @@ test.describe("Phase 7 final authenticated acceptance", () => {
         await assertKeyboardFocus(page);
       }
 
-      if (role === "teacher") {
-        await page.goto(`${uiBaseUrl}/exams`, { waitUntil: "domcontentloaded" });
-        await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-      } else {
-        await page.goto(`${uiBaseUrl}/exams`, { waitUntil: "domcontentloaded" });
-        await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-      }
-
+      await page.goto(`${uiBaseUrl}/exams`, { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
       expect(consoleErrors, `browser console errors:\n${consoleErrors.join("\n")}`).toEqual([]);
       await context.close();
     });
