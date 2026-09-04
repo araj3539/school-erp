@@ -1,6 +1,7 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 const uiBaseUrl = process.env.UI_BASE_URL;
+const uiQuery = process.env.UI_BASE_QUERY || "";
 const password = process.env.E2E_FIXTURE_PASSWORD;
 const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const roles = {
@@ -19,17 +20,21 @@ const routesByRole = {
   parent: ["/dashboard", "/parent-workspace", "/portal-attendance", "/portal-results", "/portal-fees", "/portal-timetable", "/portal-notices"],
 } as const;
 
+function uiUrl(path: string): string {
+  return `${uiBaseUrl}${path}${uiQuery}`;
+}
+
 test.describe("Phase 7 production responsive browser acceptance", () => {
   test.skip(!uiBaseUrl || !password, "UI_BASE_URL and E2E_FIXTURE_PASSWORD are required");
   test.describe.configure({ mode: "serial" });
 
   async function login(page: Page, email: string) {
-    await page.goto(`${uiBaseUrl}/login`, { waitUntil: "domcontentloaded" });
+    await page.goto(uiUrl("/login"), { waitUntil: "domcontentloaded" });
     await page.getByLabel("School Code (optional for Super Admin)").fill(schoolCode);
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password!);
     await page.getByRole("button", { name: "Sign In" }).click();
-    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, { timeout: 20_000 });
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
