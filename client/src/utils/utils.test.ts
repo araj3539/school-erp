@@ -8,8 +8,10 @@ describe("Client Utilities", () => {
     });
 
     it("should handle conditional classes", () => {
-      expect(cn("base", true && "conditional")).toBe("base conditional");
-      expect(cn("base", false && "conditional")).toBe("base");
+      const conditionalClass = "conditional";
+      const absentClass: string | undefined = undefined;
+      expect(cn("base", conditionalClass)).toBe("base conditional");
+      expect(cn("base", absentClass)).toBe("base");
     });
 
     it("should handle tailwind conflicts", () => {
