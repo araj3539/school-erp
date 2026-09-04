@@ -67,6 +67,11 @@ app.use(cookieParser());
 // prefix so monitoring can use /health without authentication.
 app.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
 
+// Production auth uses cross-site HttpOnly cookies because the SPA and API
+// are hosted on different sites. Validate browser request context before any
+// state-changing API route to prevent CSRF.
+app.use(csrfProtection);
+
 app.use(rateLimiter);
 app.use("/api/v1/auth", authRateLimiter);
 app.use("/api/v1", routes);
