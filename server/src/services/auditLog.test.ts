@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const auditCreate = vi.fn();
-const auditFind = vi.fn();
-const auditCount = vi.fn();
-const userFindById = vi.fn();
+const { auditCreate, auditFind, auditCount, userFindById } = vi.hoisted(() => ({
+  auditCreate: vi.fn(),
+  auditFind: vi.fn(),
+  auditCount: vi.fn(),
+  userFindById: vi.fn(),
+}));
 
 vi.mock("../models/index.js", () => ({
   AuditLog: { create: auditCreate, find: auditFind, countDocuments: auditCount },
