@@ -19,13 +19,13 @@ describe("Shared Schemas", () => {
       admissionNo: "STU001",
       firstName: "John",
       lastName: "Doe",
-      dob: "2010-01-15T00:00:00.000Z",
+      dob: "2010-01-15",
       gender: "male",
       fatherName: "Robert Doe",
       motherName: "Jane Doe",
       phone: "9876543210",
       address: "123 Main St",
-      admissionDate: "2024-01-15T00:00:00.000Z"
+      admissionDate: "2024-01-15"
     };
 
     it("should validate valid student data", () => {
@@ -165,7 +165,10 @@ describe("Shared Schemas", () => {
       date: "2026-08-26",
       classId: "507f1f77bcf86cd799439011",
       sectionId: "507f1f77bcf86cd799439012",
-      records: [],
+      records: [{
+        studentId: "507f1f77bcf86cd799439013",
+        status: "present"
+      }],
     };
 
     it("should accept a valid school calendar date", () => {
