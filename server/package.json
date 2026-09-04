@@ -9,6 +9,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "seed:demo": "tsx src/scripts/seedDemo.ts",
+    "seed:e2e": "node scripts/seed-e2e-fixtures.mjs",
     "report:orphaned-documents": "tsx src/scripts/reportOrphanedStudentDocuments.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
