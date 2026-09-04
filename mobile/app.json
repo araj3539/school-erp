@@ -11,10 +11,6 @@
     },
     "android": {
       "package": "com.schoolerp.mobile"
-    },
-    "plugins": ["expo-router"],
-    "experiments": {
-      "typedRoutes": true
     }
   }
 }
