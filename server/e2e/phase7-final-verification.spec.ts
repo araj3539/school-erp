@@ -34,6 +34,13 @@ test.describe("Phase 7 final authenticated acceptance", () => {
   test.describe.configure({ mode: "serial" });
 
   async function login(page: Page, email: string) {
+    let loginResponse: { status: number; body: string } | null = null;
+    const listener = async (response: import("@playwright/test").Response) => {
+      if (response.url().endsWith("/api/v1/auth/login")) {
+        loginResponse = { status: response.status(), body: await response.text() };
+      }
+    };
+    page.on("response", listener);
     await page.goto(`${uiBaseUrl}/login`, { waitUntil: "domcontentloaded" });
     await page.getByLabel("School Code (optional for Super Admin)").fill(schoolCode);
     await page.getByLabel("Email").fill(email);
@@ -41,6 +48,8 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     await page.getByRole("button", { name: "Sign In" }).click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+    page.off("response", listener);
+    if (loginResponse && loginResponse.status >= 400) throw new Error(`Login API failed: HTTP ${loginResponse.status} ${loginResponse.body}`);
   }
 
   async function navigateSpa(page: Page, route: string) {
@@ -86,7 +95,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
   for (const [role, email] of Object.entries(roles) as Array<[keyof typeof roles, string]>) {
     test(`${role}: desktop/tablet/mobile authenticated workflows`, async ({ browser }) => {
       const context = await authenticatedContext(browser, email);
-      const page = await context.pages()[0];
+      const page = context.pages()[0];
       const consoleErrors: string[] = [];
       page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
 
