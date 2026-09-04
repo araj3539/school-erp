@@ -36,9 +36,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
   async function login(page: Page, email: string) {
     let loginResponse: { url: string; status: number; body: string } | null = null;
     const listener = async (response: import("@playwright/test").Response) => {
-      if (response.url().endsWith("/api/v1/auth/login")) {
-        loginResponse = { url: response.url(), status: response.status(), body: await response.text() };
-      }
+      if (response.url().endsWith("/api/v1/auth/login")) loginResponse = { url: response.url(), status: response.status(), body: await response.text() };
     };
     page.on("response", listener);
     await page.goto(`${uiBaseUrl}/login`, { waitUntil: "domcontentloaded" });
@@ -58,10 +56,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
   }
 
   async function navigateSpa(page: Page, route: string) {
-    await page.evaluate((path) => {
-      window.history.pushState({}, "", path);
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    }, route);
+    await page.evaluate((path) => { window.history.pushState({}, "", path); window.dispatchEvent(new PopStateEvent("popstate")); }, route);
     await expect(page).toHaveURL(new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), { timeout: 15_000 });
   }
 
@@ -112,7 +107,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
         await assertKeyboardFocus(page);
       }
 
-      await navigateSpa(page, "/exams");
+      await page.evaluate(() => { window.history.pushState({}, "", "/exams"); window.dispatchEvent(new PopStateEvent("popstate")); });
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
       expect(consoleErrors, `browser console errors:\n${consoleErrors.join("\n")}`).toEqual([]);
       await context.close();
@@ -129,7 +124,6 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     await selector.selectOption(ids.studentA2);
     await expect(page).toHaveURL(new RegExp(`childId=${ids.studentA2}$`));
     await expect(page.locator("main")).toContainText("Anaya Fixture");
-
     const response = await page.request.get(`${apiBaseUrl}/api/v1/portal/parent/workspace?childId=${ids.studentB}`);
     expect(response.status()).toBe(403);
     await context.close();
