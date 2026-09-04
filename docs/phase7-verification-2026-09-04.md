@@ -5,7 +5,7 @@ Release PR: #10
 
 ## Source/build verification
 
-- Local `main` synchronized with GitHub after documentation update: PASS.
+- Local `main` synchronized with GitHub: PASS.
 - Shared production build: PASS.
 - Server production build: PASS.
 - Client production build: PASS.
@@ -15,117 +15,66 @@ Release PR: #10
 ## Production deployment verification
 
 - GitHub PR #10: MERGED.
-- Render `school-erp-api`: deployment for `18fff15a1264283210c717a55beeada2d468483e` reached `live`.
+- Render production deployment reached `live`.
 - Render `/health`: HTTP 200 with `status: ok`.
-- Production `/api/v1/portal/teacher/workspace` now resolves through authentication (HTTP 401 without credentials), confirming the Phase 7 route is deployed rather than returning the previous 404.
-- Vercel production deployment for `18fff15a1264283210c717a55beeada2d468483e`: READY.
-- Vercel production aliases include the existing `school-erp-araj3539s-projects.vercel.app` hostname.
+- Production `/api/v1/portal/teacher/workspace`: HTTP 401 without credentials, confirming the released route is deployed and protected.
+- Vercel production deployment: READY.
 
-## Authenticated production Chromium acceptance
+## Authenticated production Chromium acceptance already completed
 
-Previously completed representative checks against the released production frontend/backend pair:
+Representative workflows previously passed against the released production frontend/backend pair:
 
 Teacher:
-- Login: PASS.
-- Teacher portal navigation: PASS.
-- Teacher dashboard: PASS.
+- Login, teacher portal navigation and dashboard: PASS.
 - Teacher workspace with assigned Class 8 / Section A roster: PASS.
-- Teacher homework workspace: PASS.
-- Teacher timetable and notices surfaces: PASS.
-- Management `/exams` route correctly redirected to the teacher dashboard: PASS.
+- Teacher homework, timetable and notices surfaces: PASS.
+- Management `/exams` route redirected to the teacher dashboard: PASS.
 
 Student:
-- Login: PASS.
-- Student portal navigation and dashboard: PASS.
-- Student results, fees and timetable surfaces: PASS.
+- Login, dashboard/navigation, results, fees and timetable: PASS.
 
 Parent:
-- Login: PASS.
-- Parent portal navigation and family workspace: PASS.
-- Parent attendance and notices surfaces: PASS.
-- Production fixture contains one linked child, so multi-child switching was not exercised against production data.
-
-Full authenticated responsive/accessibility acceptance is still pending.
+- Login, family workspace, attendance, notices and timetable: PASS.
+- Production fixture has one linked child, so production multi-child switching was not exercised.
 
 ## Consolidated Phase 1–6 regression verification
 
 After the authentication rate-limit window cleared, the live gates were rerun sequentially without changing production rate-limit configuration.
 
-### Phase 1
+- Phase 1: `npm run test:e2e:phase1` — **8/8 PASS**.
+- Phase 2: **PASS**; Phase 1 sub-gate 8/8; Documents 7 PASS + 2 fixture-dependent skips; Payments 5/5; Audit 3/3; Roles 2/2.
+- Phase 3: **PASS**; Attendance 4/4; Bulk attendance 1/1; Student search 1/1; Student bulk import/export 1/1; Teacher administration 1/1; Attendance report 1/1; Dashboard 1/1.
+- Phase 4: process PASS; 1 PASS + 2 fixture-dependent skips.
+- Phase 5: process PASS; 1 PASS + 1 fixture-dependent skip.
+- Phase 6: process PASS; Homework private attachments PASS; Notices 2/2; Timetable 2/2; authenticated UI cases fixture-dependent skips.
 
-- `npm run test:e2e:phase1`: **8/8 PASS**.
-- Tenant isolation, ownership, role boundary and refresh-token rotation checks all passed.
+## E2E fixture and repository hardening
 
-### Phase 2
+- PR #3 was closed without merge because it was based on an older `main` and its useful duplicate-row diagnostic was mixed with superseded student-export changes.
+- PR #11 (`ac73bb5dc97513dcc61f17a006b282a7c18268ac`) added deterministic E2E fixtures and authentication guidance.
+- The seeder was subsequently hardened to require an explicit `E2E_MONGODB_URI`; the application's production `MONGODB_URI` is no longer accepted.
+- During validation, the original seeder was accidentally run against the production database. The deterministic records were immediately removed by exact ID, and a final production database check confirmed **0 fixture users, 0 fixture schools and 0 fixture students remain**.
+- A dedicated fixture database was successfully seeded and verified separately, including a two-child parent and a second tenant.
+- Production authentication rate limiting was not changed, weakened or bypassed.
+- Stale remote and local development branches were pruned; only `main` remains remotely and locally.
 
-- `npm run test:e2e:phase2`: **PASS**.
-- Phase 1 sub-gate: 8/8 PASS.
-- Documents: 7 PASS, 2 fixture-dependent skips.
-- Payments: 5/5 PASS.
-- Audit: 3/3 PASS.
-- Roles: 2/2 PASS.
+## Final browser acceptance attempt
 
-### Phase 3
+A token-based production Chromium matrix was implemented specifically to avoid repeated production login attempts. The production API accepted the pre-issued tokens and direct authenticated `/api/v1/portal/timetable` requests returned HTTP 200 for Teacher, Student and Parent.
 
-- `npm run test:e2e:phase3`: **PASS**.
-- Attendance: 4/4 PASS.
-- Bulk attendance: 1/1 PASS.
-- Student search: 1/1 PASS.
-- Student bulk import/export: 1/1 PASS.
-- Teacher administration: 1/1 PASS.
-- Attendance report: 1/1 PASS.
-- Dashboard: 1/1 PASS.
+The browser matrix could not be certified: the injected authenticated browser state was not retained consistently during navigation. Student/Parent reached `/login` at `/portal-timetable`, and the Teacher run also lost authenticated state during the sequence. The keyboard probe therefore returned zero visible focus targets on the Teacher desktop run. These results are treated as **verification-harness failures**, not as evidence of a new application regression, because the direct authenticated API checks remained healthy and representative production Chromium workflows had already passed.
 
-### Phase 4
-
-- `npm run test:e2e:phase4:finance`: process PASS.
-- Financial acceptance: 1 PASS, 2 fixture-dependent skips.
-
-### Phase 5
-
-- `npm run test:e2e:phase5:exams`: process PASS.
-- Exams/results acceptance: 1 PASS, 1 fixture-dependent skip.
-
-### Phase 6
-
-- `npm run test:e2e:phase6`: process PASS.
-- Homework private attachments: PASS.
-- Notices API isolation/permissions: 2/2 PASS.
-- Timetable API isolation/conflicts: 2/2 PASS.
-- Authenticated Phase 6 UI cases: fixture-dependent skips.
-
-No production authentication rate-limit change or security bypass was made for these runs.
-
-## E2E fixture and authentication hardening — 2026-09-04
-
-- PR #3, `fix(students): stabilize Phase 3 bulk import validation`, was closed without merge because its branch was based on an older `main` and its diff also contained unrelated student-export changes already superseded by later releases. The useful duplicate-row diagnostic can be reconsidered as a focused change later; no stale PR code was merged.
-- PR #11 added `server/scripts/seed-e2e-fixtures.mjs`, a guarded/idempotent non-production fixture seeder, and `server/e2e/README.md` with the E2E authentication strategy.
-- The fixture seeder creates two tenants, academic years, Class 8/Section A, role users, deterministic students, a two-child School A parent and a School B student for cross-tenant checks.
-- Local seeding passed and a local database query confirmed three fixture students, each with a user link, with the two School A students linked to the same parent.
-- `npm run seed:e2e` is now the standard fixture entry point from `server/` and requires `E2E_FIXTURE_SEED_ENABLED=true`; it refuses `NODE_ENV=production`.
-- Production authentication rate limiting remains unchanged. Full E2E runs should use the deterministic fixtures on staging; production acceptance should prefer pre-issued `E2E_*_ACCESS_TOKEN` values already supported by the gate harness.
-- All stale remote development branches were pruned after their work was merged or superseded. The remote repository now retains only `main`.
-
-## Rate-limit incident and resolution
-
-The earlier post-release regression attempt stopped at Phase 1 after 5/8 tests with `AUTH_RATE_LIMIT_EXCEEDED`. The production auth limiter is configured for a 15-minute window with a maximum of 10 requests, so repeated retries were intentionally avoided.
-
-After the window cleared, Phase 1 passed 8/8 and the remaining Phase 2–6 gates completed successfully. This confirms the earlier 5/8 result was a transient test-environment/rate-limit blocker rather than evidence of a Phase 7 functional regression.
-
-## Known non-blocking inherited technical debt
-
-- Existing dependency audit reports vulnerabilities; no blind `npm audit fix --force` was used.
-- Some earlier Phase 4/5/6 acceptance cases remain fixture-dependent and are explicitly recorded as skips by the existing test harness.
-- Production's existing parent fixture has one linked child; multi-child browser acceptance should use the new non-production fixture rather than mutate production data.
+No application authentication, rate-limit or authorization behavior was weakened to force the matrix through.
 
 ## Remaining Phase 7 acceptance
 
-1. Re-run authenticated Chromium production acceptance at 1440×900, 768×900 and 390×844 for Teacher, Student and Parent.
-2. Validate major portal workflows with keyboard navigation, visible focus and accessibility checks.
-3. Verify student self-scope, parent linked-child scope, teacher assignment scope, report-card ownership and cross-tenant boundaries in the browser acceptance matrix.
-4. Run true multi-child parent switching against the deterministic non-production fixture.
-5. Update this log and `phases.md` with exact final results.
+1. Correct the browser authentication-state setup in the verification harness using a supported Playwright authenticated storage/cookie flow.
+2. Re-run Teacher, Student and Parent at 1440×900, 768×900 and 390×844.
+3. Re-run keyboard/focus/accessibility checks after authentication is stable.
+4. Verify report-card ownership, student self-scope, parent linked-child scope, teacher assignment scope and cross-tenant browser boundaries.
+5. Run true multi-child parent switching against the dedicated E2E fixture database.
+6. Change Phase 7 to `COMPLETED` only after all ten exit criteria are evidenced.
 
 ## Release status
 
-**Phase 7 implementation is released to production and the consolidated Phase 1–6 regression gates are now passing. Formal Phase 7 verification remains `READY_FOR_VERIFICATION` until the remaining authenticated responsive/accessibility acceptance matrix and final browser security checks are explicitly completed.**
+**Phase 7 implementation is released to production and all Phase 1–6 regression gates are passing. Formal Phase 7 status remains `READY_FOR_VERIFICATION`; it is not being marked `COMPLETED` because the final authenticated responsive/accessibility browser matrix and browser-level ownership checks are not yet conclusively evidenced.**
