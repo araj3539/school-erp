@@ -162,16 +162,23 @@ Native mobile app, SMS/push/email providers, WhatsApp, SaaS billing, library/tra
 9. Portal visual direction is documented and consistent with the established component system.
 10. Production build and post-merge production smoke pass.
 
-### Release verification — 2026-09-04
+### Release and regression verification — 2026-09-04
 
 - PR #10 merged to `main` as `18fff15a1264283210c717a55beeada2d468483e`.
 - Render production deployment reached `live`; `/health` returns HTTP 200.
 - Vercel production deployment reached `READY` for the merge commit.
 - Authenticated production Chromium verified Teacher, Student and Parent portal login/navigation and representative major workflows.
 - Teacher management `/exams` access correctly redirects to the portal dashboard.
-- The consolidated live Phase 1–6 rerun was started post-release but hit the intentional authentication rate limiter after five Phase 1 cases; the remaining cases and later suites were not hammered through the limiter.
-- The single-child fixture prevented multi-child parent switching verification.
-- Remaining responsive/accessibility production acceptance must still be explicitly rerun before changing this phase to `COMPLETED`.
+- After the authentication rate-limit window cleared, the live Phase 1–6 regression gates were rerun sequentially without changing production security configuration:
+  - Phase 1: 8/8 PASS.
+  - Phase 2: PASS; documents 7 PASS + 2 fixture-dependent skips, payments 5/5 PASS, audit 3/3 PASS, roles 2/2 PASS.
+  - Phase 3: PASS; attendance 4/4, bulk 1/1, students 1/1, student-bulk 1/1, teachers 1/1, attendance-report 1/1, dashboard 1/1.
+  - Phase 4: process PASS; 1 PASS + 2 fixture-dependent skips.
+  - Phase 5: process PASS; 1 PASS + 1 fixture-dependent skip.
+  - Phase 6: process PASS; 5 PASS + 5 fixture-dependent UI skips.
+- The earlier `AUTH_RATE_LIMIT_EXCEEDED` incident was not bypassed; the production auth limiter remained unchanged.
+- MongoDB Atlas inspection confirms the current Phase 7 parent fixture has one student in the fixture school, so true multi-child switching cannot be demonstrated without a suitable multi-child fixture.
+- Remaining responsive/accessibility production acceptance must still be explicitly completed before changing this phase to `COMPLETED`.
 
 See `docs/phase7-verification-2026-09-04.md` for the detailed evidence and remaining gates.
 
