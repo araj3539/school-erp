@@ -31,19 +31,15 @@ Phase 7 implementation is released to production. The remaining work is formal p
   - Teacher: login, teacher portal navigation, teacher workspace with assigned Class 8/A roster, homework, timetable, notices, and denial/redirect of the generic exams route.
   - Student: login, dashboard/navigation, results, fees and timetable.
   - Parent: login, parent workspace, attendance, notices and timetable.
-- The production Phase 7 parent fixture has one linked child, so true multi-child switching cannot be demonstrated against production data.
 
 ## E2E fixture and authentication hardening
 
-Merged after the Phase 7 release as PR #11 (`ac73bb5dc97513dcc61f17a006b282a7c18268ac`):
-
-- `server/scripts/seed-e2e-fixtures.mjs` provides a guarded, idempotent non-production fixture dataset with two tenants, academic years, Class 8/Section A, role users, deterministic students, a two-child parent and a second tenant student for isolation checks.
-- `server/e2e/README.md` documents the fixture workflow and the preferred staging/pre-issued-token authentication strategy.
-- `npm run seed:e2e` is the standard entry point from `server/`.
-- The seeder requires `E2E_FIXTURE_SEED_ENABLED=true` and refuses `NODE_ENV=production`; reset mode deletes only its deterministic IDs.
-- Local verification seeded the fixture successfully and the local database query confirmed three fixture students with the two School A children linked to the same parent.
-- Production authentication rate limiting was not changed, weakened or bypassed.
-- All stale remote development branches were pruned after their work was merged or superseded; only `main` remains as the persistent remote branch.
+- PR #11 (`ac73bb5dc97513dcc61f17a006b282a7c18268ac`) added the deterministic E2E fixture workflow and authentication guidance.
+- The fixture now requires an explicit `E2E_MONGODB_URI`; the application's production `MONGODB_URI` is intentionally rejected by the seeder.
+- Local verification confirmed the dedicated fixture database can contain two tenants and a two-child parent without touching production.
+- During validation, an earlier version of the seeder was accidentally pointed at the production database because the original guard only checked `NODE_ENV`. The deterministic fixture records were immediately removed by exact ID and a follow-up production database check confirmed **0 fixture users, 0 fixture schools and 0 fixture students remain**. The seeder safety guard was then strengthened to require `E2E_MONGODB_URI` explicitly.
+- Production authentication rate limiting was never changed, weakened or bypassed.
+- All stale remote development branches were pruned; only `main` remains remotely. Local stale branches were also removed.
 
 ## Current implementation
 
@@ -68,18 +64,9 @@ The released `main` branch provides:
 
 ### Regression gates
 
-Run the production/live Phase 1–6 gates sequentially, recording each suite independently:
-
-1. Phase 1 security/auth/tenant gate.
-2. Phase 2 security/session gate.
-3. Phase 3 attendance gate.
-4. Phase 4 finance gate.
-5. Phase 5 exams/results gate.
-6. Phase 6 homework/notices/timetable gate.
+The live Phase 1–6 regression gates are green and must remain regression gates for Phase 7.
 
 The production authentication rate limiter must remain enabled. Do not disable, weaken or bypass it to make E2E tests pass. Avoid repeated login hammering and reuse authenticated test sessions/tokens where the existing harness supports that safely. Full non-production E2E runs should use the deterministic fixture seeder and staging environment; production acceptance should prefer pre-issued `E2E_*_ACCESS_TOKEN` values.
-
-The Phase 1 live suite achieved **8/8 PASS** after the earlier rate-limit window cleared. The earlier 5/8 result was an incomplete verification run caused by the production authentication limiter, not evidence of a Phase 7 application regression.
 
 ### Portal acceptance
 
@@ -89,17 +76,17 @@ Run authenticated Chromium acceptance against the released production frontend/b
 - 768×900 tablet
 - 390×844 mobile
 
-Cover:
+Cover teacher assigned scope and denial boundaries; student self-only information; parent linked-child-only information; child switching; ownership/tenant isolation; loading/error/empty states; keyboard/focus; and accessibility.
 
-- Teacher: assigned scope, attendance/homework/timetable/notices and management-route denial.
-- Student: self-only dashboard, attendance, homework, results, fees, timetable, notices and profile.
-- Parent: linked-child-only dashboard, attendance, homework, results, fees, timetable, notices and profile.
-- Parent child switching on Results, Fees, Timetable and Notices using the deterministic non-production fixture where needed.
-- Report-card ownership and cross-tenant/cross-user denial.
-- Loading, error and empty states.
-- Keyboard navigation, visible focus and major workflow accessibility.
+Do not mutate production data solely to create a multi-child acceptance fixture. Use the dedicated non-production fixture database.
 
-Do not mutate production data solely to create a multi-child acceptance fixture. Use the dedicated non-production fixture seeder instead.
+## Final acceptance attempts — 2026-09-04
+
+- A token-based production Chromium matrix was added for verification so production login rate limiting would not be hammered.
+- Existing pre-issued production tokens were accepted by the API: direct authenticated requests to `/api/v1/portal/timetable` returned HTTP 200 for Teacher, Student and Parent.
+- The browser matrix could not be certified because the browser session did not retain authentication consistently across all portal navigations: Student/Parent reached `/login` when opening `/portal-timetable`, while the direct authenticated API calls remained healthy. The Teacher matrix also reached `/login` during the later navigation sequence.
+- The keyboard probe returned zero visible focus targets on the Teacher desktop workflow. This is not sufficient evidence to call the application inaccessible, because the same browser harness was already losing authenticated state during the matrix.
+- No production code or authentication configuration was changed in response to these test-harness failures.
 
 ## Security and test principles
 
@@ -113,16 +100,9 @@ Do not mutate production data solely to create a multi-child acceptance fixture.
 - Use GitHub directly for source/documentation changes. Desktop Commander is reserved for local commands, ignored files, environment inspection and test/browser verification.
 - Do not persist test secrets or print credentials into documentation/logs.
 
-## Known inherited technical debt
-
-- broader Vitest setup/fixture issues remain documented from earlier phases;
-- one Phase 3 attendance fixture/permission mismatch remains non-blocking;
-- dependency audit still reports existing vulnerabilities and must not be addressed with blind `npm audit fix --force`;
-- older PRD/architecture/memory documents may contain legacy status claims and should be reconciled only when they affect current verification evidence.
-
 ## Current verification status
 
-- Main/local synchronization: PASS; local `main` is clean and aligned with `origin/main` at the latest implementation/documentation commit.
+- Main/local synchronization: PASS; local `main` is clean and aligned with `origin/main`.
 - Shared production build: PASS.
 - Server production build: PASS.
 - Client production build: PASS.
@@ -133,16 +113,18 @@ Do not mutate production data solely to create a multi-child acceptance fixture.
 - Production unauthenticated portal route protection: PASS.
 - Representative authenticated Teacher/Student/Parent Chromium acceptance: PASS.
 - Consolidated Phase 1–6 live regression: PASS, with fixture-dependent skips recorded by the existing suites.
-- Deterministic E2E fixture seed/build verification: PASS.
-- Full authenticated responsive matrix: **PENDING**.
+- Deterministic E2E fixture seed/build verification: PASS; production fixture cleanup verification: PASS.
+- Production token-based portal API check: PASS for timetable across Teacher/Student/Parent.
+- Full authenticated responsive matrix: **BLOCKED BY BROWSER AUTH-STATE PERSISTENCE IN THE VERIFICATION HARNESS**.
 - Full keyboard/focus/accessibility acceptance: **PENDING**.
-- Production multi-child parent switching: **NOT APPLICABLE TO CURRENT PRODUCTION FIXTURE**; covered by the new non-production fixture when the browser acceptance run is executed there.
+- Production multi-child parent switching: **PENDING**; requires browser acceptance against the dedicated non-production fixture.
 
 ## Next execution task
 
-1. Run the final authenticated Chromium production acceptance at 1440×900, 768×900 and 390×844 for Teacher, Student and Parent.
-2. Perform keyboard/focus/accessibility checks on the major portal workflows.
-3. Verify report-card ownership, tenant isolation, student self-scope, parent linked-child scope and teacher assignment scope.
-4. Run the multi-child parent switching checks against the deterministic non-production fixture rather than production data.
-5. Update `docs/phase7-verification-2026-09-04.md` and `phases.md` with exact results.
-6. If every Phase 7 exit criterion is evidenced, change Phase 7 status to **COMPLETED**. Otherwise keep **READY_FOR_VERIFICATION** and document the remaining blocker(s).
+1. Fix the verification harness authentication-state setup without changing application authentication behavior; prefer a Playwright browser context that authenticates once through the actual frontend/API cookie flow or uses a supported authenticated storage state.
+2. Re-run Teacher, Student and Parent at 1440×900, 768×900 and 390×844.
+3. Perform keyboard/focus/accessibility checks after authenticated state is stable.
+4. Verify report-card ownership, tenant isolation, student self-scope, parent linked-child scope and teacher assignment scope.
+5. Run multi-child parent switching against the dedicated E2E fixture database.
+6. Update `docs/phase7-verification-2026-09-04.md` and `phases.md` with exact final results.
+7. Only then change Phase 7 to **COMPLETED** if every exit criterion is evidenced.
