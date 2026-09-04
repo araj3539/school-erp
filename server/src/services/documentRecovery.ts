@@ -40,7 +40,7 @@ function isProtectedB2Key(key: string): boolean {
 }
 
 function normalizeEtag(etag?: string): string | undefined {
-  return etag?.replace(/^\"|\"$/g, "");
+  return etag?.replace(/^"|"$/g, "");
 }
 
 async function deleteB2Versions(b2: S3Client, bucket: string, objects: B2VersionRef[]): Promise<void> {

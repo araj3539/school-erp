@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import { env, connectDB } from "./config/index.js";
+import { env, connectDB, isDevelopment } from "./config/index.js";
 import { rateLimiter, authRateLimiter } from "./middleware/index.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -42,6 +42,7 @@ const allowedOrigins = env.CORS_ORIGIN
 // this project's Vercel deployment namespace for previews.
 const isAllowedOrigin = (origin: string): boolean =>
   allowedOrigins.includes(origin) ||
+  (isDevelopment && /^https?:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin)) ||
   /^https:\/\/school-[a-z0-9-]+-araj3539s-projects\.vercel\.app$/.test(origin);
 
 app.use(cors({
@@ -63,25 +64,24 @@ app.use(express.urlencoded({
 app.use(cookieParser());
 
 // Lightweight liveness endpoint for UptimeRobot. Keep it outside the API
-// rate limiter so monitoring never consumes application request quota.
-app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok" });
-});
+// prefix so monitoring can use /health without authentication.
+app.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
 
 // Production auth uses cross-site HttpOnly cookies because the SPA and API
 // are hosted on different sites. Validate browser request context before any
 // state-changing API route to prevent CSRF.
 app.use(csrfProtection);
+
 app.use(rateLimiter);
-app.use("/api/v1/auth/login", authRateLimiter);
+app.use("/api/v1/auth", authRateLimiter);
 app.use("/api/v1", routes);
+
 app.use(errorHandler);
 
-export async function startServer(): Promise<void> {
+export async function startServer() {
   await connectDB();
-  app.listen(env.PORT, () => {
-    console.log(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
-  });
+  const port = env.PORT;
+  app.listen(port, () => console.log(`Server running on port ${port} in ${env.NODE_ENV} mode`));
 }
 
 export default app;

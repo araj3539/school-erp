@@ -6,6 +6,7 @@ import { UserRole } from "@school-erp/shared";
 import { School } from "../models/index.js";
 
 export interface AuthPayload { userId: string; email: string; role: UserRole; schoolId?: string; }
+// eslint-disable-next-line @typescript-eslint/no-namespace
 declare global { namespace Express { interface Request { user?: AuthPayload; file?: Express.Multer.File; files?: Express.Multer.File[]; } } }
 const ACCESS_TOKEN_COOKIE = "access_token";
 function getAccessToken(req: Request): string | undefined {
@@ -48,7 +49,9 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
   try {
     const payload = jwt.verify(accessToken, env.JWT_SECRET) as AuthPayload;
     if (validatePayload(payload)) req.user = await resolveRequestContext(req, payload);
-  } catch {}
+  } catch {
+    // Optional authentication deliberately falls back to an anonymous request.
+  }
   next();
 }
 export function requireRole(...roles: UserRole[]) {

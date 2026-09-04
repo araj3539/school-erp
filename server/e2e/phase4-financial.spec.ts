@@ -8,6 +8,7 @@ const apiUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
 const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const principalEmail = "principal.a@phase1.example.com";
+let fixtureToken: string;
 
 async function login(request: any) {
   const response = await request.post("/api/v1/auth/login", {
@@ -22,21 +23,22 @@ function auth(accessToken: string) {
   return { headers: { Authorization: `Bearer ${accessToken}` } };
 }
 
-test.beforeAll(() => {
+test.beforeAll(async ({ request }) => {
   expect(apiUrl, "E2E_API_URL is required").toBeTruthy();
   expect(fixturePassword, "E2E_FIXTURE_PASSWORD is required").toBeTruthy();
+  fixtureToken = await login(request);
+  expect(fixtureToken).toBeTruthy();
 });
 
 test.describe("Phase 4 financial acceptance", () => {
   test("receipt endpoint returns a PDF for an existing tenant payment", async ({ request }) => {
-    const token = await login(request);
-    const paymentsResponse = await request.get("/api/v1/fees/payments?limit=1", auth(token));
+    const paymentsResponse = await request.get("/api/v1/fees/payments?limit=1", auth(fixtureToken));
     expect(paymentsResponse.status()).toBe(200);
     const paymentsBody = await paymentsResponse.json();
     const payment = paymentsBody.data?.[0];
     test.skip(!payment?._id, "The deployed school fixture has no payment record");
 
-    const receiptResponse = await request.get(`/api/v1/fees/receipt/${payment._id}`, auth(token));
+    const receiptResponse = await request.get(`/api/v1/fees/receipt/${payment._id}`, auth(fixtureToken));
     expect(receiptResponse.status()).toBe(200);
     expect(receiptResponse.headers()["content-type"]).toContain("application/pdf");
     expect(receiptResponse.headers()["content-disposition"]).toContain(`receipt-${payment.receiptNo}.pdf`);
@@ -45,8 +47,7 @@ test.describe("Phase 4 financial acceptance", () => {
   });
 
   test("reconciliation keeps period collections separate from lifetime ledger totals", async ({ request }) => {
-    const token = await login(request);
-    const response = await request.get("/api/v1/fees/reports/reconciliation?startDate=2026-01-01T00%3A00%3A00.000Z&endDate=2026-12-31T23%3A59%3A59.999Z", auth(token));
+    const response = await request.get("/api/v1/fees/reports/reconciliation?startDate=2026-01-01T00%3A00%3A00.000Z&endDate=2026-12-31T23%3A59%3A59.999Z", auth(fixtureToken));
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body.periodCollections).toEqual(expect.objectContaining({ paymentCount: expect.any(Number), reversalCount: expect.any(Number), grossCollected: expect.any(Number), reversedAmount: expect.any(Number), netCollected: expect.any(Number) }));
@@ -56,15 +57,14 @@ test.describe("Phase 4 financial acceptance", () => {
   });
 
   test("reversal guard rejects an amount larger than the original payment without mutating the ledger", async ({ request }) => {
-    const token = await login(request);
-    const paymentsResponse = await request.get("/api/v1/fees/payments?limit=1", auth(token));
+    const paymentsResponse = await request.get("/api/v1/fees/payments?limit=1", auth(fixtureToken));
     expect(paymentsResponse.status()).toBe(200);
     const paymentsBody = await paymentsResponse.json();
     const payment = paymentsBody.data?.[0];
     test.skip(!payment?._id, "The deployed school fixture has no payment record");
 
     const response = await request.post(`/api/v1/fees/payments/${payment._id}/reverse`, {
-      ...auth(token),
+      ...auth(fixtureToken),
       data: { type: "reversal", amount: payment.amount + 0.01, reason: "Phase 4 boundary acceptance test" },
     });
     expect(response.status()).toBe(400);

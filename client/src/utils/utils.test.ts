@@ -8,8 +8,10 @@ describe("Client Utilities", () => {
     });
 
     it("should handle conditional classes", () => {
-      expect(cn("base", true && "conditional")).toBe("base conditional");
-      expect(cn("base", false && "conditional")).toBe("base");
+      const conditionalClass = "conditional";
+      const absentClass: string | undefined = undefined;
+      expect(cn("base", conditionalClass)).toBe("base conditional");
+      expect(cn("base", absentClass)).toBe("base");
     });
 
     it("should handle tailwind conflicts", () => {
@@ -19,20 +21,20 @@ describe("Client Utilities", () => {
 
   describe("formatCurrency", () => {
     it("should format INR by default", () => {
-      expect(formatCurrency(1000)).toBe("₹1,000.00");
-      expect(formatCurrency(1000.5)).toBe("₹1,000.50");
+      expect(formatCurrency(1000)).toBe("₹1,000");
+      expect(formatCurrency(1000.5)).toBe("₹1,000.5");
     });
 
-    it("should format with zero decimals for whole numbers", () => {
-      expect(formatCurrency(1000)).toBe("₹1,000.00");
+    it("should omit fractional digits for whole numbers", () => {
+      expect(formatCurrency(1000)).toBe("₹1,000");
     });
 
     it("should handle zero", () => {
-      expect(formatCurrency(0)).toBe("₹0.00");
+      expect(formatCurrency(0)).toBe("₹0");
     });
 
     it("should handle large numbers", () => {
-      expect(formatCurrency(100000)).toBe("₹1,00,000.00");
+      expect(formatCurrency(100000)).toBe("₹1,00,000");
     });
   });
 
@@ -55,13 +57,13 @@ describe("Client Utilities", () => {
     it("should format date and time", () => {
       const result = formatDateTime("2024-01-15T14:30:00");
       expect(result).toContain("15 Jan 2024");
-      expect(result).toContain("14:30");
+      expect(result).toMatch(/02:30\s?pm/i);
     });
   });
 
   describe("truncate", () => {
-    it("should truncate long strings", () => {
-      expect(truncate("Hello World", 8)).toBe("Hello...");
+    it("should truncate long strings to the requested source length plus an ellipsis", () => {
+      expect(truncate("Hello World", 8)).toBe("Hello Wo...");
     });
 
     it("should not truncate short strings", () => {

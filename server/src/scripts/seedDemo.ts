@@ -7,7 +7,9 @@ import bcrypt from "bcryptjs";
 // Load local environment variables before importing config, which validates them at module load time.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 loadEnvFile(resolve(__dirname, "../../.env"));
-try { loadEnvFile(resolve(__dirname, "../../../.env")); } catch {}
+try { loadEnvFile(resolve(__dirname, "../../../.env")); } catch {
+  // The repository-level .env is optional when the server .env is present.
+}
 
 const { connectDB, disconnectDB } = await import("../config/index.js");
 
