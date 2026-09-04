@@ -3,8 +3,8 @@ import { ZodError, ZodTypeAny } from "zod";
 import { AppError } from "../utils/errors.js";
 
 // Express request augmentation requires declaration merging through its namespace.
-// eslint-disable-next-line @typescript-eslint/no-namespace
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       validatedQuery?: Record<string, any>;
