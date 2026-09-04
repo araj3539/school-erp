@@ -15,7 +15,7 @@ test.beforeAll(async ({ request }) => { expect(apiUrl).toBeTruthy(); expect(fixt
 
 test.describe("Phase 6 Timetable API", () => {
   test("rejects class, teacher and room conflicts", async ({ request }) => {
-    const studentResponse = await request.get(`/api/v1/students/${studentId}`, auth(principalToken)); const studentBody = await studentResponse.json(); const student = studentBody.student ?? studentBody.data?.student ?? studentBody.data ?? studentBody; const classId = student.classId?._id || student.classId; const sectionId = student.sectionId?._id || student.sectionId;
+    const studentResponse = await request.get(`/api/v1/students/${studentId}`, auth(principalToken)); const studentBody = await studentResponse.json(); const student = studentBody.student ?? studentBody.data?.student ?? studentBody.data ?? {}; const classId = student.classId?._id || student.classId; const sectionId = student.sectionId?._id || student.sectionId;
     const years = (await (await request.get("/api/v1/academic-years", auth(principalToken))).json()).data || []; const academicYearId = years.find((year: any) => year.isCurrent)?._id || years[0]?._id;
     const teachers = (await (await request.get("/api/v1/teachers?limit=100&status=active", auth(principalToken))).json()).data || []; const classes = (await (await request.get("/api/v1/academics/classes?limit=100", auth(principalToken))).json()).data || [];
     expect(classId).toMatch(/^[a-f\d]{24}$/i); expect(academicYearId).toMatch(/^[a-f\d]{24}$/i); expect(teachers.length).toBeGreaterThan(0);
@@ -28,7 +28,7 @@ test.describe("Phase 6 Timetable API", () => {
   });
 
   test("student sees only their class timetable and cannot write", async ({ request }) => {
-    const studentResponse = await request.get(`/api/v1/students/${studentId}`, auth(principalToken)); const studentBody = await studentResponse.json(); const student = studentBody.student ?? studentBody.data?.student ?? studentBody.data ?? student; const classId = student.classId?._id || student.classId;
+    const studentResponse = await request.get(`/api/v1/students/${studentId}`, auth(principalToken)); const studentBody = await studentResponse.json(); const student = studentBody.student ?? studentBody.data?.student ?? studentBody.data ?? {}; const classId = student.classId?._id || student.classId;
     const response = await request.get("/api/v1/timetable?limit=100", auth(studentToken)); expect(response.status()).toBe(200); const entries = (await response.json()).data || []; expect(entries.every((entry: any) => (entry.classId?._id || entry.classId) === classId)).toBe(true);
     const denied = await request.post("/api/v1/timetable", { data: { classId, academicYearId: classId, subjectId: classId, teacherId: classId, dayOfWeek: 1, startTime: "12:00", endTime: "12:45" }, ...auth(studentToken) }); expect(denied.status()).toBe(403);
   });
