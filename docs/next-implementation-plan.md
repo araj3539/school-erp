@@ -31,7 +31,19 @@ Phase 7 implementation is released to production. The remaining work is formal p
   - Teacher: login, teacher portal navigation, teacher workspace with assigned Class 8/A roster, homework, timetable, notices, and denial/redirect of the generic exams route.
   - Student: login, dashboard/navigation, results, fees and timetable.
   - Parent: login, parent workspace, attendance, notices and timetable.
-- The current parent fixture has one linked child, so true multi-child switching cannot yet be demonstrated with that fixture.
+- The production Phase 7 parent fixture has one linked child, so true multi-child switching cannot be demonstrated against production data.
+
+## E2E fixture and authentication hardening
+
+Merged after the Phase 7 release as PR #11 (`ac73bb5dc97513dcc61f17a006b282a7c18268ac`):
+
+- `server/scripts/seed-e2e-fixtures.mjs` provides a guarded, idempotent non-production fixture dataset with two tenants, academic years, Class 8/Section A, role users, deterministic students, a two-child parent and a second tenant student for isolation checks.
+- `server/e2e/README.md` documents the fixture workflow and the preferred staging/pre-issued-token authentication strategy.
+- `npm run seed:e2e` is the standard entry point from `server/`.
+- The seeder requires `E2E_FIXTURE_SEED_ENABLED=true` and refuses `NODE_ENV=production`; reset mode deletes only its deterministic IDs.
+- Local verification seeded the fixture successfully and the local database query confirmed three fixture students with the two School A children linked to the same parent.
+- Production authentication rate limiting was not changed, weakened or bypassed.
+- All stale remote development branches were pruned after their work was merged or superseded; only `main` remains as the persistent remote branch.
 
 ## Current implementation
 
@@ -49,7 +61,8 @@ The released `main` branch provides:
 - tenant-scoped portal queries and backend authorization as the security boundary;
 - management-route restrictions preventing portal roles from loading broad administrative screens;
 - responsive mobile navigation and keyboard skip/focus behavior;
-- restored CSRF protection and the existing authentication/rate-limit security controls.
+- restored CSRF protection and the existing authentication/rate-limit security controls;
+- deterministic non-production E2E fixture seeding and documented pre-issued-token/staging authentication support.
 
 ## Mandatory verification matrix
 
@@ -64,9 +77,9 @@ Run the production/live Phase 1–6 gates sequentially, recording each suite ind
 5. Phase 5 exams/results gate.
 6. Phase 6 homework/notices/timetable gate.
 
-The production authentication rate limiter must remain enabled. Do not disable, weaken or bypass it to make E2E tests pass. Avoid repeated login hammering and reuse authenticated test sessions/tokens where the existing harness supports that safely.
+The production authentication rate limiter must remain enabled. Do not disable, weaken or bypass it to make E2E tests pass. Avoid repeated login hammering and reuse authenticated test sessions/tokens where the existing harness supports that safely. Full non-production E2E runs should use the deterministic fixture seeder and staging environment; production acceptance should prefer pre-issued `E2E_*_ACCESS_TOKEN` values.
 
-The Phase 1 live suite previously achieved **8/8 PASS** before the later rerun encountered `AUTH_RATE_LIMIT_EXCEEDED` after 5/8 tests. The 5/8 result is therefore an incomplete verification run caused by the production authentication limiter, not evidence of a Phase 7 application regression.
+The Phase 1 live suite achieved **8/8 PASS** after the earlier rate-limit window cleared. The earlier 5/8 result was an incomplete verification run caused by the production authentication limiter, not evidence of a Phase 7 application regression.
 
 ### Portal acceptance
 
@@ -81,12 +94,12 @@ Cover:
 - Teacher: assigned scope, attendance/homework/timetable/notices and management-route denial.
 - Student: self-only dashboard, attendance, homework, results, fees, timetable, notices and profile.
 - Parent: linked-child-only dashboard, attendance, homework, results, fees, timetable, notices and profile.
-- Parent child switching on Results, Fees, Timetable and Notices where a multi-child fixture is available.
+- Parent child switching on Results, Fees, Timetable and Notices using the deterministic non-production fixture where needed.
 - Report-card ownership and cross-tenant/cross-user denial.
 - Loading, error and empty states.
 - Keyboard navigation, visible focus and major workflow accessibility.
 
-If the available fixture set still contains only one linked child, document the multi-child limitation rather than mutating production data solely for acceptance.
+Do not mutate production data solely to create a multi-child acceptance fixture. Use the dedicated non-production fixture seeder instead.
 
 ## Security and test principles
 
@@ -109,28 +122,27 @@ If the available fixture set still contains only one linked child, document the 
 
 ## Current verification status
 
-- Main/local synchronization: PASS; local `main` is clean and aligned with `origin/main` at the latest documentation commit.
+- Main/local synchronization: PASS; local `main` is clean and aligned with `origin/main` at the latest implementation/documentation commit.
 - Shared production build: PASS.
 - Server production build: PASS.
 - Client production build: PASS.
-- Phase 1 live security suite: **8/8 PASS** immediately before the later rate-limited rerun.
+- Phase 1 live security suite: **8/8 PASS**.
 - Render release deployment: PASS.
 - Vercel release deployment: PASS.
 - Production health check: PASS.
 - Production unauthenticated portal route protection: PASS.
 - Representative authenticated Teacher/Student/Parent Chromium acceptance: PASS.
-- Consolidated Phase 1–6 live regression: **BLOCKED/INCOMPLETE** on the latest attempt because the production auth limiter returned `AUTH_RATE_LIMIT_EXCEEDED` after 5/8 Phase 1 tests; no further login hammering was performed.
+- Consolidated Phase 1–6 live regression: PASS, with fixture-dependent skips recorded by the existing suites.
+- Deterministic E2E fixture seed/build verification: PASS.
 - Full authenticated responsive matrix: **PENDING**.
 - Full keyboard/focus/accessibility acceptance: **PENDING**.
-- Multi-child parent switching: **PENDING/fixture-limited** until a multi-child fixture is available.
+- Production multi-child parent switching: **NOT APPLICABLE TO CURRENT PRODUCTION FIXTURE**; covered by the new non-production fixture when the browser acceptance run is executed there.
 
 ## Next execution task
 
-1. Allow the production auth-rate-limit window to clear; do not modify the limiter.
-2. Run Phase 1–6 production regression suites sequentially, minimizing repeated authentication and stopping if the limiter engages again.
-3. Re-run authenticated production Chromium at 1440×900, 768×900 and 390×844 for Teacher, Student and Parent.
-4. Perform keyboard/focus/accessibility checks on the major portal workflows.
-5. Verify report-card ownership, tenant isolation, student self-scope, parent linked-child scope and teacher assignment scope.
-6. Check for a safe existing multi-child fixture; if none exists, retain the documented limitation rather than changing production data solely for testing.
-7. Update `docs/phase7-verification-2026-09-04.md` and `phases.md` with exact results.
-8. If every Phase 7 exit criterion is evidenced, change Phase 7 status to **COMPLETED**. Otherwise keep **READY_FOR_VERIFICATION** and document the remaining blocker(s).
+1. Run the final authenticated Chromium production acceptance at 1440×900, 768×900 and 390×844 for Teacher, Student and Parent.
+2. Perform keyboard/focus/accessibility checks on the major portal workflows.
+3. Verify report-card ownership, tenant isolation, student self-scope, parent linked-child scope and teacher assignment scope.
+4. Run the multi-child parent switching checks against the deterministic non-production fixture rather than production data.
+5. Update `docs/phase7-verification-2026-09-04.md` and `phases.md` with exact results.
+6. If every Phase 7 exit criterion is evidenced, change Phase 7 status to **COMPLETED**. Otherwise keep **READY_FOR_VERIFICATION** and document the remaining blocker(s).
