@@ -33,6 +33,7 @@
   "workspaces": [
     "shared",
     "server",
-    "client"
+    "client",
+    "mobile"
   ]
 }
