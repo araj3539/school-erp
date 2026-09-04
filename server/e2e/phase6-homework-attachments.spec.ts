@@ -11,6 +11,8 @@ const studentId = process.env.E2E_SCHOOL_A_STUDENT_ID;
 const principalEmail = "principal.a@phase1.example.com";
 const studentEmail = "student.a@phase1.example.com";
 const schoolId = "66a000000000000000000001";
+let principalToken: string;
+let studentToken: string;
 
 function normalizeObjectId(value: unknown): string | undefined {
   if (typeof value === "string" && /^[a-f\d]{24}$/i.test(value)) return value;
@@ -60,33 +62,35 @@ async function getStudentTarget(api: any, token: string) {
   return { classId, sectionId, subjectId: subjectId!, academicYearId: normalizeObjectId(year._id)!, createdSubjectId };
 }
 
-test.beforeAll(() => {
+test.beforeAll(async ({ request }) => {
   expect(apiUrl, "E2E_API_URL is required").toBeTruthy();
   expect(fixturePassword, "E2E_FIXTURE_PASSWORD is required").toBeTruthy();
   expect(studentId, "E2E_SCHOOL_A_STUDENT_ID is required").toBeTruthy();
+  const principal = await login(request, principalEmail);
+  const student = await login(request, studentEmail);
+  principalToken = principal.token;
+  studentToken = student.token;
+  expect(principal.role).toBe("principal"); expect(student.role).toBe("student");
 });
 
 test.describe("Phase 6 Homework private attachments", () => {
   test("stores attachment privately and returns signed access only to authorized recipients", async () => {
     const principalApi = await playwrightRequest.newContext({ baseURL: apiUrl });
     const studentApi = await playwrightRequest.newContext({ baseURL: apiUrl });
-    const principal = await login(principalApi, principalEmail);
-    const student = await login(studentApi, studentEmail);
-    expect(principal.role).toBe("principal"); expect(student.role).toBe("student");
 
-    const target = await getStudentTarget(principalApi, principal.token);
-    const homeworkResponse = await principalApi.post("/api/v1/homework", { data: { title: title(), description: "Private attachment verification", ...target, assignedDate: "2026-09-03", dueDate: "2026-09-05" }, ...auth(principal.token) });
+    const target = await getStudentTarget(principalApi, principalToken);
+    const homeworkResponse = await principalApi.post("/api/v1/homework", { data: { title: title(), description: "Private attachment verification", ...target, assignedDate: "2026-09-03", dueDate: "2026-09-05" }, ...auth(principalToken) });
     const homeworkBody = await homeworkResponse.json();
     expect(homeworkResponse.status(), JSON.stringify(homeworkBody)).toBe(201);
     const homework = homeworkBody.homework;
 
-    const uploadResponse = await principalApi.post(`/api/v1/homework/${homework._id}/attachments`, { multipart: { file: { name: "worksheet.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\nprivate test") } }, ...auth(principal.token) });
+    const uploadResponse = await principalApi.post(`/api/v1/homework/${homework._id}/attachments`, { multipart: { file: { name: "worksheet.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\nprivate test") } }, ...auth(principalToken) });
     const uploadBody = await uploadResponse.json();
     expect(uploadResponse.status(), JSON.stringify(uploadBody)).toBe(201);
     expect(uploadBody.attachment.storageKey).toBeUndefined();
     const attachmentId = uploadBody.attachment._id;
 
-    const studentList = await studentApi.get("/api/v1/homework?limit=100", auth(student.token));
+    const studentList = await studentApi.get("/api/v1/homework?limit=100", auth(studentToken));
     const studentBody = await studentList.json();
     expect(studentList.status(), JSON.stringify(studentBody)).toBe(200);
     const visible = studentBody.data.find((item: any) => item._id === homework._id);
@@ -94,7 +98,7 @@ test.describe("Phase 6 Homework private attachments", () => {
     expect(visible.attachments[0].storageKey).toBeUndefined();
     expect(visible.attachments[0].name).toBe("worksheet.pdf");
 
-    const signedResponse = await studentApi.get(`/api/v1/homework/${homework._id}/attachments/${attachmentId}/url`, auth(student.token));
+    const signedResponse = await studentApi.get(`/api/v1/homework/${homework._id}/attachments/${attachmentId}/url`, auth(studentToken));
     const signedBody = await signedResponse.json();
     expect(signedResponse.status(), JSON.stringify(signedBody)).toBe(200);
     expect(signedBody.url).toContain("X-Amz-Signature=");
@@ -104,12 +108,12 @@ test.describe("Phase 6 Homework private attachments", () => {
     expect(download.status()).toBe(200);
     expect((await download.body()).subarray(0, 5).toString()).toBe("%PDF-");
 
-    const studentWrite = await studentApi.post(`/api/v1/homework/${homework._id}/attachments`, { multipart: { file: { name: "denied.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\ndenied") } }, ...auth(student.token) });
+    const studentWrite = await studentApi.post(`/api/v1/homework/${homework._id}/attachments`, { multipart: { file: { name: "denied.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\ndenied") } }, ...auth(studentToken) });
     expect(studentWrite.status()).toBe(403);
 
-    const deleteResponse = await principalApi.delete(`/api/v1/homework/${homework._id}/attachments/${attachmentId}`, auth(principal.token));
+    const deleteResponse = await principalApi.delete(`/api/v1/homework/${homework._id}/attachments/${attachmentId}`, auth(principalToken));
     expect(deleteResponse.status()).toBe(200);
-    if (target.createdSubjectId) await principalApi.delete(`/api/v1/academics/subjects/${target.createdSubjectId}`, auth(principal.token));
+    if (target.createdSubjectId) await principalApi.delete(`/api/v1/academics/subjects/${target.createdSubjectId}`, auth(principalToken));
     await principalApi.dispose(); await studentApi.dispose();
   });
 });
