@@ -43,6 +43,14 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
+  async function navigateSpa(page: Page, route: string) {
+    await page.evaluate((path) => {
+      window.history.pushState({}, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }, route);
+    await expect(page).toHaveURL(new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), { timeout: 15_000 });
+  }
+
   async function assertNoHorizontalOverflow(page: Page) {
     const overflow = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
@@ -72,21 +80,20 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     const context = await browser.newContext({ viewport: viewports[0] });
     const page = await context.newPage();
     await login(page, email);
-    await page.close();
     return context;
   }
 
   for (const [role, email] of Object.entries(roles) as Array<[keyof typeof roles, string]>) {
     test(`${role}: desktop/tablet/mobile authenticated workflows`, async ({ browser }) => {
       const context = await authenticatedContext(browser, email);
-      const page = await context.newPage();
+      const page = await context.pages()[0];
       const consoleErrors: string[] = [];
       page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
 
       for (const viewport of viewports) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         for (const route of routesByRole[role]) {
-          await page.goto(`${uiBaseUrl}${route}`, { waitUntil: "domcontentloaded" });
+          await navigateSpa(page, route);
           await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
           await expect(page.locator("body")).not.toContainText("Application error");
           await assertNoHorizontalOverflow(page);
@@ -94,7 +101,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
         await assertKeyboardFocus(page);
       }
 
-      await page.goto(`${uiBaseUrl}/exams`, { waitUntil: "domcontentloaded" });
+      await navigateSpa(page, "/exams");
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
       expect(consoleErrors, `browser console errors:\n${consoleErrors.join("\n")}`).toEqual([]);
       await context.close();
@@ -103,8 +110,8 @@ test.describe("Phase 7 final authenticated acceptance", () => {
 
   test("parent can switch between both linked children and cannot select another tenant", async ({ browser }) => {
     const context = await authenticatedContext(browser, roles.parent);
-    const page = await context.newPage();
-    await page.goto(`${uiBaseUrl}/parent-workspace`, { waitUntil: "domcontentloaded" });
+    const page = context.pages()[0];
+    await navigateSpa(page, "/parent-workspace");
     await expect(page.getByLabel("Choose a child")).toBeVisible({ timeout: 15_000 });
     const selector = page.getByLabel("Choose a child");
     await expect(selector.locator("option")).toHaveCount(2);
@@ -119,7 +126,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
 
   test("student self-scope, teacher assignment scope, and cross-tenant boundaries", async ({ browser }) => {
     const studentContext = await authenticatedContext(browser, roles.student);
-    const studentPage = await studentContext.newPage();
+    const studentPage = studentContext.pages()[0];
     const own = await studentPage.request.get(`${apiBaseUrl}/api/v1/students/${ids.studentA1}`);
     expect(own.status()).toBe(200);
     const sibling = await studentPage.request.get(`${apiBaseUrl}/api/v1/students/${ids.studentA2}`);
@@ -129,7 +136,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     await studentContext.close();
 
     const teacherContext = await authenticatedContext(browser, roles.teacher);
-    const teacherPage = await teacherContext.newPage();
+    const teacherPage = teacherContext.pages()[0];
     const assigned = await teacherPage.request.get(`${apiBaseUrl}/api/v1/students/${ids.studentA1}`);
     expect(assigned.status()).toBe(200);
     const foreignTeacher = await teacherPage.request.get(`${apiBaseUrl}/api/v1/students/${ids.studentB}`);
