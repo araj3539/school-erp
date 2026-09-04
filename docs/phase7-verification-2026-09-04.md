@@ -43,7 +43,7 @@ Parent:
 - Login: PASS.
 - Parent portal navigation and family workspace: PASS.
 - Parent attendance and notices surfaces: PASS.
-- Fixture contains one linked child, so multi-child switching could not be exercised with this dataset.
+- Production fixture contains one linked child, so multi-child switching was not exercised against production data.
 
 Full authenticated responsive/accessibility acceptance is still pending.
 
@@ -96,6 +96,16 @@ After the authentication rate-limit window cleared, the live gates were rerun se
 
 No production authentication rate-limit change or security bypass was made for these runs.
 
+## E2E fixture and authentication hardening — 2026-09-04
+
+- PR #3, `fix(students): stabilize Phase 3 bulk import validation`, was closed without merge because its branch was based on an older `main` and its diff also contained unrelated student-export changes already superseded by later releases. The useful duplicate-row diagnostic can be reconsidered as a focused change later; no stale PR code was merged.
+- PR #11 added `server/scripts/seed-e2e-fixtures.mjs`, a guarded/idempotent non-production fixture seeder, and `server/e2e/README.md` with the E2E authentication strategy.
+- The fixture seeder creates two tenants, academic years, Class 8/Section A, role users, deterministic students, a two-child School A parent and a School B student for cross-tenant checks.
+- Local seeding passed and a local database query confirmed three fixture students, each with a user link, with the two School A students linked to the same parent.
+- `npm run seed:e2e` is now the standard fixture entry point from `server/` and requires `E2E_FIXTURE_SEED_ENABLED=true`; it refuses `NODE_ENV=production`.
+- Production authentication rate limiting remains unchanged. Full E2E runs should use the deterministic fixtures on staging; production acceptance should prefer pre-issued `E2E_*_ACCESS_TOKEN` values already supported by the gate harness.
+- All stale remote development branches were pruned after their work was merged or superseded. The remote repository now retains only `main`.
+
 ## Rate-limit incident and resolution
 
 The earlier post-release regression attempt stopped at Phase 1 after 5/8 tests with `AUTH_RATE_LIMIT_EXCEEDED`. The production auth limiter is configured for a 15-minute window with a maximum of 10 requests, so repeated retries were intentionally avoided.
@@ -106,15 +116,15 @@ After the window cleared, Phase 1 passed 8/8 and the remaining Phase 2–6 gates
 
 - Existing dependency audit reports vulnerabilities; no blind `npm audit fix --force` was used.
 - Some earlier Phase 4/5/6 acceptance cases remain fixture-dependent and are explicitly recorded as skips by the existing test harness.
-- The single-child parent fixture prevents true multi-child switching acceptance until an appropriate fixture is available.
+- Production's existing parent fixture has one linked child; multi-child browser acceptance should use the new non-production fixture rather than mutate production data.
 
 ## Remaining Phase 7 acceptance
 
 1. Re-run authenticated Chromium production acceptance at 1440×900, 768×900 and 390×844 for Teacher, Student and Parent.
 2. Validate major portal workflows with keyboard navigation, visible focus and accessibility checks.
 3. Verify student self-scope, parent linked-child scope, teacher assignment scope, report-card ownership and cross-tenant boundaries in the browser acceptance matrix.
-4. Check for an existing safe multi-child fixture; if none exists, retain the documented fixture limitation rather than mutating production data solely for testing.
-5. Update this log and `phases.md` with exact results.
+4. Run true multi-child parent switching against the deterministic non-production fixture.
+5. Update this log and `phases.md` with exact final results.
 
 ## Release status
 
