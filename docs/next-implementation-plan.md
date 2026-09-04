@@ -1,8 +1,8 @@
 # School ERP — Next Implementation Plan
 
-Updated: 2026-09-04
+Updated: 2026-09-05
 Production baseline: `main` at Phase 7 release plus final acceptance harness commit `cccd49094514b75f4e560e1d50c2eea4c21901de`.
-Active implementation branch: none.
+Active implementation branch: `araj870988/alo-6-phase-8-mobile-app-foundation` for the first Phase 8 slice.
 
 ## Current state
 
@@ -43,30 +43,47 @@ Phase 7 — Parent/Student/Teacher Portals is **COMPLETED**. The portal implemen
 ## Current implementation order
 
 1. **Phase 7 — Parent/Student/Teacher portals: COMPLETED**
-2. **Phase 8 — Notifications**
-3. **Phase 9 — Mobile App**
+2. **Phase 8 — Mobile App: IN PROGRESS**
+3. **Phase 9 — Notifications**
 4. **Phase 10 — Library, Transport, Inventory and Staff**
 5. **Phase 11 — Online Payments**
 6. **Phase 12 — SaaS administration/billing**
 7. **Phase 13 — Reliability and scale**
 8. **Phase 14 — AI and advanced analytics**
 
-The phase numbering in `phases.md` remains the authoritative roadmap; implementation should follow the documented gates and scope rather than adding speculative features.
+`phases.md` is the authoritative phase roadmap. The previous version of this document incorrectly listed Notifications before Mobile; that mismatch is corrected here.
 
-## Phase 8 preparation — Notifications
+## Phase 8 — Mobile App
 
-Recommended next work:
+Recommended direction: React Native + TypeScript, isolated from the existing React/Vite web workspace while reusing shared API contracts and schemas where practical.
 
-- inventory business events that genuinely require notifications;
-- define a provider-agnostic `NotificationService` contract;
-- implement durable in-app notification records first;
-- define delivery state, retries and failure handling;
-- preserve tenant isolation and auditability;
-- keep external SMS/email/push providers behind adapters;
-- ensure provider failure cannot break core ERP transactions;
-- add API, unit and E2E regression coverage before provider integration.
+### Initial foundation slice
 
-Do not begin broad provider integrations until the notification domain model and failure semantics are settled.
+- dedicated `mobile/` Expo/React Native application;
+- TypeScript configuration and reproducible mobile dependency lockfile;
+- native stack navigation with typed role routes for Teacher, Student and Parent;
+- server-authorized API integration as the security boundary;
+- explicit mobile authentication/session design before implementing credential persistence;
+- native loading/error/empty/accessibility patterns;
+- API, unit and E2E coverage before expanding the mobile surface.
+
+### Current verification
+
+- Expo Doctor: **20/20 checks PASS**.
+- TypeScript: **PASS**.
+- Android bundle export: **PASS**.
+- Expo SDK dependency versions were corrected after local validation exposed an initial React Native/SDK mismatch.
+
+### Next Phase 8 work
+
+1. Decide and document the secure mobile session model compatible with the existing JWT + HTTP-only-cookie web model.
+2. Add a minimal authenticated mobile API client without weakening server authorization or tenant isolation.
+3. Reuse shared Zod/API contracts where practical.
+4. Implement the first authenticated read-only portal workflow for each supported role.
+5. Add mobile-specific API/unit/E2E coverage and device/browser acceptance where applicable.
+6. Apply the existing design system direction rather than creating a second visual system.
+
+Do not begin push/SMS/email notification providers until the notification domain is explicitly scheduled after Mobile App according to `phases.md`.
 
 ## Development rules
 
