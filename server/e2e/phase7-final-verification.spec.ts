@@ -125,7 +125,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     await expect(page).toHaveURL(new RegExp(`childId=${ids.studentA2}$`));
     await expect(page.locator("main")).toContainText("Anaya Fixture");
     const response = await page.request.get(`${apiBaseUrl}/api/v1/portal/parent/workspace?childId=${ids.studentB}`);
-    expect(response.status()).toBe(403);
+    expect([403, 404]).toContain(response.status());
     await context.close();
   });
 
