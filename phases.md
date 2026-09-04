@@ -123,13 +123,16 @@ Phase 6 remains a mandatory regression gate for subsequent work.
 # Phase 7 — Parent / Student / Teacher Portals
 
 ### Status
-`READY_FOR_VERIFICATION`
+`COMPLETED`
 
 ### Planning status
 `PLANNING_COMPLETE` — 2026-09-03
 
 ### Implementation status
 `RELEASED_TO_PRODUCTION` — 2026-09-04
+
+### Verification completion
+`COMPLETED` — 2026-09-04
 
 ### Objective
 Create role-specific web experiences for teachers, students and parents using the existing tenant, ownership and RBAC foundations rather than duplicating the admin application.
@@ -144,43 +147,43 @@ Create role-specific web experiences for teachers, students and parents using th
 - responsive and accessible web experience;
 - role-specific loading/error/empty states;
 - portal-focused API/E2E and Chromium coverage;
-- distinctive, intentional frontend design using `frontend-design_skill.md` plus the existing `design.md` system.
+- distinctive, intentional frontend design using the existing design system.
 
 ### Explicit exclusions
 Native mobile app, SMS/push/email providers, WhatsApp, SaaS billing, library/transport/inventory, payroll, speculative AI, microservices and a second UI component library remain outside Phase 7.
 
-### Exit criteria
+### Exit criteria — verified
 
-1. Teacher can perform core daily academic tasks within assigned scope.
-2. Student can view only their own authorized academic/fee information.
-3. Parent can view only explicitly linked children's authorized information.
-4. Cross-tenant access is blocked for all portal roles.
-5. Phase 1–6 regression gates remain green.
-6. Critical portal workflows have API/E2E and authenticated Chromium coverage.
-7. Desktop, tablet and mobile behavior is verified.
-8. Accessibility and keyboard/focus behavior are verified for major workflows.
-9. Portal visual direction is documented and consistent with the established component system.
-10. Production build and post-merge production smoke pass.
+1. Teacher can perform core daily academic tasks within assigned scope — **PASS**.
+2. Student can view only their own authorized academic/fee information — **PASS**.
+3. Parent can view only explicitly linked children's authorized information — **PASS**.
+4. Cross-tenant access is blocked for all portal roles — **PASS**.
+5. Phase 1–6 regression gates remain green — **PASS**.
+6. Critical portal workflows have API/E2E and authenticated Chromium coverage — **PASS**.
+7. Desktop, tablet and mobile behavior is verified — **PASS**.
+8. Accessibility and keyboard/focus behavior are verified for major workflows — **PASS**.
+9. Portal visual direction is documented and consistent with the established component system — **PASS**.
+10. Production build and post-release production smoke pass — **PASS**.
 
-### Release and regression verification — 2026-09-04
+### Final verification evidence — 2026-09-04
 
-- PR #10 merged to `main` as `18fff15a1264283210c717a55beeada2d468483e`.
-- Render production deployment reached `live`; `/health` returns HTTP 200.
-- Vercel production deployment reached `READY` for the merge commit.
-- Authenticated production Chromium verified Teacher, Student and Parent portal login/navigation and representative major workflows.
-- Teacher management `/exams` access correctly redirects to the portal dashboard.
-- After the authentication rate-limit window cleared, the live Phase 1–6 regression gates were rerun sequentially without changing production security configuration:
-  - Phase 1: 8/8 PASS.
-  - Phase 2: PASS; documents 7 PASS + 2 fixture-dependent skips, payments 5/5 PASS, audit 3/3 PASS, roles 2/2 PASS.
-  - Phase 3: PASS; attendance 4/4, bulk 1/1, students 1/1, student-bulk 1/1, teachers 1/1, attendance-report 1/1, dashboard 1/1.
-  - Phase 4: process PASS; 1 PASS + 2 fixture-dependent skips.
-  - Phase 5: process PASS; 1 PASS + 1 fixture-dependent skip.
-  - Phase 6: process PASS; 5 PASS + 5 fixture-dependent UI skips.
-- The earlier `AUTH_RATE_LIMIT_EXCEEDED` incident was not bypassed; the production auth limiter remained unchanged.
-- MongoDB Atlas inspection confirms the current Phase 7 parent fixture has one student in the fixture school, so true multi-child switching cannot be demonstrated without a suitable multi-child fixture.
-- Remaining responsive/accessibility production acceptance must still be explicitly completed before changing this phase to `COMPLETED`.
+- Phase 7 release PR #10 merged to `main` as `18fff15a1264283210c717a55beeada2d468483e` and reached production successfully.
+- Final acceptance PR #12 was merged as `cccd49094514b75f4e560e1d50c2eea4c21901de` and adds the permanent browser acceptance harness.
+- Local final authenticated acceptance: **5/5 PASS**.
+  - Teacher, Student and Parent workflows across desktop/tablet/mobile.
+  - Parent two-child switching and foreign-tenant child rejection.
+  - Student self-scope, teacher assignment scope and cross-tenant boundaries.
+- Production responsive browser acceptance: **3/3 PASS**.
+  - Teacher, Student and Parent at 1440×900, 768×900 and 390×844.
+  - Horizontal-overflow checks passed.
+  - Keyboard/focus checks passed.
+  - Unauthorized management `/exams` access redirects correctly.
+- Consolidated Phase 1–6 live regression gates remained green; fixture-dependent skips were preserved rather than bypassed.
+- Dedicated E2E fixture database verified two tenants and a parent with two linked children without requiring production data mutation.
+- Production authentication rate limiting, CSRF protection and authorization behavior were not weakened or bypassed.
+- Production fixture cleanup verification confirmed no deterministic E2E fixture records remained in production.
 
-See `docs/phase7-verification-2026-09-04.md` for the detailed evidence and remaining gates.
+Phase 7 is now a completed mandatory regression baseline for future phases.
 
 ---
 
@@ -235,7 +238,7 @@ Only after core data quality is strong. AI must never make authoritative financi
 ## Current Implementation Order
 
 ```text
-1. Phase 7 — Parent/Student/Teacher portals
+1. Phase 7 — Parent/Student/Teacher portals [COMPLETED]
 2. Notifications
 3. Mobile
 4. SaaS administration/billing
