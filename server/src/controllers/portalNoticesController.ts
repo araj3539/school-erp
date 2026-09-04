@@ -30,7 +30,7 @@ export async function getPortalNotices(req: Request, res: Response, next: NextFu
     const base: any = { schoolId, ...activeWindow() };
     let students: any[] = [];
     let selectedStudentId: any = null;
-    let targets: any[] = [{ audience: "school" }];
+    const targets: any[] = [{ audience: "school" }];
 
     if (req.user!.role === UserRole.STUDENT) {
       const student: any = await Student.findOne({ schoolId, userId: req.user!.userId, status: "active" }).select("_id firstName lastName classId sectionId").populate("classId sectionId").lean();
