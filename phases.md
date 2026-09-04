@@ -123,13 +123,13 @@ Phase 6 remains a mandatory regression gate for subsequent work.
 # Phase 7 — Parent / Student / Teacher Portals
 
 ### Status
-`IN_PROGRESS`
+`READY_FOR_VERIFICATION`
 
 ### Planning status
 `PLANNING_COMPLETE` — 2026-09-03
 
 ### Implementation status
-`STAGE_0_COMPLETE` · `STAGE_1_FOUNDATION_COMPLETE` — 2026-09-03
+`RELEASED_TO_PRODUCTION` — 2026-09-04
 
 ### Objective
 Create role-specific web experiences for teachers, students and parents using the existing tenant, ownership and RBAC foundations rather than duplicating the admin application.
@@ -162,7 +162,18 @@ Native mobile app, SMS/push/email providers, WhatsApp, SaaS billing, library/tra
 9. Portal visual direction is documented and consistent with the established component system.
 10. Production build and post-merge production smoke pass.
 
-See `docs/phase7-plan.md` for the complete stage-by-stage implementation, security, UX, testing and release plan.
+### Release verification — 2026-09-04
+
+- PR #10 merged to `main` as `18fff15a1264283210c717a55beeada2d468483e`.
+- Render production deployment reached `live`; `/health` returns HTTP 200.
+- Vercel production deployment reached `READY` for the merge commit.
+- Authenticated production Chromium verified Teacher, Student and Parent portal login/navigation and representative major workflows.
+- Teacher management `/exams` access correctly redirects to the portal dashboard.
+- The consolidated live Phase 1–6 rerun was started post-release but hit the intentional authentication rate limiter after five Phase 1 cases; the remaining cases and later suites were not hammered through the limiter.
+- The single-child fixture prevented multi-child parent switching verification.
+- Remaining responsive/accessibility production acceptance must still be explicitly rerun before changing this phase to `COMPLETED`.
+
+See `docs/phase7-verification-2026-09-04.md` for the detailed evidence and remaining gates.
 
 ---
 
