@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import jwt from "jsonwebtoken";
 import { UserRole } from "@school-erp/shared";
 
-const JWT_SECRET = "01234567890123456789012345678901";
-const schoolExists = vi.fn();
+const { JWT_SECRET, schoolExists } = vi.hoisted(() => ({
+  JWT_SECRET: "01234567890123456789012345678901",
+  schoolExists: vi.fn(),
+}));
+
 vi.mock("../config/index.js", () => ({ env: { JWT_SECRET } }));
 vi.mock("../models/index.js", () => ({ School: { exists: schoolExists } }));
 import { authenticate, optionalAuth } from "./auth.js";
