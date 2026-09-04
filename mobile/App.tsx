@@ -1,7 +1,7 @@
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createNativeStackNavigator, NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type RootStackParamList = {
   Home: undefined;
@@ -10,9 +10,17 @@ type RootStackParamList = {
   Parent: undefined;
 };
 
+type HomeProps = NativeStackScreenProps<RootStackParamList, "Home">;
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function HomeScreen() {
+function HomeScreen({ navigation }: HomeProps) {
+  const roles: Array<{ label: string; route: "Teacher" | "Student" | "Parent" }> = [
+    { label: "Teacher workspace", route: "Teacher" },
+    { label: "Student workspace", route: "Student" },
+    { label: "Parent workspace", route: "Parent" },
+  ];
+
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
@@ -22,9 +30,18 @@ function HomeScreen() {
         React Native + TypeScript foundation for the existing School ERP API.
         Authentication and authorization remain server-side responsibilities.
       </Text>
-      <Text style={styles.caption}>
-        Role navigation is wired for the next authenticated portal slice.
-      </Text>
+      <View style={styles.roleList}>
+        {roles.map((role) => (
+          <Pressable
+            key={role.route}
+            accessibilityRole="button"
+            onPress={() => navigation.navigate(role.route)}
+            style={({ pressed }) => [styles.roleButton, pressed && styles.roleButtonPressed]}
+          >
+            <Text style={styles.roleButtonText}>{role.label}</Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
@@ -82,11 +99,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: "#475569",
-    marginBottom: 16,
+    marginBottom: 24,
   },
-  caption: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#64748b",
+  roleList: {
+    gap: 12,
+  },
+  roleButton: {
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#0f172a",
+  },
+  roleButtonPressed: {
+    opacity: 0.72,
+  },
+  roleButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
