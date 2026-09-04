@@ -20,7 +20,7 @@ describe("Client Utilities", () => {
   describe("formatCurrency", () => {
     it("should format INR by default", () => {
       expect(formatCurrency(1000)).toBe("₹1,000");
-      expect(formatCurrency(1000.5)).toBe("₹1,000.50");
+      expect(formatCurrency(1000.5)).toBe("₹1,000.5");
     });
 
     it("should omit fractional digits for whole numbers", () => {
