@@ -26,10 +26,10 @@ const ids = {
   studentUserA1: new mongoose.Types.ObjectId("67e000000000000000000043"),
   studentUserA2: new mongoose.Types.ObjectId("67e000000000000000000044"),
   parentA: new mongoose.Types.ObjectId("67e000000000000000000045"),
-  studentA1: new mongoose.Types.ObjectId("67e000000000000000000051"),
-  studentA2: new mongoose.Types.ObjectId("67e000000000000000000052"),
   principalB: new mongoose.Types.ObjectId("67e000000000000000000046"),
   studentUserB: new mongoose.Types.ObjectId("67e000000000000000000047"),
+  studentA1: new mongoose.Types.ObjectId("67e000000000000000000051"),
+  studentA2: new mongoose.Types.ObjectId("67e000000000000000000052"),
   studentB: new mongoose.Types.ObjectId("67e000000000000000000053")
 };
 
@@ -138,6 +138,11 @@ try {
   await upsertMany(db.collection("users"), users);
   await upsertMany(db.collection("teachers"), teachers);
   await upsertMany(db.collection("students"), students);
+
+  await db.collection("users").updateOne({ _id: ids.teacherA }, { $set: { profileId: ids.teacherA } });
+  await db.collection("users").updateOne({ _id: ids.studentUserA1 }, { $set: { profileId: ids.studentA1 } });
+  await db.collection("users").updateOne({ _id: ids.studentUserA2 }, { $set: { profileId: ids.studentA2 } });
+  await db.collection("users").updateOne({ _id: ids.studentUserB }, { $set: { profileId: ids.studentB } });
 
   console.log(JSON.stringify({
     message: "Deterministic E2E fixtures seeded",
