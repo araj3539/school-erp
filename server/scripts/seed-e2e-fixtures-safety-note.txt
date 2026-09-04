@@ -1,0 +1,1 @@
+Temporary safety note: the fixture seeder requires an explicit E2E_MONGODB_URI in the follow-up safety patch. This file is intentionally not part of the final implementation and will be removed after the patch is applied.
