@@ -22,6 +22,9 @@ test-results/
 # Turbo
 .turbo/
 
+# Expo
+mobile/.expo/
+
 # IDE
 .vscode/
 .idea/
