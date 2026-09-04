@@ -34,10 +34,10 @@ test.describe("Phase 7 final authenticated acceptance", () => {
   test.describe.configure({ mode: "serial" });
 
   async function login(page: Page, email: string) {
-    let loginResponse: { status: number; body: string } | null = null;
+    let loginResponse: { url: string; status: number; body: string } | null = null;
     const listener = async (response: import("@playwright/test").Response) => {
       if (response.url().endsWith("/api/v1/auth/login")) {
-        loginResponse = { status: response.status(), body: await response.text() };
+        loginResponse = { url: response.url(), status: response.status(), body: await response.text() };
       }
     };
     page.on("response", listener);
@@ -46,9 +46,14 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password!);
     await page.getByRole("button", { name: "Sign In" }).click();
-    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
+    try {
+      await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
+    } catch (error) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}\nLogin response: ${JSON.stringify(loginResponse)}`);
+    } finally {
+      page.off("response", listener);
+    }
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
-    page.off("response", listener);
     if (loginResponse && loginResponse.status >= 400) throw new Error(`Login API failed: HTTP ${loginResponse.status} ${loginResponse.body}`);
   }
 
@@ -61,10 +66,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
   }
 
   async function assertNoHorizontalOverflow(page: Page) {
-    const overflow = await page.evaluate(() => ({
-      viewport: document.documentElement.clientWidth,
-      scrollWidth: document.documentElement.scrollWidth,
-    }));
+    const overflow = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
     expect(overflow.scrollWidth, `horizontal overflow: ${JSON.stringify(overflow)}`).toBeLessThanOrEqual(overflow.viewport + 1);
   }
 
