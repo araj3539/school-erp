@@ -1,6 +1,6 @@
 # School ERP — Development Phases
 
-> **Purpose:** Delivery roadmap and phase governance. Status must reflect verified implementation, not intention.
+> **Purpose:** Durable delivery roadmap and phase governance. Detailed execution planning, dependencies, acceptance criteria, status and evidence are maintained in Linear.
 
 ---
 
@@ -125,9 +125,6 @@ Phase 6 remains a mandatory regression gate for subsequent work.
 ### Status
 `COMPLETED`
 
-### Planning status
-`PLANNING_COMPLETE` — 2026-09-03
-
 ### Implementation status
 `RELEASED_TO_PRODUCTION` — 2026-09-04
 
@@ -170,14 +167,7 @@ Native mobile app, SMS/push/email providers, WhatsApp, SaaS billing, library/tra
 - Phase 7 release PR #10 merged to `main` as `18fff15a1264283210c717a55beeada2d468483e` and reached production successfully.
 - Final acceptance PR #12 was merged as `cccd49094514b75f4e560e1d50c2eea4c21901de` and adds the permanent browser acceptance harness.
 - Local final authenticated acceptance: **5/5 PASS**.
-  - Teacher, Student and Parent workflows across desktop/tablet/mobile.
-  - Parent two-child switching and foreign-tenant child rejection.
-  - Student self-scope, teacher assignment scope and cross-tenant boundaries.
 - Production responsive browser acceptance: **3/3 PASS**.
-  - Teacher, Student and Parent at 1440×900, 768×900 and 390×844.
-  - Horizontal-overflow checks passed.
-  - Keyboard/focus checks passed.
-  - Unauthorized management `/exams` access redirects correctly.
 - Consolidated Phase 1–6 live regression gates remained green; fixture-dependent skips were preserved rather than bypassed.
 - Dedicated E2E fixture database verified two tenants and a parent with two linked children without requiring production data mutation.
 - Production authentication rate limiting, CSRF protection and authorization behavior were not weakened or bypassed.
@@ -190,6 +180,8 @@ Phase 7 is now a completed mandatory regression baseline for future phases.
 # Phase 8 — Mobile App
 
 Recommended direction: React Native using shared API contracts and schemas.
+
+Detailed implementation sequence and status are tracked in Linear under the Phase 8 master issue and its child issues.
 
 ---
 
@@ -239,11 +231,13 @@ Only after core data quality is strong. AI must never make authoritative financi
 
 ```text
 1. Phase 7 — Parent/Student/Teacher portals [COMPLETED]
-2. Notifications
-3. Mobile
-4. SaaS administration/billing
-5. Reliability/scale
-6. AI/advanced analytics
+2. Phase 8 — Mobile App [IN PROGRESS]
+3. Phase 9 — Notifications
+4. Phase 10 — Library/Transport/Inventory/Staff
+5. Phase 11 — Online Payments
+6. Phase 12 — SaaS Platform
+7. Phase 13 — Reliability and Scale
+8. Phase 14 — AI and Advanced Analytics
 ```
 
 Do not prioritize microservices, Kubernetes, GPS/WhatsApp automation, speculative AI decisioning or broad caching before the core ERP is correct and regression-gated.
@@ -270,10 +264,12 @@ Multiple schools with automated onboarding and billing.
 
 At every phase or material change:
 1. verify the repository and deployed behavior where applicable;
-2. record completed and remaining work;
-3. update affected living documents;
+2. use Linear for detailed execution planning, dependencies, acceptance criteria, status and evidence;
+3. update affected durable repository documents;
 4. keep Phase 1/2 security gates as regression gates;
 5. only change a phase to `COMPLETED` after its exit criteria are verified.
+
+Historical audits and implementation-plan snapshots should not be recreated as repository files; preserve useful execution history in Linear.
 
 ### Status states
 - `NOT_STARTED`
