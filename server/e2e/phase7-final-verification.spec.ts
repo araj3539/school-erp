@@ -5,24 +5,13 @@ const apiBaseUrl = process.env.E2E_API_URL || "http://127.0.0.1:5000";
 const password = process.env.E2E_FIXTURE_PASSWORD;
 const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-E2E-A";
 
-const ids = {
-  studentA1: "67e000000000000000000051",
-  studentA2: "67e000000000000000000052",
-  studentB: "67e000000000000000000053",
-};
-
-const roles = {
-  teacher: "teacher.e2e.a@example.com",
-  student: "student.e2e.a1@example.com",
-  parent: "parent.e2e.a@example.com",
-} as const;
-
+const ids = { studentA1: "67e000000000000000000051", studentA2: "67e000000000000000000052", studentB: "67e000000000000000000053" };
+const roles = { teacher: "teacher.e2e.a@example.com", student: "student.e2e.a1@example.com", parent: "parent.e2e.a@example.com" } as const;
 const viewports = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "tablet", width: 768, height: 900 },
   { name: "mobile", width: 390, height: 844 },
 ] as const;
-
 const routesByRole = {
   teacher: ["/dashboard", "/teacher-workspace", "/teacher-homework", "/portal-timetable", "/portal-notices"],
   student: ["/dashboard", "/student-workspace", "/portal-attendance", "/portal-results", "/portal-fees", "/portal-timetable", "/portal-notices"],
@@ -34,23 +23,12 @@ test.describe("Phase 7 final authenticated acceptance", () => {
   test.describe.configure({ mode: "serial" });
 
   async function login(page: Page, email: string) {
-    let loginResponse: { url: string; status: number; body: string } | null = null;
-    const listener = async (response: import("@playwright/test").Response) => {
-      if (response.url().endsWith("/api/v1/auth/login")) loginResponse = { url: response.url(), status: response.status(), body: await response.text() };
-    };
-    page.on("response", listener);
     await page.goto(`${uiBaseUrl}/login`, { waitUntil: "domcontentloaded" });
     await page.getByLabel("School Code (optional for Super Admin)").fill(schoolCode);
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password!);
     await page.getByRole("button", { name: "Sign In" }).click();
-    try {
-      await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, { timeout: 20_000 });
-    } catch (error) {
-      throw new Error(`${error instanceof Error ? error.message : String(error)}\nLogin response: ${JSON.stringify(loginResponse)}`);
-    } finally {
-      page.off("response", listener);
-    }
+    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, { timeout: 20_000 });
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
@@ -59,7 +37,8 @@ test.describe("Phase 7 final authenticated acceptance", () => {
       window.history.pushState({}, "", path);
       window.dispatchEvent(new PopStateEvent("popstate"));
     }, route);
-    await expect(page).toHaveURL(new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), { timeout: 15_000 });
+    const escaped = route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    await expect(page).toHaveURL(new RegExp(`${escaped}$`), { timeout: 15_000 });
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
@@ -97,7 +76,6 @@ test.describe("Phase 7 final authenticated acceptance", () => {
       const page = context.pages()[0];
       const consoleErrors: string[] = [];
       page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
-
       for (const viewport of viewports) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         for (const route of routesByRole[role]) {
@@ -107,11 +85,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
         }
         await assertKeyboardFocus(page);
       }
-
-      await page.evaluate(() => {
-        window.history.pushState({}, "", "/exams");
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      });
+      await page.evaluate(() => { window.history.pushState({}, "", "/exams"); window.dispatchEvent(new PopStateEvent("popstate")); });
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
       expect(consoleErrors, `browser console errors:\n${consoleErrors.join("\n")}`).toEqual([]);
       await context.close();
@@ -143,7 +117,6 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     const foreign = await studentPage.request.get(`${apiBaseUrl}/api/v1/students/${ids.studentB}`);
     expect([403, 404]).toContain(foreign.status());
     await studentContext.close();
-
     const teacherContext = await authenticatedContext(browser, roles.teacher);
     const teacherPage = teacherContext.pages()[0];
     const assigned = await teacherPage.request.get(`${apiBaseUrl}/api/v1/students/${ids.studentA1}`);
