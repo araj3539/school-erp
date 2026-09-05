@@ -61,20 +61,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [applyAccessToken]);
 
-  const bootstrap = useCallback(async () => {
-    try {
-      const token = await refreshSession();
-      const response = await getCurrentUser(token, activeSchoolId);
-      setUser(response.user);
-      setStatus("authenticated");
-    } catch {
-      await invalidateSession();
-    }
-  }, [activeSchoolId, invalidateSession, refreshSession]);
-
   useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
+    void (async () => {
+      try {
+        const token = await refreshSession();
+        const response = await getCurrentUser(token);
+        setUser(response.user);
+        setStatus("authenticated");
+      } catch {
+        await invalidateSession();
+      }
+    })();
+  }, [invalidateSession, refreshSession]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const response: AuthResponse = await loginRequest(credentials);
