@@ -8,7 +8,7 @@ export interface RequestPolicy {
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_READ_RETRIES = 2;
 
-function withTimeout(signal: AbortSignal | undefined, timeoutMs: number) {
+function withTimeout(signal: AbortSignal | null | undefined, timeoutMs: number) {
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   signal?.addEventListener("abort", onAbort, { once: true });
