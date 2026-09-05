@@ -1,0 +1,55 @@
+name: Semgrep Three-Way Comparison
+
+on:
+  pull_request:
+    paths:
+      - 'server/e2e/semgrep-three-way-probe.spec.ts'
+      - '.github/workflows/semgrep-three-way-comparison.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Compare local scan and semgrep ci
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Record commit identity
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "PR_HEAD_SHA=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "HEAD_SUBJECT=$(git log -1 --pretty=%s)"
+
+      - name: Run local Semgrep scan
+        continue-on-error: true
+        run: |
+          semgrep scan --config auto --json --output semgrep-local-results.json .
+
+      - name: Upload local scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-three-way-local-results
+          path: semgrep-local-results.json
+          if-no-files-found: warn
+
+      - name: Run Semgrep CI against AppSec Platform
+        continue-on-error: true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          semgrep ci
