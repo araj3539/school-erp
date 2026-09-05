@@ -17,14 +17,17 @@ jobs:
     container:
       image: semgrep/semgrep:latest
     steps:
-      - name: Checkout PR commit
+      - name: Checkout exact commit under test
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Print commit identity
         run: |
           echo "GITHUB_SHA=$GITHUB_SHA"
           echo "GITHUB_REF=$GITHUB_REF"
           echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "PR_HEAD_SHA=${{ github.event.pull_request.head.sha || 'n/a' }}"
           echo "HEAD=$(git rev-parse HEAD)"
           echo "HEAD_SUBJECT=$(git log -1 --pretty=%s)"
 
