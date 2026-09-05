@@ -1,0 +1,43 @@
+name: Semgrep Manual Commit Probe
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'server/e2e/semgrep-manual-commit-probe.spec.ts'
+      - '.github/workflows/semgrep-manual-commit-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: semgrep/manual-commit-probe
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - name: Checkout PR commit
+        uses: actions/checkout@v4
+
+      - name: Print commit identity
+        run: |
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "HEAD_SUBJECT=$(git log -1 --pretty=%s)"
+
+      - name: Run Semgrep
+        continue-on-error: true
+        run: |
+          semgrep scan --config auto --json --output semgrep-results.json .
+          cat semgrep-results.json
+
+      - name: Upload Semgrep result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-manual-commit-probe-results
+          path: semgrep-results.json
+          if-no-files-found: warn
