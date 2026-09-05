@@ -3,7 +3,7 @@ import test from "node:test";
 
 const apiBaseUrl = process.env.MOBILE_E2E_API_URL;
 const password = process.env.MOBILE_E2E_PASSWORD;
-const schoolCode = process.env.MOBILE_E2E_SCHOOL_CODE || "SCH-PHASE1-A";
+const schoolCode = process.env.MOBILE_E2E_SCHOOL_CODE;
 
 const roles = [
   { role: "teacher", email: "teacher.a@phase1.example.com", path: "/portal/teacher/workspace" },
@@ -15,6 +15,7 @@ function requireEnvironment() {
   const missing = [
     ["MOBILE_E2E_API_URL", apiBaseUrl],
     ["MOBILE_E2E_PASSWORD", password],
+    ["MOBILE_E2E_SCHOOL_CODE", schoolCode],
   ].filter(([, value]) => !value).map(([name]) => name);
 
   assert.equal(
