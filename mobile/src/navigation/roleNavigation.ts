@@ -1,6 +1,4 @@
-import { UserRole } from "@school-erp/shared";
-
-export type MobilePortalRole = UserRole.TEACHER | UserRole.STUDENT | UserRole.PARENT;
+export type MobilePortalRole = "teacher" | "student" | "parent";
 
 export type MobileRoleShell = {
   role: MobilePortalRole;
@@ -10,35 +8,20 @@ export type MobileRoleShell = {
 };
 
 const ROLE_SHELLS: Record<MobilePortalRole, MobileRoleShell> = {
-  [UserRole.TEACHER]: {
-    role: UserRole.TEACHER,
-    routeName: "Teacher",
-    path: "teacher",
-    title: "Teacher",
-  },
-  [UserRole.STUDENT]: {
-    role: UserRole.STUDENT,
-    routeName: "Student",
-    path: "student",
-    title: "Student",
-  },
-  [UserRole.PARENT]: {
-    role: UserRole.PARENT,
-    routeName: "Parent",
-    path: "parent",
-    title: "Parent",
-  },
+  teacher: { role: "teacher", routeName: "Teacher", path: "teacher", title: "Teacher" },
+  student: { role: "student", routeName: "Student", path: "student", title: "Student" },
+  parent: { role: "parent", routeName: "Parent", path: "parent", title: "Parent" },
 };
 
-export function getMobileRoleShell(role: UserRole | null | undefined): MobileRoleShell | null {
+export function getMobileRoleShell(role: string | null | undefined): MobileRoleShell | null {
   if (!role) return null;
   return ROLE_SHELLS[role as MobilePortalRole] ?? null;
 }
 
-export function isMobilePortalRole(role: UserRole | null | undefined): role is MobilePortalRole {
+export function isMobilePortalRole(role: string | null | undefined): role is MobilePortalRole {
   return getMobileRoleShell(role) !== null;
 }
 
-export function getMobileRolePath(role: UserRole | null | undefined): string | null {
+export function getMobileRolePath(role: string | null | undefined): string | null {
   return getMobileRoleShell(role)?.path ?? null;
 }
