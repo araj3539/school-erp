@@ -64,7 +64,8 @@ test("mobile release gate: authentication, role routing and representative workf
 
     const rotated = await refresh(auth.refreshToken);
     assert.ok(rotated.accessToken, `${fixture.role} refresh did not return an access token`);
-    assert.ok(rotated.refreshToken, `${fixture.role} refresh did not rotate the refresh token`);
+    assert.ok(rotated.refreshToken, `${fixture.role} refresh did not return a refresh token`);
+    assert.notEqual(rotated.refreshToken, auth.refreshToken, `${fixture.role} refresh token was not rotated`);
 
     await logout(rotated.accessToken, auth.user.schoolId);
   }
