@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/api";
@@ -31,20 +31,28 @@ export function TeacherScreen() {
   const [data, setData] = useState<TeacherWorkspaceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setRefreshing(true);
     setError(null);
     try {
-      setData(await api.getWorkspace());
+      const nextData = await api.getWorkspace();
+      if (sequence === loadSequence.current) setData(nextData);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Unable to load the teacher workspace.");
+      if (sequence === loadSequence.current) {
+        setError(cause instanceof ApiError ? cause.message : "Unable to load the teacher workspace.");
+      }
     } finally {
-      setRefreshing(false);
+      if (sequence === loadSequence.current) setRefreshing(false);
     }
   }, [api]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]);
 
   if (!data && error) return <View style={styles.center}><ErrorState message={error} onRetry={() => void load()} /></View>;
   if (!data) return <LoadingState message="Loading your workspace…" />;
