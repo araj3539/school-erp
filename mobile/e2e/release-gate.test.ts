@@ -6,9 +6,9 @@ const password = process.env.MOBILE_E2E_PASSWORD;
 const schoolCode = process.env.MOBILE_E2E_SCHOOL_CODE;
 
 const roles = [
-  { role: "teacher", email: "teacher.a@phase1.example.com", path: "/portal/teacher/workspace" },
-  { role: "student", email: "student.a@phase1.example.com", path: "/portal/student/workspace" },
-  { role: "parent", email: "parent.a@phase1.example.com", path: "/portal/parent/workspace" },
+  { role: "teacher", email: "teacher.e2e.a@example.com", path: "/portal/teacher/workspace" },
+  { role: "student", email: "student.e2e.a1@example.com", path: "/portal/student/workspace" },
+  { role: "parent", email: "parent.e2e.a@example.com", path: "/portal/parent/workspace" },
 ] as const;
 
 function requireEnvironment() {
