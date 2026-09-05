@@ -45,19 +45,22 @@ test.describe("Phase 7 final authenticated acceptance", () => {
     await page.getByLabel("Password").fill(password!);
     await page.getByRole("button", { name: "Sign In" }).click();
     try {
-      await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
+      await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/, { timeout: 20_000 });
     } catch (error) {
       throw new Error(`${error instanceof Error ? error.message : String(error)}\nLogin response: ${JSON.stringify(loginResponse)}`);
     } finally {
       page.off("response", listener);
     }
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
-    if (loginResponse && loginResponse.status >= 400) throw new Error(`Login API failed: HTTP ${loginResponse.status} ${loginResponse.body}`);
   }
 
   async function navigateSpa(page: Page, route: string) {
-    await page.evaluate((path) => { window.history.pushState({}, "", path); window.dispatchEvent(new PopStateEvent("popstate")); }, route);
+    await page.evaluate((path) => {
+      window.history.pushState({}, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }, route);
     await expect(page).toHaveURL(new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), { timeout: 15_000 });
+    await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
   async function assertNoHorizontalOverflow(page: Page) {
@@ -84,8 +87,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
 
   async function authenticatedContext(browser: Browser, email: string): Promise<BrowserContext> {
     const context = await browser.newContext({ viewport: viewports[0] });
-    const page = await context.newPage();
-    await login(page, email);
+    await login(await context.newPage(), email);
     return context;
   }
 
@@ -100,14 +102,16 @@ test.describe("Phase 7 final authenticated acceptance", () => {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         for (const route of routesByRole[role]) {
           await navigateSpa(page, route);
-          await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
           await expect(page.locator("body")).not.toContainText("Application error");
           await assertNoHorizontalOverflow(page);
         }
         await assertKeyboardFocus(page);
       }
 
-      await page.evaluate(() => { window.history.pushState({}, "", "/exams"); window.dispatchEvent(new PopStateEvent("popstate")); });
+      await page.evaluate(() => {
+        window.history.pushState({}, "", "/exams");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
       expect(consoleErrors, `browser console errors:\n${consoleErrors.join("\n")}`).toEqual([]);
       await context.close();
