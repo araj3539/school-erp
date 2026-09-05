@@ -67,7 +67,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     setAuthCookies(res, accessToken, refreshToken);
     await createAuditLog({ ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}), userId: user._id.toString(), action: "LOGIN", entity: "User", entityId: user._id.toString() });
     const schools = user.role === UserRole.SUPER_ADMIN ? await getTenantSchools() : [];
-    res.json({ user: publicUser(user), accessToken, ...(schools.length ? { schools, activeSchoolId: schools.length === 1 ? schools[0].id : null } : {}) });
+    res.json({ user: publicUser(user), accessToken, ...(res.locals.mobileAuth ? { refreshToken } : {}), ...(schools.length ? { schools, activeSchoolId: schools.length === 1 ? schools[0].id : null } : {}) });
   } catch (error) { next(error); }
 }
 
@@ -83,7 +83,7 @@ export async function refresh(req: Request, res: Response, next: NextFunction) {
     if (!user) throw AppError.unauthorized("Refresh session is invalid or has already been rotated");
     const newPayload = tokenPayload(user), accessToken = generateAccessToken(newPayload), newRefreshToken = generateRefreshToken(newPayload);
     setAuthCookies(res, accessToken, newRefreshToken);
-    res.json({ accessToken });
+    res.json({ accessToken, ...(res.locals.mobileAuth ? { refreshToken: newRefreshToken } : {}) });
   } catch (error) { next(error); }
 }
 
