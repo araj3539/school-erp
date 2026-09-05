@@ -2,14 +2,18 @@
 
 A multi-tenant School Management System built with React, TypeScript, Express and MongoDB.
 
-## Current status — 2026-09-02
+## Current status — 2026-09-05
 
 - Phase 1 Production Security and Multi-Tenancy: **COMPLETED**
 - Phase 2 Core Administration security/ownership gate: **COMPLETED**
-- Phase 3 Attendance + Core Administration completion: **IN PROGRESS**
-- Phase 3 API/E2E acceptance currently green for attendance, bulk attendance, student search and student bulk import/export.
+- Phase 3 Attendance + Core Administration completion: **COMPLETED**
+- Phase 4 Fees and Financial Core: **COMPLETED**
+- Phase 5 Exams and Academic Results: **COMPLETED**
+- Phase 6 Homework, Notices and Timetable: **COMPLETED**
+- Phase 7 Parent / Student / Teacher Portals: **COMPLETED**
+- Phase 8 Mobile App: **IN PROGRESS**
 
-See `docs/codebase-audit-2026-09-02.md` and `docs/next-implementation-plan.md` for the current development state and sequence.
+Detailed future execution planning, dependencies, acceptance criteria, evidence and status tracking live in Linear. `phases.md` remains the durable repository roadmap and phase-governance reference.
 
 ## Tech Stack
 
@@ -25,15 +29,17 @@ See `docs/codebase-audit-2026-09-02.md` and `docs/next-implementation-plan.md` f
 - **Excel:** read/write Excel services
 - **Testing:** Vitest + Playwright + Testing Library
 - **Monorepo:** npm workspaces + Turbo
+- **Mobile:** React Native / Expo
 
 ## Project Structure
 
 ```text
 school-erp/
 ├── client/          # React frontend
+├── mobile/          # React Native / Expo mobile app
 ├── server/          # Express backend, models, services and E2E
 ├── shared/          # Shared Zod schemas and constants
-├── docs/            # Phase/audit/implementation documentation
+├── docs/            # Durable supporting documentation only
 ├── docker-compose.yml
 ├── turbo.json
 └── package.json
@@ -53,20 +59,10 @@ school-erp/
 - School settings and academic years
 - Audit logging
 - R2 document storage and B2 recovery infrastructure
-
-## Phase 3 acceptance
-
-The current Phase 3 gate covers:
-
-```text
-Attendance:       4 passed
-Bulk attendance:  1 passed
-Student search:   1 passed
-Student bulk:     1 passed
-Phase 3 summary:  PASS
-```
-
-This does **not** mean Phase 3 is complete. Remaining work includes attendance UI correctness, attendance spreadsheet workflows, reporting/timezone hardening, student Import/Export UI integration, teacher administration acceptance and admission/admin workflows.
+- Exams and academic results
+- Homework, notices and timetable
+- Role-specific teacher, student and parent portals
+- Mobile application foundation
 
 ## Development workflow
 
@@ -107,7 +103,7 @@ npm run lint
 npm run test:e2e:phase3 --prefix server
 ```
 
-The Phase 3 E2E command uses the configured E2E environment. Do not commit its local credentials.
+E2E commands use the configured E2E environment. Do not commit local credentials.
 
 ## Deployment
 
@@ -154,7 +150,7 @@ Exact authorization comes from the shared permission definitions and server-side
 
 ## Documentation
 
-Before changing core behavior, inspect:
+The durable repository documentation set is intentionally small:
 
 ```text
 prd.md
@@ -162,12 +158,14 @@ architecture.md
 rules.md
 design.md
 phases.md
-memory.md
-docs/codebase-audit-2026-09-02.md
-docs/next-implementation-plan.md
+BACKUP_RESTORE.md
+chatgpt-dev-stack-prompt.md
+server/e2e/README.md
 ```
 
-Documentation is living project state and must be synchronized after material changes.
+Use Linear as the source of work for detailed planning, sequencing, dependencies, acceptance criteria, implementation status and execution evidence. Keep the durable repository documents synchronized when product, architecture, rules, UX, phase governance, backup/recovery guidance or development protocol changes.
+
+Do not recreate historical phase/audit/implementation-plan files for routine project tracking; record that work in Linear instead.
 
 ## License
 
