@@ -117,7 +117,6 @@ test.describe("Phase 2 document and recovery authorization", () => {
     expect(body.expiresIn).toBe(600);
     expect(typeof body.url).toBe("string");
     expect(body.url.length).toBeGreaterThan(0);
-    expect(body.url.length).toBeGreaterThan(0);
     expect(body).not.toHaveProperty("key");
     expect(body).not.toHaveProperty("publicId");
     expect(body).not.toHaveProperty("storageKey");
