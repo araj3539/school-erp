@@ -3,3 +3,5 @@
 export function buildProbeRegex(userControlledPattern: string): RegExp {
   return new RegExp(userControlledPattern);
 }
+
+// Trigger a PR synchronize event after changing checkout behavior in the probe workflow.
