@@ -1,29 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UserRole } from "@school-erp/shared";
 import { getMobileRolePath, getMobileRoleShell, isMobilePortalRole } from "./roleNavigation";
 
 test("teacher, student and parent each map to exactly one mobile shell", () => {
-  assert.deepEqual(getMobileRoleShell(UserRole.TEACHER), {
-    role: UserRole.TEACHER,
+  assert.deepEqual(getMobileRoleShell("teacher"), {
+    role: "teacher",
     routeName: "Teacher",
     path: "teacher",
     title: "Teacher",
   });
-  assert.equal(getMobileRolePath(UserRole.STUDENT), "student");
-  assert.equal(getMobileRolePath(UserRole.PARENT), "parent");
+  assert.equal(getMobileRolePath("student"), "student");
+  assert.equal(getMobileRolePath("parent"), "parent");
 });
 
 test("management roles do not receive a mobile portal shell", () => {
-  assert.equal(getMobileRoleShell(UserRole.PRINCIPAL), null);
-  assert.equal(getMobileRoleShell(UserRole.ACCOUNTANT), null);
-  assert.equal(getMobileRoleShell(UserRole.SUPER_ADMIN), null);
-  assert.equal(isMobilePortalRole(UserRole.PRINCIPAL), false);
+  assert.equal(getMobileRoleShell("principal"), null);
+  assert.equal(getMobileRoleShell("accountant"), null);
+  assert.equal(getMobileRoleShell("super_admin"), null);
+  assert.equal(isMobilePortalRole("principal"), false);
 });
 
 test("missing or malformed identity fails closed", () => {
   assert.equal(getMobileRoleShell(null), null);
   assert.equal(getMobileRoleShell(undefined), null);
-  assert.equal(getMobileRoleShell("not-a-role" as UserRole), null);
-  assert.equal(getMobileRolePath("not-a-role" as UserRole), null);
+  assert.equal(getMobileRoleShell("not-a-role"), null);
+  assert.equal(getMobileRolePath("not-a-role"), null);
 });
