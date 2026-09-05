@@ -5,6 +5,10 @@ export interface RequestPolicy {
   retries?: number;
 }
 
+export interface ApiRequestOptions extends RequestInit {
+  policy?: RequestPolicy;
+}
+
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_READ_RETRIES = 2;
 
@@ -31,8 +35,8 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   const retryable = method === "GET" || method === "HEAD" || method === "OPTIONS";
-  const retries = policy.retries ?? (retryable ? DEFAULT_READ_RETRIES : 0);
-  const timeoutMs = policy.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const retries = retryable ? Math.max(0, policy.retries ?? DEFAULT_READ_RETRIES) : 0;
+  const timeoutMs = Math.max(1, policy.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
   let attempt = 0;
   while (true) {
@@ -55,11 +59,29 @@ export async function apiRequest<T>(
 
 export function createApiClient(request: <T>(path: string, options?: RequestInit) => Promise<T>) {
   return {
-    get: <T>(path: string, policy?: RequestPolicy) => apiRequest<T>(request, path, { method: "GET" }, policy),
-    post: <T>(path: string, body: unknown, policy?: RequestPolicy) =>
-      apiRequest<T>(request, path, { method: "POST", body: JSON.stringify(body) }, policy),
-    put: <T>(path: string, body: unknown, policy?: RequestPolicy) =>
-      apiRequest<T>(request, path, { method: "PUT", body: JSON.stringify(body) }, policy),
-    delete: <T>(path: string, policy?: RequestPolicy) => apiRequest<T>(request, path, { method: "DELETE" }, policy),
+    get: <T>(path: string, options: ApiRequestOptions = {}) => {
+      const { policy, ...requestOptions } = options;
+      return apiRequest<T>(request, path, { method: "GET", ...requestOptions }, policy);
+    },
+    post: <T>(path: string, body: unknown, options: ApiRequestOptions = {}) => {
+      const { policy, ...requestOptions } = options;
+      return apiRequest<T>(request, path, {
+        method: "POST",
+        body: JSON.stringify(body),
+        ...requestOptions,
+      }, policy);
+    },
+    put: <T>(path: string, body: unknown, options: ApiRequestOptions = {}) => {
+      const { policy, ...requestOptions } = options;
+      return apiRequest<T>(request, path, {
+        method: "PUT",
+        body: JSON.stringify(body),
+        ...requestOptions,
+      }, policy);
+    },
+    delete: <T>(path: string, options: ApiRequestOptions = {}) => {
+      const { policy, ...requestOptions } = options;
+      return apiRequest<T>(request, path, { method: "DELETE", ...requestOptions }, policy);
+    },
   };
 }
