@@ -11,6 +11,9 @@
     },
     "android": {
       "package": "com.schoolerp.mobile"
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }
