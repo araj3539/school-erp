@@ -1,20 +1,21 @@
-import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator, NativeStackScreenProps } from "@react-navigation/native-stack";
+import { NavigationContainer, type LinkingOptions } from "@react-navigation/native";
+import { createNativeStackNavigator, type NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { AuthProvider, useAuth } from "./src/auth/AuthProvider";
 import type { LoginCredentials } from "./src/auth/types";
+import { getMobileRoleShell } from "./src/navigation/roleNavigation";
 
-type RootStackParamList = {
+export type RootStackParamList = {
   Home: undefined;
   Teacher: undefined;
   Student: undefined;
   Parent: undefined;
+  Unauthorized: undefined;
 };
 
 type HomeProps = NativeStackScreenProps<RootStackParamList, "Home">;
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function LoginScreen() {
@@ -86,31 +87,25 @@ function LoginScreen() {
 
 function HomeScreen({ navigation }: HomeProps) {
   const { user, logout } = useAuth();
-  const roles: Array<{ label: string; route: "Teacher" | "Student" | "Parent" }> = [
-    { label: "Teacher workspace", route: "Teacher" },
-    { label: "Student workspace", route: "Student" },
-    { label: "Parent workspace", route: "Parent" },
-  ];
+  const shell = getMobileRoleShell(user?.role);
 
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
       <Text style={styles.eyebrow}>SCHOOL ERP</Text>
-      <Text style={styles.title}>Mobile foundation</Text>
+      <Text style={styles.title}>{shell ? `${shell.title} portal` : "Mobile portal"}</Text>
       <Text style={styles.body}>{user?.email}</Text>
-      <Text style={styles.role}>{user?.role}</Text>
-      <View style={styles.roleList}>
-        {roles.map((role) => (
-          <Pressable
-            key={role.route}
-            accessibilityRole="button"
-            onPress={() => navigation.navigate(role.route)}
-            style={({ pressed }) => [styles.roleButton, pressed && styles.buttonPressed]}
-          >
-            <Text style={styles.roleButtonText}>{role.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {shell ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate(shell.routeName)}
+          style={({ pressed }) => [styles.roleButton, pressed && styles.buttonPressed]}
+        >
+          <Text style={styles.roleButtonText}>Open {shell.title} workspace</Text>
+        </Pressable>
+      ) : (
+        <Text accessibilityRole="alert" style={styles.error}>Your account does not have a supported mobile portal.</Text>
+      )}
       <Pressable accessibilityRole="button" onPress={() => void logout()} style={styles.secondaryButton}>
         <Text style={styles.secondaryButtonText}>Sign out</Text>
       </Pressable>
@@ -118,31 +113,54 @@ function HomeScreen({ navigation }: HomeProps) {
   );
 }
 
-function RoleScreen({ role }: { role: "Teacher" | "Student" | "Parent" }) {
+function RoleScreen({ title }: { title: string }) {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{role} workspace</Text>
+      <Text style={styles.eyebrow}>SCHOOL ERP</Text>
+      <Text style={styles.title}>{title} workspace</Text>
       <Text style={styles.body}>
-        Authentication is active. Role-specific data remains protected by the API and will be added in the next mobile slices.
+        This role shell is authenticated. Feature data is loaded through the typed API boundary and remains authorized by the server.
       </Text>
     </View>
   );
 }
 
-function AuthenticatedApp() {
+function UnauthorizedScreen() {
   return (
-    <NavigationContainer>
+    <View style={styles.container}>
+      <Text style={styles.eyebrow}>SCHOOL ERP</Text>
+      <Text style={styles.title}>Portal unavailable</Text>
+      <Text style={styles.body}>This account does not have access to a supported mobile portal.</Text>
+    </View>
+  );
+}
+
+function AuthenticatedApp() {
+  const { user } = useAuth();
+  const shell = getMobileRoleShell(user?.role);
+
+  const linking: LinkingOptions<RootStackParamList> = {
+    prefixes: ["schoolerp://"],
+    config: {
+      screens: {
+        Home: "home",
+        ...(shell ? { [shell.routeName]: shell.path } : {}),
+        Unauthorized: "unauthorized",
+      },
+    },
+  };
+
+  return (
+    <NavigationContainer key={`mobile-${user?.id}-${user?.role ?? "unknown"}`} linking={linking}>
       <Stack.Navigator>
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: "School ERP" }} />
-        <Stack.Screen name="Teacher" options={{ title: "Teacher" }}>
-          {() => <RoleScreen role="Teacher" />}
-        </Stack.Screen>
-        <Stack.Screen name="Student" options={{ title: "Student" }}>
-          {() => <RoleScreen role="Student" />}
-        </Stack.Screen>
-        <Stack.Screen name="Parent" options={{ title: "Parent" }}>
-          {() => <RoleScreen role="Parent" />}
-        </Stack.Screen>
+        {shell ? (
+          <Stack.Screen name={shell.routeName} options={{ title: shell.title }}>
+            {() => <RoleScreen title={shell.title} />}
+          </Stack.Screen>
+        ) : (
+          <Stack.Screen name="Unauthorized" component={UnauthorizedScreen} options={{ title: "Unavailable" }} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -194,12 +212,6 @@ const styles = StyleSheet.create({
     color: "#475569",
     marginBottom: 24,
   },
-  role: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 20,
-    textTransform: "capitalize",
-  },
   input: {
     minHeight: 48,
     borderWidth: 1,
@@ -213,9 +225,6 @@ const styles = StyleSheet.create({
   error: {
     color: "#b91c1c",
     marginBottom: 12,
-  },
-  roleList: {
-    gap: 12,
   },
   primaryButton: {
     minHeight: 48,
@@ -234,6 +243,7 @@ const styles = StyleSheet.create({
   roleButton: {
     minHeight: 48,
     justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 16,
     borderRadius: 10,
     backgroundColor: "#0f172a",
