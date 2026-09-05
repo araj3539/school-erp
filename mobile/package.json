@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "tsx --test src/api/client.test.ts"
   },
   "dependencies": {
     "@react-navigation/native": "7.3.18",
