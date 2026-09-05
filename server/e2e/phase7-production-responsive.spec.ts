@@ -3,11 +3,11 @@ import { test, expect, type Browser, type BrowserContext, type Page } from "@pla
 const uiBaseUrl = process.env.UI_BASE_URL;
 const uiQuery = process.env.UI_BASE_QUERY || "";
 const password = process.env.E2E_FIXTURE_PASSWORD;
-const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
+const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-E2E-A";
 const roles = {
-  teacher: "teacher.a@phase1.example.com",
-  student: "student.a@phase1.example.com",
-  parent: "parent.a@phase1.example.com",
+  teacher: "teacher.e2e.a@example.com",
+  student: "student.e2e.a1@example.com",
+  parent: "parent.e2e.a@example.com",
 } as const;
 const viewports = [
   { name: "desktop", width: 1440, height: 900 },
@@ -24,7 +24,7 @@ function uiUrl(path: string): string {
   return `${uiBaseUrl}${path}${uiQuery}`;
 }
 
-test.describe("Phase 7 production responsive browser acceptance", () => {
+test.describe("Phase 7 authenticated responsive browser acceptance", () => {
   test.skip(!uiBaseUrl || !password, "UI_BASE_URL and E2E_FIXTURE_PASSWORD are required");
   test.describe.configure({ mode: "serial" });
 
@@ -38,8 +38,13 @@ test.describe("Phase 7 production responsive browser acceptance", () => {
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
-  async function spaNavigate(page: Page, route: string) {
-    await page.evaluate((path) => { window.history.pushState({}, "", path); window.dispatchEvent(new PopStateEvent("popstate")); }, route);
+  async function navigateSpa(page: Page, route: string) {
+    await page.evaluate((path) => {
+      window.history.pushState({}, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }, route);
+    await expect(page).toHaveURL(new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), { timeout: 15_000 });
+    await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
   async function assertOverflow(page: Page) {
@@ -77,14 +82,16 @@ test.describe("Phase 7 production responsive browser acceptance", () => {
       for (const viewport of viewports) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         for (const route of routesByRole[role]) {
-          await spaNavigate(page, route);
-          await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+          await navigateSpa(page, route);
           await expect(page.locator("body")).not.toContainText("Application error");
           await assertOverflow(page);
         }
         await assertFocus(page);
       }
-      await spaNavigate(page, "/exams");
+      await page.evaluate(() => {
+        window.history.pushState({}, "", "/exams");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
       await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
       await context.close();
     });

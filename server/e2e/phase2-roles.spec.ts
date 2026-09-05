@@ -2,8 +2,8 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
 
 const apiUrl = process.env.E2E_API_URL;
 const password = process.env.E2E_FIXTURE_PASSWORD;
-const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
-const principalEmail = "principal.a@phase1.example.com";
+const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-E2E-A";
+const principalEmail = "principal.e2e.a@example.com";
 const cachedPrincipalToken = process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN;
 
 async function login(request: any, email: string) {
