@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "School ERP",
+    "slug": "school-erp",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "schoolerp",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.schoolerp.mobile"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
