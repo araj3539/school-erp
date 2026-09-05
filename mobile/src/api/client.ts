@@ -8,6 +8,21 @@ export interface RequestPolicy {
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_READ_RETRIES = 2;
 
+function withTimeout(signal: AbortSignal | undefined, timeoutMs: number) {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort, { once: true });
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", onAbort);
+    },
+  };
+}
+
 export async function apiRequest<T>(
   request: <R>(path: string, options?: RequestInit) => Promise<R>,
   path: string,
@@ -21,19 +36,19 @@ export async function apiRequest<T>(
 
   let attempt = 0;
   while (true) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const timed = withTimeout(options.signal, timeoutMs);
     try {
-      return await request<T>(path, { ...options, signal: controller.signal });
+      return await request<T>(path, { ...options, signal: timed.signal });
     } catch (error) {
+      if (options.signal?.aborted) throw new ApiError(499, "The request was cancelled.");
       if (error instanceof ApiError && error.status >= 400 && error.status < 500) throw error;
       if (attempt >= retries) {
-        if (controller.signal.aborted) throw new ApiError(408, "The request timed out. Please try again.");
+        if (timed.signal.aborted) throw new ApiError(408, "The request timed out. Please try again.");
         throw error;
       }
       attempt += 1;
     } finally {
-      clearTimeout(timeout);
+      timed.cleanup();
     }
   }
 }
