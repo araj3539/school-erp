@@ -6,8 +6,6 @@ import type {
 } from "./types";
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:5000/api/v1").replace(/\/$/, "");
-const MOBILE_CLIENT_HEADER = "X-Client-Platform";
-const MOBILE_CLIENT_VALUE = "mobile";
 
 export class ApiError extends Error {
   constructor(
@@ -45,7 +43,6 @@ async function request<T>(
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
   if (options.body) headers.set("Content-Type", "application/json");
-  headers.set(MOBILE_CLIENT_HEADER, MOBILE_CLIENT_VALUE);
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   if (schoolId) headers.set("X-School-Id", schoolId);
 
@@ -58,14 +55,14 @@ async function request<T>(
 }
 
 export function login(credentials: LoginCredentials): Promise<AuthResponse> {
-  return request<AuthResponse>("/auth/login", {
+  return request<AuthResponse>("/auth/mobile/login", {
     method: "POST",
     body: JSON.stringify(credentials),
   });
 }
 
 export function refresh(refreshToken: string): Promise<RefreshResponse> {
-  return request<RefreshResponse>("/auth/refresh", {
+  return request<RefreshResponse>("/auth/mobile/refresh", {
     method: "POST",
     body: JSON.stringify({ refreshToken }),
   });
