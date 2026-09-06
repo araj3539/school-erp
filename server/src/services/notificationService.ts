@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { Notification, NotificationEvent, NotificationPreference, User, Student, Teacher, Notice } from "../models/index.js";
+import { Notification, NotificationEvent, NotificationPreference, User, Student, Teacher } from "../models/index.js";
 import type { NotificationCategory, NotificationPriority } from "../models/Notification.js";
 import type { NotificationChannel } from "../models/NotificationPreference.js";
 
@@ -28,8 +28,20 @@ export async function enqueueNotificationEvent(input: EnqueueNotificationEventIn
   ).lean();
 }
 
-/** Resolve the authenticated application users who should receive a notice. */
-export async function resolveNoticeRecipients(notice: Pick<Notice, "schoolId" | "audience" | "classId" | "sectionId">) {
+interface NoticeNotificationInput {
+  _id: Types.ObjectId;
+  schoolId: Types.ObjectId;
+  audience: "school" | "class" | "section";
+  classId?: Types.ObjectId;
+  sectionId?: Types.ObjectId;
+  title: string;
+  message: string;
+  priority: NotificationPriority;
+  publishAt: Date;
+  expiresAt?: Date;
+}
+
+export async function resolveNoticeRecipients(notice: Pick<NoticeNotificationInput, "schoolId" | "audience" | "classId" | "sectionId">) {
   const schoolId = notice.schoolId;
   const studentFilter: Record<string, unknown> = { schoolId, status: "active" };
   if (notice.audience === "class") studentFilter.classId = notice.classId;
@@ -45,16 +57,14 @@ export async function resolveNoticeRecipients(notice: Pick<Notice, "schoolId" | 
     for (const parentId of student.parentIds ?? []) recipientIds.add(parentId.toString());
   }
 
-  // Teachers are recipients of school notices, and of notices addressed to classes they teach.
   if (notice.audience === "school") {
     const teachers = await Teacher.find({ schoolId }).select("userId").lean();
     for (const teacher of teachers) if (teacher.userId) recipientIds.add(teacher.userId.toString());
   } else {
     const teachers = await Teacher.find({ schoolId }).select("userId classTeacherOf").lean();
     for (const teacher of teachers) {
-      if (!teacher.userId) continue;
-      const teachesTarget = (teacher.classTeacherOf ?? []).some((classId) => classId.equals(notice.classId));
-      if (teachesTarget) recipientIds.add(teacher.userId.toString());
+      if (!teacher.userId || !notice.classId) continue;
+      if ((teacher.classTeacherOf ?? []).some((classId) => classId.equals(notice.classId))) recipientIds.add(teacher.userId.toString());
     }
   }
 
@@ -64,14 +74,14 @@ export async function resolveNoticeRecipients(notice: Pick<Notice, "schoolId" | 
   return users.map((user) => user._id);
 }
 
-export async function enqueueNoticeNotification(notice: Pick<Notice, "_id" | "schoolId" | "audience" | "classId" | "sectionId" | "title" | "message" | "priority" | "publishAt" | "expiresAt">) {
+export async function enqueueNoticeNotification(notice: NoticeNotificationInput) {
   const recipientIds = await resolveNoticeRecipients(notice);
   if (!recipientIds.length) return null;
   return enqueueNotificationEvent({
     schoolId: notice.schoolId,
     eventType: "notice.published",
     category: "announcement",
-    priority: notice.priority === "urgent" ? "urgent" : notice.priority,
+    priority: notice.priority,
     recipientIds,
     title: notice.title,
     message: notice.message,
