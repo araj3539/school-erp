@@ -1,0 +1,86 @@
+name: AI Security Alert Analysis
+
+on:
+  workflow_run:
+    workflows:
+      - Semgrep
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to analyze (for example refs/heads/main or refs/pull/123/merge)'
+        required: false
+        type: string
+      state:
+        description: 'Code scanning alert state to analyze'
+        required: false
+        default: open
+        type: choice
+        options:
+          - open
+          - closed
+          - dismissed
+          - fixed
+
+permissions:
+  contents: read
+  security-events: read
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze code scanning alerts
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout analyzer
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          sparse-checkout: |
+            .github/scripts/security_alert_analyzer.py
+
+      - name: Resolve target
+        id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          DISPATCH_REF: ${{ inputs.ref }}
+          DISPATCH_STATE: ${{ inputs.state }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            REF="${DISPATCH_REF:-refs/heads/main}"
+            STATE="${DISPATCH_STATE:-open}"
+          elif [ -n "$WORKFLOW_RUN_PR_NUMBER" ]; then
+            REF="refs/pull/${WORKFLOW_RUN_PR_NUMBER}/merge"
+            STATE="open"
+          else
+            REF="refs/heads/${WORKFLOW_RUN_HEAD_BRANCH:-main}"
+            STATE="open"
+          fi
+          {
+            echo "ref=$REF"
+            echo "state=$STATE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Analyze alerts with NVIDIA Nemotron
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          TARGET_REF: ${{ steps.target.outputs.ref }}
+          ALERT_STATE: ${{ steps.target.outputs.state }}
+        run: |
+          python3 .github/scripts/security_alert_analyzer.py
+
+      - name: Upload read-only analysis report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-alert-analysis-${{ github.run_id }}
+          path: security-alert-analysis/
+          if-no-files-found: error
+          retention-days: 14
