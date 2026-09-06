@@ -23,8 +23,9 @@ if (!apiUrl || !password) {
 }
 
 function setCookieValue(setCookie, name) {
-  const match = setCookie?.match(new RegExp(`${name}=([^;]+)`));
-  return match?.[1];
+  const prefix = `${name}=`;
+  const cookie = setCookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+  return cookie?.slice(prefix.length);
 }
 
 async function login(email) {

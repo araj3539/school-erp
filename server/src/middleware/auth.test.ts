@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { UserRole } from "@school-erp/shared";
 
 const { JWT_SECRET, schoolExists } = vi.hoisted(() => ({
-  JWT_SECRET: "01234567890123456789012345678901",
+  JWT_SECRET: Buffer.alloc(32, 7),
   schoolExists: vi.fn(),
 }));
 

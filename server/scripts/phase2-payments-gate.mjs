@@ -22,11 +22,21 @@ if (missing.length > 0) {
   process.exit(2);
 }
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = process.env.npm_execpath;
+if (!npmCli) {
+  console.error("Phase 2 payment gate must be started through npm so npm_execpath is available.");
+  process.exit(2);
+}
+
 const result = spawnSync(
-  npmCommand,
-  ["exec", "--workspace", "server", "playwright", "--", "test", "e2e/phase2-payments.spec.ts", "--workers=1"],
-  { cwd: workspaceRoot, stdio: "inherit", env: process.env, shell: process.platform === "win32" },
+  process.execPath,
+  [npmCli, "exec", "--workspace", "server", "playwright", "--", "test", "e2e/phase2-payments.spec.ts", "--workers=1"],
+  { cwd: workspaceRoot, stdio: "inherit", env: process.env },
 );
+
+if (result.error) {
+  console.error(`Failed to start Playwright: ${result.error.message}`);
+  process.exit(1);
+}
 
 process.exit(result.status ?? 1);

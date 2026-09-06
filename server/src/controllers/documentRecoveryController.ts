@@ -32,7 +32,7 @@ async function assertStudentReadAccess(req: Request, studentId: string): Promise
   }
 }
 
-function recoveryFilter(req: Request) { const { recoveryId } = req.params as any; return { _id: recoveryId, schoolId: getTenantId(req), studentId: (req.params as any).id }; }
+function recoveryFilter(req: Request) { const { id, recoveryId } = req.validatedParams as { id: string; recoveryId: string }; return { _id: recoveryId, schoolId: getTenantId(req), studentId: id }; }
 
 function publicRecovery(item: any, now = new Date()) {
   return {
@@ -69,10 +69,10 @@ function publicDocument(document: any) {
 
 export async function getStudentDocumentRecoveryHistory(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = req.params as any;
+    const { id } = req.validatedParams as { id: string };
     await assertStudentReadAccess(req, id);
     const schoolId = getTenantId(req);
-    const documentType = String(req.query.type || "").trim().toLowerCase();
+    const { type: documentType = "" } = req.validatedQuery as { type?: string };
     const student = await Student.exists({ _id: id, schoolId });
     if (!student) throw AppError.notFound("Student not found");
     const filter: any = { schoolId, studentId: id };
@@ -84,7 +84,7 @@ export async function getStudentDocumentRecoveryHistory(req: Request, res: Respo
 
 export async function previewStudentDocumentRecovery(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = req.params as any;
+    const { id } = req.validatedParams as { id: string };
     await assertStudentReadAccess(req, id);
     const recovery = await DocumentRecovery.findOne({ ...recoveryFilter(req), status: "available", expiresAt: { $gt: new Date() } }).lean();
     if (!recovery) throw AppError.notFound("Recovery file not found or expired");
@@ -95,7 +95,7 @@ export async function previewStudentDocumentRecovery(req: Request, res: Response
 
 export async function restoreStudentDocumentRecovery(req: Request, res: Response, next: NextFunction) {
   try {
-    const { id } = req.params as any;
+    const { id } = req.validatedParams as { id: string };
     if (req.user!.role === UserRole.STUDENT || req.user!.role === UserRole.PARENT || req.user!.role === UserRole.TEACHER) {
       throw AppError.forbidden("Only authorized school administrators can restore documents");
     }

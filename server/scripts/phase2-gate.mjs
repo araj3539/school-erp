@@ -13,7 +13,12 @@ if (missing.length) {
   process.exit(2);
 }
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = process.env.npm_execpath;
+if (!npmCli) {
+  console.error("Phase 2 gate must be started through npm so npm_execpath is available.");
+  process.exit(2);
+}
+
 const bootstrap = spawnSync(process.execPath, [resolve(serverRoot, "scripts/phase2-token-bootstrap.mjs")], {
   cwd: serverRoot,
   encoding: "utf8",
@@ -53,9 +58,8 @@ const gates = [
 const results = [];
 for (const [name, script] of gates) {
   console.log(`\n=== ${name} ===`);
-  const result = spawnSync(npmCommand, ["run", script], {
+  const result = spawnSync(process.execPath, [npmCli, "run", script], {
     stdio: "inherit",
-    shell: process.platform === "win32",
     cwd: serverRoot,
     env,
   });

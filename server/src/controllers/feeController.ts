@@ -11,7 +11,7 @@ const tenantId = (req: Request) => req.user!.schoolId;
 
 export async function getFeeStructures(req: Request, res: Response, next: NextFunction) {
   try {
-    const { classId, academicYear } = req.query;
+    const { classId, academicYear } = req.validatedQuery as { classId?: string; academicYear?: string };
     const query: Record<string, unknown> = { schoolId: tenantId(req) };
     if (classId) query.classId = classId;
     if (academicYear) query.academicYear = academicYear;
@@ -80,7 +80,7 @@ export async function getFees(req: Request, res: Response, next: NextFunction) {
 export async function getStudentFees(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const { academicYear } = req.query;
+    const { academicYear } = req.validatedQuery as { academicYear?: string };
     const student = await Student.findOne({ _id: id, schoolId: tenantId(req) }).select("_id userId parentIds").lean();
     if (!student) throw AppError.notFound("Student not found");
     if (req.user!.role === "student" && student.userId?.toString() !== req.user!.userId) {
@@ -101,7 +101,7 @@ export async function getStudentFees(req: Request, res: Response, next: NextFunc
 export async function generateFees(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = tenantId(req);
-    const { classId, academicYear } = req.body;
+    const { classId, academicYear } = req.validatedBody as { classId: string; academicYear: string };
     if (!classId || !academicYear) throw AppError.badRequest("classId and academicYear required");
     const [students, structures] = await Promise.all([
       Student.find({ schoolId, classId, status: "active" }).lean(),
@@ -175,7 +175,7 @@ export async function getPayments(req: Request, res: Response, next: NextFunctio
 
 export async function getDailyCollectionReport(req: Request, res: Response, next: NextFunction) {
   try {
-    const targetDate = req.query.date ? new Date(req.query.date as string) : new Date();
+    const { date } = req.validatedQuery as { date?: string }; const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate); startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(targetDate); endOfDay.setHours(23, 59, 59, 999);
     const payments = await Payment.find({ schoolId: tenantId(req), date: { $gte: startOfDay, $lte: endOfDay } }).populate("feeId studentId").lean();
@@ -187,15 +187,15 @@ export async function getDailyCollectionReport(req: Request, res: Response, next
 
 export async function getMonthlyCollectionReport(req: Request, res: Response, next: NextFunction) {
   try {
-    const { month, year } = req.query;
+    const { month, year } = req.validatedQuery as { month: number; year: number };
     if (!month || !year) throw AppError.badRequest("month and year required");
-    const startDate = new Date(Number(year), Number(month) - 1, 1);
-    const endDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
     const payments = await Payment.find({ schoolId: tenantId(req), date: { $gte: startDate, $lte: endDate } }).populate("feeId studentId").lean();
     const summary = { total: 0, cash: 0, upi: 0, card: 0, bankTransfer: 0, cheque: 0 };
     const dailyData: Record<string, number> = {};
     payments.forEach((p) => { summary.total += p.amount; const key = p.mode as keyof typeof summary; if (key in summary) summary[key] += p.amount; const day = new Date(p.date).getDate().toString(); dailyData[day] = (dailyData[day] || 0) + p.amount; });
-    res.json({ payments, summary, dailyData, month: Number(month), year: Number(year) });
+    res.json({ payments, summary, dailyData, month, year });
   } catch (error) { next(error); }
 }
 
