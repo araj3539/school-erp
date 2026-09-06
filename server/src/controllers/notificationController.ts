@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { Notification, NotificationPreference, User } from "../models/index.js";
+import { Notification, NotificationDeliveryAttempt, NotificationPreference, User } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
 
@@ -66,5 +66,23 @@ export async function upsertNotificationPreference(req: Request, res: Response, 
       { new: true, upsert: true, setDefaultsOnInsert: true },
     ).lean();
     res.json({ preference });
+  } catch (e) { next(e); }
+}
+
+export async function getNotificationDeliveryAttempts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const rawPage = Number(req.query.page ?? 1);
+    const rawLimit = Number(req.query.limit ?? 50);
+    const page = Number.isInteger(rawPage) && rawPage > 0 ? Math.min(rawPage, 100000) : 1;
+    const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
+    const filter: Record<string, unknown> = tenantFilter(req);
+    if (typeof req.query.status === "string" && ["processing", "succeeded", "retrying", "dead_letter"].includes(req.query.status)) filter.status = req.query.status;
+    if (typeof req.query.eventId === "string" && req.query.eventId.length <= 100) filter.eventId = req.query.eventId;
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      NotificationDeliveryAttempt.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      NotificationDeliveryAttempt.countDocuments(filter),
+    ]);
+    res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (e) { next(e); }
 }
