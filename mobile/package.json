@@ -7,7 +7,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "lint": "expo lint",
-    "test": "tsx --test src/api/client.test.ts src/navigation/roleNavigation.test.ts src/portal/api.test.ts src/teacher/api.test.ts"
+    "test": "tsx --test src/api/client.test.ts src/navigation/roleNavigation.test.ts src/portal/api.test.ts src/teacher/api.test.ts",
+    "test:e2e:release": "tsx --test e2e/release-gate.test.ts"
   },
   "dependencies": {
     "@react-navigation/native": "7.3.18",

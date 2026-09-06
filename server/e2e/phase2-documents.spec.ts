@@ -2,22 +2,22 @@ import { test, expect } from "@playwright/test";
 
 const apiUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
-const schoolAStudent = process.env.E2E_SCHOOL_A_STUDENT_ID;
-const schoolBStudent = process.env.E2E_SCHOOL_B_STUDENT_ID;
+const schoolAStudent = process.env.E2E_SCHOOL_A_STUDENT_ID || "67e000000000000000000051";
+const schoolBStudent = process.env.E2E_SCHOOL_B_STUDENT_ID || "67e000000000000000000053";
 const schoolADocument = process.env.E2E_SCHOOL_A_DOCUMENT_ID;
-const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
+const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-E2E-A";
 const cachedTokens: Record<string, string | undefined> = {
-  "principal.a@phase1.example.com": process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN,
-  "teacher.a@phase1.example.com": process.env.E2E_TEACHER_A_ACCESS_TOKEN,
-  "student.a@phase1.example.com": process.env.E2E_STUDENT_A_ACCESS_TOKEN,
-  "parent.a@phase1.example.com": process.env.E2E_PARENT_A_ACCESS_TOKEN,
+  "principal.e2e.a@example.com": process.env.E2E_PRINCIPAL_A_ACCESS_TOKEN,
+  "teacher.e2e.a@example.com": process.env.E2E_TEACHER_A_ACCESS_TOKEN,
+  "student.e2e.a1@example.com": process.env.E2E_STUDENT_A_ACCESS_TOKEN,
+  "parent.e2e.a@example.com": process.env.E2E_PARENT_A_ACCESS_TOKEN,
 };
 
 const emails = {
-  principalA: "principal.a@phase1.example.com",
-  teacherA: "teacher.a@phase1.example.com",
-  studentA: "student.a@phase1.example.com",
-  parentA: "parent.a@phase1.example.com",
+  principalA: "principal.e2e.a@example.com",
+  teacherA: "teacher.e2e.a@example.com",
+  studentA: "student.e2e.a1@example.com",
+  parentA: "parent.e2e.a@example.com",
 };
 
 async function login(request: any, email: string) {

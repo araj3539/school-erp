@@ -8,13 +8,13 @@ config({ path: resolve(process.cwd(), ".env") });
 
 const apiUrl = process.env.E2E_API_URL;
 const password = process.env.E2E_FIXTURE_PASSWORD;
-const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
+const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-E2E-A";
 
 const fixtures = {
-  principalA: "principal.a@phase1.example.com",
-  teacherA: "teacher.a@phase1.example.com",
-  studentA: "student.a@phase1.example.com",
-  parentA: "parent.a@phase1.example.com",
+  principalA: "principal.e2e.a@example.com",
+  teacherA: "teacher.e2e.a@example.com",
+  studentA: "student.e2e.a1@example.com",
+  parentA: "parent.e2e.a@example.com",
 };
 
 if (!apiUrl || !password) {
