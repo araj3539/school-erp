@@ -13,7 +13,12 @@ if (missing.length) {
   process.exit(2);
 }
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = process.env.npm_execpath;
+if (!npmCli) {
+  console.error("Phase 3 attendance gate must be started through npm so npm_execpath is available.");
+  process.exit(2);
+}
+
 const bootstrap = spawnSync(process.execPath, [resolve(serverRoot, "scripts/phase2-token-bootstrap.mjs")], {
   cwd: serverRoot,
   encoding: "utf8",
@@ -39,9 +44,8 @@ const env = {
   E2E_TEACHER_A_ACCESS_TOKEN: tokens.teacherA.accessToken,
 };
 
-const result = spawnSync(npmCommand, ["run", "test:e2e:phase3:attendance"], {
+const result = spawnSync(process.execPath, [npmCli, "run", "test:e2e:phase3:attendance"], {
   stdio: "inherit",
-  shell: process.platform === "win32",
   cwd: serverRoot,
   env,
 });
