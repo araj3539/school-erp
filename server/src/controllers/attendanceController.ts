@@ -303,9 +303,9 @@ export async function getStudentAttendance(req: Request, res: Response, next: Ne
 
 export async function getMonthlyAttendanceReport(req: Request, res: Response, next: NextFunction) {
   try {
-    const { classId, sectionId, month, year } = req.query;
-    if (!classId || !sectionId || !month || !year) throw AppError.badRequest("classId, sectionId, month, year required");
-    const numericMonth = Number(month), numericYear = Number(year);
+    const { classId, sectionId, month, year } = req.validatedQuery as { classId: string; sectionId: string; month: number; year: number };
+    
+    const numericMonth = month, numericYear = year;
     if (!Number.isInteger(numericMonth) || numericMonth < 1 || numericMonth > 12 || !Number.isInteger(numericYear) || numericYear < 2000 || numericYear > 2100) throw AppError.badRequest("Invalid month or year");
     await assertTeacherClassAccess(req, classId.toString());
     const startDate = new Date(Date.UTC(numericYear, numericMonth - 1, 1));
