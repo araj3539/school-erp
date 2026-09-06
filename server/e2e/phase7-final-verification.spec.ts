@@ -37,8 +37,7 @@ test.describe("Phase 7 final authenticated acceptance", () => {
       window.history.pushState({}, "", path);
       window.dispatchEvent(new PopStateEvent("popstate"));
     }, route);
-    const escaped = route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    await expect(page).toHaveURL(new RegExp(`${escaped}$`), { timeout: 15_000 });
+    await expect(page).toHaveURL((url) => url.pathname === route, { timeout: 15_000 });
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
