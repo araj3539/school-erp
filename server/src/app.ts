@@ -7,6 +7,7 @@ import { rateLimiter, authRateLimiter } from "./middleware/index.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import routes from "./routes/index.js";
+import { startNotificationWorker } from "./services/notificationService.js";
 
 const app = express();
 
@@ -82,6 +83,7 @@ export async function startServer() {
   await connectDB();
   const port = env.PORT;
   app.listen(port, () => console.log(`Server running on port ${port} in ${env.NODE_ENV} mode`));
+  await startNotificationWorker();
 }
 
 export default app;

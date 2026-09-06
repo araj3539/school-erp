@@ -3,6 +3,7 @@ import { Class, Notice, Section, Student, Teacher } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
 import { createAuditLog } from "../services/auditLog.js";
+import { enqueueNoticeNotification } from "../services/notificationService.js";
 import { UserRole } from "@school-erp/shared";
 
 const tenantFilter = (req: Request, extra: Record<string, unknown> = {}) => ({ schoolId: getTenantId(req), ...extra });
@@ -74,6 +75,8 @@ export async function createNotice(req: Request, res: Response, next: NextFuncti
     await validateTarget(req, data);
     const notice = await Notice.create({ ...data, schoolId: getTenantId(req), createdBy: req.user!.userId });
     await createAuditLog({ userId: req.user!.userId, action: "CREATE", entity: "Notice", entityId: notice._id.toString(), after: { title: notice.title, audience: notice.audience, classId: notice.classId?.toString(), sectionId: notice.sectionId?.toString(), publishAt: notice.publishAt, expiresAt: notice.expiresAt } });
+    // Notification delivery is asynchronous: the notice transaction remains independent of worker/provider failures.
+    void enqueueNoticeNotification(notice).catch(() => undefined);
     res.status(201).json({ notice });
   } catch (e) { next(e); }
 }

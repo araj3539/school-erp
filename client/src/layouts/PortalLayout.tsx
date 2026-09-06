@@ -9,6 +9,7 @@ import { PageLoader } from "../components/ui/Spinner";
 interface PortalNavItem { label: string; path: string; icon: React.ReactNode; permissions: string[]; roles?: string[]; }
 const PORTAL_NAV: PortalNavItem[] = [
   { label: "Home", path: "/dashboard", icon: <LayoutDashboard className="h-5 w-5" aria-hidden="true" />, permissions: [] },
+  { label: "Notifications", path: "/notifications", icon: <Bell className="h-5 w-5" aria-hidden="true" />, permissions: ["notices:read", "notices:read:own", "notices:read:child"] },
   { label: "Family workspace", path: "/parent-workspace", icon: <HeartHandshake className="h-5 w-5" aria-hidden="true" />, permissions: ["students:read:child"], roles: ["parent"] },
   { label: "Teaching workspace", path: "/teacher-workspace", icon: <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />, permissions: ["attendance:read", "timetable:read:own"], roles: ["teacher"] },
   { label: "Homework", path: "/teacher-homework", icon: <ClipboardList className="h-5 w-5" aria-hidden="true" />, permissions: ["homework:write"], roles: ["teacher"] },
