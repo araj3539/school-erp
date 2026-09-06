@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only GitHub Code Scanning -> OpenAI security alert analyzer.
-
-This script deliberately has no GitHub write operations and never updates or
- dismisses a code-scanning alert. It produces JSON/Markdown artifacts only.
-"""
+"""Read-only GitHub Code Scanning -> OpenAI security alert analyzer."""
 
 from __future__ import annotations
 
@@ -18,7 +14,6 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
-
 
 GITHUB_API = "https://api.github.com"
 OPENAI_API = "https://api.openai.com/v1/responses"
@@ -35,20 +30,19 @@ class APIError(RuntimeError):
     pass
 
 
-def request_json(url: str, token: str, *, method: str = "GET", body: Any | None = None) -> Any:
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {token}",
-        "X-GitHub-Api-Version": API_VERSION,
-        "User-Agent": "school-erp-security-alert-analyzer",
-    }
-    data = None
-    if body is not None:
-        headers["Content-Type"] = "application/json"
-        data = json.dumps(body).encode("utf-8")
-    req = Request(url, headers=headers, method=method, data=data)
+def request_json(url: str, token: str) -> Any:
+    request = Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": API_VERSION,
+            "User-Agent": "school-erp-security-alert-analyzer",
+        },
+        method="GET",
+    )
     try:
-        with urlopen(req, timeout=30) as response:
+        with urlopen(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:2000]
@@ -107,7 +101,7 @@ def openai_json(instructions: str, input_payload: dict[str, Any], api_key: str, 
             }
         },
     }
-    req = Request(
+    request = Request(
         OPENAI_API,
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -118,7 +112,7 @@ def openai_json(instructions: str, input_payload: dict[str, Any], api_key: str, 
         data=json.dumps(payload).encode("utf-8"),
     )
     try:
-        with urlopen(req, timeout=120) as response:
+        with urlopen(request, timeout=120) as response:
             result = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:3000]
@@ -156,15 +150,13 @@ def github_alerts(token: str, ref: str, state: str) -> list[dict[str, Any]]:
         if not isinstance(page_items, list):
             raise APIError("GitHub code-scanning alerts endpoint returned an unexpected response")
         alerts.extend(page_items)
-        if len(page_items) < 100:
-            break
-        if len(alerts) >= MAX_ALERTS:
+        if len(page_items) < 100 or len(alerts) >= MAX_ALERTS:
             break
     return alerts[:MAX_ALERTS]
 
 
 def github_file(token: str, path: str, ref: str) -> str:
-    url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/contents/{quote(path, safe='/')}?ref={quote(ref, safe='') }"
+    url = f"{GITHUB_API}/repos/{OWNER}/{REPO}/contents/{quote(path, safe='/')}?ref={quote(ref, safe='')}"
     data = request_json(url, token)
     if not isinstance(data, dict) or data.get("encoding") != "base64":
         raise APIError(f"Could not retrieve text source file {path}")
@@ -176,10 +168,10 @@ def github_file(token: str, path: str, ref: str) -> str:
 
 def redact_obvious_secrets(text: str) -> str:
     patterns = [
-        (r"(?i)(authorization\\s*[:=]\\s*bearer\\s+)[A-Za-z0-9._-]+", r"\\1[REDACTED]"),
-        (r"(?i)(api[_-]?key\\s*[:=]\\s*)[A-Za-z0-9._-]{16,}", r"\\1[REDACTED]"),
-        (r"(?i)(secret[_-]?key\\s*[:=]\\s*)[A-Za-z0-9._-]{16,}", r"\\1[REDACTED]"),
-        (r"(?i)(password\\s*[:=]\\s*)[^\\s,;]+", r"\\1[REDACTED]"),
+        (r"(?i)(authorization\s*[:=]\s*bearer\s+)[A-Za-z0-9._-]+", r"\1[REDACTED]"),
+        (r"(?i)(api[_-]?key\s*[:=]\s*)[A-Za-z0-9._-]{16,}", r"\1[REDACTED]"),
+        (r"(?i)(secret[_-]?key\s*[:=]\s*)[A-Za-z0-9._-]{16,}", r"\1[REDACTED]"),
+        (r"(?i)(password\s*[:=]\s*)[^\s,;]+", r"\1[REDACTED]"),
     ]
     for pattern, replacement in patterns:
         text = re.sub(pattern, replacement, text)
@@ -191,8 +183,7 @@ def source_context(source: str, start_line: int, end_line: int) -> str:
     start = max(1, start_line - SOURCE_CONTEXT_LINES)
     end = min(len(lines), end_line + SOURCE_CONTEXT_LINES)
     rendered = [f"{number:6d} | {lines[number - 1]}" for number in range(start, end + 1)]
-    text = "\n".join(rendered)
-    text = redact_obvious_secrets(text)
+    text = redact_obvious_secrets("\n".join(rendered))
     if len(text) > MAX_SOURCE_CHARS:
         text = text[:MAX_SOURCE_CHARS] + "\n[context truncated]"
     return text
@@ -221,10 +212,7 @@ def build_analysis_input(alert: dict[str, Any], context: str, target_ref: str) -
                 "security_severity_level": rule.get("security_severity_level"),
                 "tags": rule.get("tags", []),
             },
-            "tool": {
-                "name": tool.get("name"),
-                "version": tool.get("version"),
-            },
+            "tool": {"name": tool.get("name"), "version": tool.get("version")},
             "instance": {
                 "ref": instance.get("ref"),
                 "commit_sha": instance.get("commit_sha"),
@@ -251,7 +239,6 @@ def main() -> int:
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     alerts = github_alerts(github_token, target_ref, alert_state)
-
     instructions = """You are a senior application security reviewer analyzing a GitHub Code Scanning alert.
 
 Use only the supplied alert metadata and source context as evidence. Do not assume code exists that was not supplied.
@@ -301,7 +288,6 @@ This is a read-only triage report; every conclusion must be supported by concret
             })
         except APIError as exc:
             failures.append({"alert_number": alert.get("number"), "error": str(exc)})
-
         print(f"Analyzed {index}/{len(alerts)} alert(s)", flush=True)
         time.sleep(0.25)
 
@@ -320,7 +306,7 @@ This is a read-only triage report; every conclusion must be supported by concret
     }
     (OUTPUT_DIR / "report.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    md = [
+    markdown = [
         "# AI Security Alert Analysis",
         "",
         f"- Repository: `{OWNER}/{REPO}`",
@@ -333,9 +319,10 @@ This is a read-only triage report; every conclusion must be supported by concret
         "- Mode: **read-only** — no alerts were modified or dismissed.",
         "",
     ]
+
     for item in report:
         analysis = item["analysis"]
-        md.extend([
+        markdown.extend([
             f"## Alert #{item['alert_number']} — `{item['rule_id']}`",
             "",
             f"- Location: `{item['path']}:{item['line']}`",
@@ -352,22 +339,23 @@ This is a read-only triage report; every conclusion must be supported by concret
             f"**Attack path:** {analysis['attack_path']}",
             "",
             "### Evidence",
-            *[f"- {item}" for item in analysis["evidence"]],
-            "",
-            "### Recommended fix",
-            *[f"- {item}" for item in analysis["recommended_fix"]],
-            "",
-            "### Required tests",
-            *[f"- {item}" for item in analysis["tests_required"]],
-            "",
-            "### Missing context",
-            *[f"- {item}" for item in analysis["missing_context"]] or ["- None identified."],
-            "",
         ])
-    if failures:
-        md.extend(["## Analysis failures", "", *[f"- Alert #{x['alert_number']}: {x['error']}" for x in failures], ""])
-    (OUTPUT_DIR / "report.md").write_text("\n".join(md), encoding="utf-8")
+        markdown.extend(f"- {entry}" for entry in analysis["evidence"])
+        markdown.extend(["", "### Recommended fix"])
+        markdown.extend(f"- {entry}" for entry in analysis["recommended_fix"])
+        markdown.extend(["", "### Required tests"])
+        markdown.extend(f"- {entry}" for entry in analysis["tests_required"])
+        markdown.extend(["", "### Missing context"])
+        missing_context = analysis["missing_context"]
+        markdown.extend(f"- {entry}" for entry in missing_context) if missing_context else markdown.append("- None identified.")
+        markdown.append("")
 
+    if failures:
+        markdown.extend(["## Analysis failures", ""])
+        markdown.extend(f"- Alert #{entry['alert_number']}: {entry['error']}" for entry in failures)
+        markdown.append("")
+
+    (OUTPUT_DIR / "report.md").write_text("\n".join(markdown), encoding="utf-8")
     print(f"Completed read-only security analysis: {len(report)}/{len(alerts)}")
     return 0 if not failures else 1
 
