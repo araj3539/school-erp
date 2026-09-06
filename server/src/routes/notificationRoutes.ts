@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, validate } from "../middleware/index.js";
+import { authenticate, requireAnyPermission, validate } from "../middleware/index.js";
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -11,10 +11,11 @@ import { IdParamSchema } from "../validators/index.js";
 import { NotificationPreferenceSchema, NotificationQuerySchema } from "@school-erp/shared";
 
 const router = Router();
+const notificationPermissions = ["notices:read", "notices:read:own", "notices:read:child"];
 router.use(authenticate);
-router.get("/", validate(NotificationQuerySchema, "query"), getNotifications);
-router.patch("/:id/read", validate(IdParamSchema, "params"), markNotificationRead);
-router.post("/read-all", markAllNotificationsRead);
-router.get("/preferences", getNotificationPreferences);
-router.put("/preferences", validate(NotificationPreferenceSchema), upsertNotificationPreference);
+router.get("/", requireAnyPermission(...notificationPermissions), validate(NotificationQuerySchema, "query"), getNotifications);
+router.patch("/:id/read", requireAnyPermission(...notificationPermissions), validate(IdParamSchema, "params"), markNotificationRead);
+router.post("/read-all", requireAnyPermission(...notificationPermissions), markAllNotificationsRead);
+router.get("/preferences", requireAnyPermission(...notificationPermissions), getNotificationPreferences);
+router.put("/preferences", requireAnyPermission(...notificationPermissions), validate(NotificationPreferenceSchema), upsertNotificationPreference);
 export default router;
