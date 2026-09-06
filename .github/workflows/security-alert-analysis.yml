@@ -88,6 +88,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Analyze alerts with NVIDIA Nemotron
+        id: analyze
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
@@ -98,10 +99,44 @@ jobs:
         run: |
           python3 .github/scripts/security_alert_analyzer.py
 
-      - name: Upload read-only analysis report
+      - name: Publish triage summary
+        if: always()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          report_path = Path("security-alert-analysis/security-triage-report.json")
+          if not report_path.exists():
+              print("## Security Triage Report\n\nReport generation failed before an artifact could be created.")
+              raise SystemExit(0)
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          rollup = report.get("rollup", {})
+          verdicts = rollup.get("verdict", {})
+          print("## Security Triage Report")
+          print("")
+          print(f"**[Open workflow run and artifact]({__import__('os').environ['RUN_URL']}#artifacts)**")
+          print("")
+          print("| Metric | Value |")
+          print("| --- | ---: |")
+          print(f"| Alerts selected | {report.get('alerts_seen', 0)} |")
+          print(f"| Analyses completed | {report.get('analyses_completed', 0)} |")
+          print(f"| Analysis failures | {len(report.get('analysis_failures', []))} |")
+          print(f"| True positives | {verdicts.get('true_positive', 0)} |")
+          print(f"| False positives | {verdicts.get('false_positive', 0)} |")
+          print(f"| Needs investigation | {verdicts.get('needs_investigation', 0)} |")
+          print("")
+          print("The artifact is read-only triage output; no code-scanning alerts were modified.")
+          PY
+
+      - name: Upload consolidated security-triage report
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: security-alert-analysis-${{ github.run_id }}
-          path: security-alert-analysis/
+          name: security-triage-report-${{ github.run_id }}
+          path: security-alert-analysis/security-triage-report.*
           if-no-files-found: error
           retention-days: 14
