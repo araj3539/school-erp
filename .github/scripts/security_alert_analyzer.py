@@ -14,7 +14,7 @@ OWNER, REPO = "araj3539", "school-erp"
 MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 API_VERSION = "2026-03-10"
 OUTPUT_DIR = Path("security-alert-analysis")
-SOURCE_CONTEXT_LINES, MAX_SOURCE_CHARS, MAX_ALERTS = 80, 24000, 100
+SOURCE_CONTEXT_LINES, MAX_SOURCE_CHARS, MAX_ALERTS = 80, 24000, 20
 
 class APIError(RuntimeError):
     pass
@@ -64,15 +64,27 @@ def nvidia_json(instructions: str, evidence: dict[str, Any], api_key: str) -> di
     except (KeyError, IndexError, TypeError) as exc: raise APIError(f"NVIDIA response missing assistant content: {json.dumps(result)[:2000]}") from exc
     return validate_analysis(extract_json_object(content))
 
-def github_alerts(token: str, ref: str, state: str) -> list[dict[str, Any]]:
+def github_alerts(token: str, ref: str, state: str, updated_after: str | None = None, alert_numbers: set[int] | None = None) -> list[dict[str, Any]]:
+    if alert_numbers:
+        alerts = []
+        for number in sorted(alert_numbers):
+            alert = request_json(f"{GITHUB_API}/repos/{OWNER}/{REPO}/code-scanning/alerts/{number}", token)
+            if isinstance(alert, dict) and alert.get("state") == state:
+                alerts.append(alert)
+        return alerts[:MAX_ALERTS]
+
     alerts: list[dict[str, Any]] = []
     for page in range(1,101):
-        params = {"state":state,"per_page":"100","page":str(page)}
+        params = {"state":state,"per_page":"100","page":str(page),"sort":"updated","direction":"desc"}
         if ref: params["ref"] = ref
         items = request_json(f"{GITHUB_API}/repos/{OWNER}/{REPO}/code-scanning/alerts?{urlencode(params)}", token)
         if not isinstance(items, list): raise APIError("Unexpected code-scanning alerts response")
-        alerts.extend(items)
-        if len(items) < 100 or len(alerts) >= MAX_ALERTS: break
+        for item in items:
+            if updated_after and (item.get("updated_at") or "") < updated_after:
+                return alerts[:MAX_ALERTS]
+            alerts.append(item)
+            if len(alerts) >= MAX_ALERTS: return alerts
+        if len(items) < 100: break
     return alerts[:MAX_ALERTS]
 
 def github_file(token: str, path: str, ref: str) -> str:
@@ -102,9 +114,13 @@ def build_input(alert: dict[str,Any], context: str, target_ref: str) -> dict[str
 def main() -> int:
     github_token, nvidia_key = os.environ.get("GITHUB_TOKEN"), os.environ.get("NVIDIA_API_KEY")
     target_ref, alert_state = os.environ.get("TARGET_REF","refs/heads/main"), os.environ.get("ALERT_STATE","open")
+    updated_after = os.environ.get("UPDATED_AFTER") or None
+    raw_numbers = [x.strip() for x in os.environ.get("ALERT_NUMBERS","").split(",") if x.strip()]
+    try: alert_numbers = {int(x) for x in raw_numbers}
+    except ValueError as exc: raise APIError("ALERT_NUMBERS must be a comma-separated list of integers") from exc
     if not github_token: raise APIError("GITHUB_TOKEN is required")
     if not nvidia_key: raise APIError("NVIDIA_API_KEY GitHub Actions secret is required")
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True); alerts = github_alerts(github_token,target_ref,alert_state)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True); alerts = github_alerts(github_token,target_ref,alert_state,updated_after,alert_numbers)
     instructions = """Analyze this GitHub Code Scanning alert as a senior application security reviewer. Use only supplied alert metadata and source context. Do not assume missing code. Trace data flow toward the security-sensitive sink. Distinguish scanner suspicion from demonstrated exploitability. If validation, authorization, tenant isolation, or sanitization is missing, choose needs_investigation and context_sufficient=false. For this multi-tenant ERP, explicitly assess school/tenant-boundary impact. Do not recommend dismissal unless evidence supports it. This is read-only triage and every conclusion must be evidence-based."""
     report, failures = [], []
     for index, alert in enumerate(alerts,1):
@@ -122,9 +138,9 @@ def main() -> int:
             report.append({"alert_number":alert.get("number"),"rule_id":(alert.get("rule") or {}).get("id"),"path":path,"line":start,"analysis":analysis})
         except APIError as exc: failures.append({"alert_number":alert.get("number"),"error":str(exc)})
         print(f"Analyzed {index}/{len(alerts)} alert(s)",flush=True); time.sleep(0.25)
-    result={"schema_version":1,"repository":f"{OWNER}/{REPO}","target_ref":target_ref,"alert_state":alert_state,"model":MODEL,"generated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),"alerts_seen":len(alerts),"analyses_completed":len(report),"analysis_failures":failures,"analyses":report,"read_only":True}
+    result={"schema_version":1,"repository":f"{OWNER}/{REPO}","target_ref":target_ref,"alert_state":alert_state,"updated_after":updated_after,"alert_numbers":sorted(alert_numbers),"model":MODEL,"generated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),"alerts_seen":len(alerts),"analyses_completed":len(report),"analysis_failures":failures,"analyses":report,"read_only":True}
     (OUTPUT_DIR/"report.json").write_text(json.dumps(result,indent=2,ensure_ascii=False),encoding="utf-8")
-    markdown=["# AI Security Alert Analysis","",f"- Repository: `{OWNER}/{REPO}`",f"- Ref: `{target_ref}`",f"- Alert state: `{alert_state}`",f"- Model: `{MODEL}`",f"- Alerts seen: **{len(alerts)}**",f"- Analyses completed: **{len(report)}**",f"- Failures: **{len(failures)}**","- Mode: **read-only** — no alerts were modified or dismissed.",""]
+    markdown=["# AI Security Alert Analysis","",f"- Repository: `{OWNER}/{REPO}`",f"- Ref: `{target_ref}`",f"- Alert state: `{alert_state}`",f"- Updated after: `{updated_after or 'none'}`",f"- Explicit alert numbers: `{','.join(map(str, sorted(alert_numbers))) if alert_numbers else 'none'}`",f"- Model: `{MODEL}`",f"- Alerts selected: **{len(alerts)}**",f"- Analyses completed: **{len(report)}**",f"- Failures: **{len(failures)}**","- Mode: **read-only** — no alerts were modified or dismissed.",""]
     for item in report:
         a=item["analysis"]; markdown += [f"## Alert #{item['alert_number']} — `{item['rule_id']}`","",f"- Location: `{item['path']}:{item['line']}`",f"- Verdict: **{a['verdict']}**",f"- Confidence: **{a['confidence']:.0%}**",f"- Severity: **{a['severity']}**",f"- Exploitability: **{a['exploitability']}**",f"- Tenant-boundary risk: **{a['tenant_boundary_risk']}**",f"- Context sufficient: **{a['context_sufficient']}**",f"- Human review required: **{a['requires_human_review']}**","",f"**Rationale:** {a['rationale']}","",f"**Attack path:** {a['attack_path']}","","### Evidence"] + [f"- {x}" for x in a["evidence"]] + ["","### Recommended fix"] + [f"- {x}" for x in a["recommended_fix"]] + ["","### Required tests"] + [f"- {x}" for x in a["tests_required"]] + ["","### Missing context"] + ([f"- {x}" for x in a["missing_context"]] if a["missing_context"] else ["- None identified."]) + [""]
     if failures: markdown += ["## Analysis failures","",*[f"- Alert #{x['alert_number']}: {x['error']}" for x in failures],""]
