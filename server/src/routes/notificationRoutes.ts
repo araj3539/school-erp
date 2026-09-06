@@ -6,6 +6,7 @@ import {
   markNotificationRead,
   getNotificationPreferences,
   upsertNotificationPreference,
+  getNotificationDeliveryAttempts,
 } from "../controllers/notificationController.js";
 import { IdParamSchema } from "../validators/index.js";
 import { NotificationPreferenceSchema, NotificationQuerySchema } from "@school-erp/shared";
@@ -18,4 +19,5 @@ router.patch("/:id/read", requireAnyPermission(...notificationPermissions), vali
 router.post("/read-all", requireAnyPermission(...notificationPermissions), markAllNotificationsRead);
 router.get("/preferences", requireAnyPermission(...notificationPermissions), getNotificationPreferences);
 router.put("/preferences", requireAnyPermission(...notificationPermissions), validate(NotificationPreferenceSchema), upsertNotificationPreference);
+router.get("/delivery-attempts", requireAnyPermission("audit:read"), getNotificationDeliveryAttempts);
 export default router;
