@@ -13,7 +13,12 @@ if (missing.length) {
   process.exit(2);
 }
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = process.env.npm_execpath;
+if (!npmCli) {
+  console.error("Phase 3 gate must be started through npm so npm_execpath is available.");
+  process.exit(2);
+}
+
 const bootstrapEnv = { ...process.env, E2E_BOOTSTRAP_ROLES: "principalA,teacherA" };
 const bootstrap = spawnSync(process.execPath, [resolve(serverRoot, "scripts/phase2-token-bootstrap.mjs")], { cwd: serverRoot, encoding: "utf8", env: bootstrapEnv });
 if (bootstrap.status !== 0 || !bootstrap.stdout.trim()) {
@@ -38,7 +43,7 @@ const suites = [
 let failed = false;
 for (const [name, args] of suites) {
   console.log(`\n=== ${name} ===\n`);
-  const result = spawnSync(npmCommand, args, { stdio: "inherit", shell: process.platform === "win32", cwd: serverRoot, env });
+  const result = spawnSync(process.execPath, [npmCli, ...args], { stdio: "inherit", cwd: serverRoot, env });
   if ((result.status ?? 1) !== 0) failed = true;
 }
 console.log("\n=== Phase 3 gate summary ===");
