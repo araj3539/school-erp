@@ -19,6 +19,7 @@ const PortalResultsPage = lazy(() => import("../pages/PortalResultsPage"));
 const PortalFeesPage = lazy(() => import("../pages/PortalFeesPage"));
 const PortalTimetablePage = lazy(() => import("../pages/PortalTimetablePage"));
 const PortalNoticesPage = lazy(() => import("../pages/PortalNoticesPage"));
+const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
 const TeacherWorkspacePage = lazy(() => import("../pages/TeacherWorkspacePage"));
 const TeacherHomeworkPage = lazy(() => import("../pages/TeacherHomeworkPage"));
 const RoleAwareHomeworkPage = lazy(() => import("../pages/RoleAwareHomeworkPage"));
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
   { element: <RequireAuth><RoleAwareLayout /></RequireAuth>, errorElement: <RouteErrorPage />, children: [
     { path: "/", element: <Navigate to="/dashboard" replace /> },
     { path: "/dashboard", element: <DashboardPage /> },
+    { path: "/notifications", element: any(["notices:read", "notices:read:own", "notices:read:child"], <NotificationsPage />) },
     { path: "/portal-dashboard", element: role(portalRoles, any(["attendance:read", "attendance:read:own", "attendance:read:child"], <PortalDashboardPage />)) },
     { path: "/student-workspace", element: role(["student"], only("students:read:own", <StudentWorkspacePage />)) },
     { path: "/parent-workspace", element: role(["parent"], only("students:read:child", <ParentWorkspacePage />)) },
