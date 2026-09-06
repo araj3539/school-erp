@@ -111,7 +111,7 @@ export async function enqueueAttendanceNotifications(attendance: AttendanceNotif
   if (!alertRecords.length) return [];
 
   const studentIds = [...new Set(alertRecords.map((record) => record.studentId.toString()))].map((id) => new Types.ObjectId(id));
-  const students = await Student.find({ _id: { $in: studentIds }, schoolId }).select("firstName lastName userId parentIds").lean();
+  const students = await Student.find({ _id: { $in: studentIds }, schoolId: attendance.schoolId }).select("firstName lastName userId parentIds").lean();
   const studentById = new Map(students.map((student) => [student._id.toString(), student]));
   const recipientIds = new Set<string>();
   for (const student of students) {
@@ -120,14 +120,16 @@ export async function enqueueAttendanceNotifications(attendance: AttendanceNotif
   }
   if (!recipientIds.size) return [];
 
-  const users = await User.find({ _id: { $in: [...recipientIds].map((id) => new Types.ObjectId(id)) }, schoolId, isActive: true }).select("_id").lean();
+  const recipientObjectIds = [...recipientIds].map((id) => new Types.ObjectId(id));
+  const users = await User.find({ _id: { $in: recipientObjectIds }, schoolId: attendance.schoolId, isActive: true }).select("_id").lean();
   const validUserIds = new Set(users.map((user) => user._id.toString()));
   const events = [];
   for (const record of alertRecords) {
     const student = studentById.get(record.studentId.toString());
     if (!student) continue;
-    const studentRecipients = [student.userId, ...(student.parentIds ?? [])].filter((id): id is Types.ObjectId => Boolean(id) && validUserIds.has(id.toString()));
-    if (!studentRecipients.length) continue;
+    const studentRecipients = [student.userId, ...(student.parentIds ?? [])].filter((id): id is Types.ObjectId => Boolean(id));
+    const eligibleRecipients = studentRecipients.filter((id) => validUserIds.has(id.toString()));
+    if (!eligibleRecipients.length) continue;
     const name = `${student.firstName} ${student.lastName}`.trim();
     const statusLabel = record.status === "half_day" ? "half-day" : record.status;
     events.push(await enqueueNotificationEvent({
@@ -135,7 +137,7 @@ export async function enqueueAttendanceNotifications(attendance: AttendanceNotif
       eventType: "attendance.alert",
       category: "attendance",
       priority: record.status === "absent" ? "high" : "normal",
-      recipientIds: [...new Map(studentRecipients.map((id) => [id.toString(), id])).values()],
+      recipientIds: [...new Map(eligibleRecipients.map((id) => [id.toString(), id])).values()],
       title: `Attendance alert: ${name}`,
       message: `${name} was marked ${statusLabel} on ${attendance.date.toISOString().slice(0, 10)}.`,
       idempotencyKey: `attendance:${attendance._id.toString()}:${record.studentId.toString()}:${record.status}`,
