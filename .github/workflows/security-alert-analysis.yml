@@ -22,6 +22,14 @@ on:
           - closed
           - dismissed
           - fixed
+      alert_numbers:
+        description: 'Optional comma-separated alert numbers for a focused analysis'
+        required: false
+        type: string
+      updated_after:
+        description: 'Optional ISO timestamp; only alerts updated at or after this time are analyzed'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -49,23 +57,34 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           WORKFLOW_RUN_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          WORKFLOW_RUN_CREATED_AT: ${{ github.event.workflow_run.created_at }}
           DISPATCH_REF: ${{ inputs.ref }}
           DISPATCH_STATE: ${{ inputs.state }}
+          DISPATCH_ALERT_NUMBERS: ${{ inputs.alert_numbers }}
+          DISPATCH_UPDATED_AFTER: ${{ inputs.updated_after }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             REF="${DISPATCH_REF:-refs/heads/main}"
             STATE="${DISPATCH_STATE:-open}"
+            ALERT_NUMBERS="${DISPATCH_ALERT_NUMBERS:-}"
+            UPDATED_AFTER="${DISPATCH_UPDATED_AFTER:-}"
           elif [ -n "$WORKFLOW_RUN_PR_NUMBER" ]; then
             REF="refs/pull/${WORKFLOW_RUN_PR_NUMBER}/merge"
             STATE="open"
+            ALERT_NUMBERS=""
+            UPDATED_AFTER="$WORKFLOW_RUN_CREATED_AT"
           else
             REF="refs/heads/${WORKFLOW_RUN_HEAD_BRANCH:-main}"
             STATE="open"
+            ALERT_NUMBERS=""
+            UPDATED_AFTER="$WORKFLOW_RUN_CREATED_AT"
           fi
           {
             echo "ref=$REF"
             echo "state=$STATE"
+            echo "alert_numbers=$ALERT_NUMBERS"
+            echo "updated_after=$UPDATED_AFTER"
           } >> "$GITHUB_OUTPUT"
 
       - name: Analyze alerts with NVIDIA Nemotron
@@ -74,6 +93,8 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           TARGET_REF: ${{ steps.target.outputs.ref }}
           ALERT_STATE: ${{ steps.target.outputs.state }}
+          ALERT_NUMBERS: ${{ steps.target.outputs.alert_numbers }}
+          UPDATED_AFTER: ${{ steps.target.outputs.updated_after }}
         run: |
           python3 .github/scripts/security_alert_analyzer.py
 
