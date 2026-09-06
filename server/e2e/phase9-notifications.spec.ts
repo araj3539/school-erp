@@ -6,14 +6,16 @@ config({ path: resolve(process.cwd(), ".env") });
 
 const apiUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
-const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
-const principalEmail = "principal.a@phase1.example.com";
-const studentEmail = "student.a@phase1.example.com";
+const schoolCode = process.env.E2E_SCHOOL_A_CODE || "SCH-E2E-A";
+const principalEmail = "principal.e2e.a@example.com";
+const studentEmail = "student.e2e.a1@example.com";
+const principalBEmail = "principal.e2e.b@example.com";
 let principalToken: string;
 let studentToken: string;
+let principalBToken: string;
 
-async function login(request: any, email: string) {
-  const response = await request.post("/api/v1/auth/login", { data: { email, password: fixturePassword, schoolCode } });
+async function login(request: any, email: string, code = schoolCode) {
+  const response = await request.post("/api/v1/auth/login", { data: { email, password: fixturePassword, schoolCode: code } });
   const body = await response.json().catch(() => ({}));
   expect(response.status(), JSON.stringify(body)).toBe(200);
   return body.accessToken ?? body.data?.accessToken;
@@ -38,6 +40,7 @@ test.beforeAll(async ({ request }) => {
   expect(fixturePassword, "E2E_FIXTURE_PASSWORD is required").toBeTruthy();
   principalToken = await login(request, principalEmail);
   studentToken = await login(request, studentEmail);
+  principalBToken = await login(request, principalBEmail, "SCH-E2E-B");
 });
 
 test.describe("Phase 9 notification security", () => {
@@ -50,6 +53,7 @@ test.describe("Phase 9 notification security", () => {
     expect(createResponse.status()).toBe(201);
 
     const notification = await waitForNotification(request, noticeTitle);
+    expect(notification).toBeTruthy();
     expect(notification?.readAt).toBeUndefined();
 
     const unreadResponse = await request.get("/api/v1/notifications?unreadOnly=true&limit=100", auth(studentToken));
@@ -88,7 +92,15 @@ test.describe("Phase 9 notification security", () => {
   test("delivery diagnostics are tenant-scoped and unavailable to students", async ({ request }) => {
     const principalResponse = await request.get("/api/v1/notifications/delivery-attempts?limit=10", auth(principalToken));
     expect(principalResponse.status()).toBe(200);
-    expect((await principalResponse.json()).pagination).toBeDefined();
+    const principalBody = await principalResponse.json();
+    expect(principalBody.pagination).toBeDefined();
+    expect(principalBody.data.every((item: any) => item.schoolId === "67e000000000000000000001")).toBe(true);
+
+    const otherTenantResponse = await request.get("/api/v1/notifications/delivery-attempts?limit=10", auth(principalBToken));
+    expect(otherTenantResponse.status()).toBe(200);
+    const otherTenantBody = await otherTenantResponse.json();
+    expect(otherTenantBody.pagination).toBeDefined();
+    expect(otherTenantBody.data).toHaveLength(0);
 
     const studentResponse = await request.get("/api/v1/notifications/delivery-attempts?limit=10", auth(studentToken));
     expect(studentResponse.status()).toBe(403);
