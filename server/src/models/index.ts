@@ -44,3 +44,5 @@ export { NotificationPreference } from "./NotificationPreference.js";
 export type { INotificationPreference, NotificationChannel } from "./NotificationPreference.js";
 export { NotificationEvent } from "./NotificationEvent.js";
 export type { INotificationEvent, NotificationEventStatus } from "./NotificationEvent.js";
+export { NotificationDeliveryAttempt } from "./NotificationDeliveryAttempt.js";
+export type { INotificationDeliveryAttempt, NotificationDeliveryAttemptStatus } from "./NotificationDeliveryAttempt.js";
