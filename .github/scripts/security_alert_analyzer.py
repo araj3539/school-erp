@@ -43,9 +43,7 @@ def request_json(url: str, token: str) -> Any:
         with urlopen(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        raise APIError(
-            f"GitHub API {exc.code}: {exc.read().decode('utf-8', errors='replace')[:2000]}"
-        ) from exc
+        raise APIError(f"GitHub API {exc.code}: {exc.read().decode('utf-8', errors='replace')[:2000]}") from exc
     except URLError as exc:
         raise APIError(f"GitHub API connection failed: {exc}") from exc
 
@@ -72,21 +70,7 @@ def extract_json_object(text: str) -> dict[str, Any]:
 
 
 def validate_analysis(value: dict[str, Any]) -> dict[str, Any]:
-    required = {
-        "verdict",
-        "confidence",
-        "severity",
-        "exploitability",
-        "tenant_boundary_risk",
-        "context_sufficient",
-        "requires_human_review",
-        "rationale",
-        "attack_path",
-        "evidence",
-        "recommended_fix",
-        "tests_required",
-        "missing_context",
-    }
+    required = {"verdict", "confidence", "severity", "exploitability", "tenant_boundary_risk", "context_sufficient", "requires_human_review", "rationale", "attack_path", "evidence", "recommended_fix", "tests_required", "missing_context"}
     missing = sorted(required - value.keys())
     if missing:
         raise APIError(f"NVIDIA analysis is missing required fields: {', '.join(missing)}")
@@ -116,8 +100,7 @@ def nvidia_json(instructions: str, evidence: dict[str, Any], api_key: str) -> di
     request = Request(
         NVIDIA_API,
         headers={
-            "Authorization": f"Bearer {api_key}
-",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
             "User-Agent": "school-erp-security-alert-analyzer",
@@ -129,9 +112,7 @@ def nvidia_json(instructions: str, evidence: dict[str, Any], api_key: str) -> di
         with urlopen(request, timeout=180) as response:
             result = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        raise APIError(
-            f"NVIDIA API {exc.code}: {exc.read().decode('utf-8', errors='replace')[:3000]}"
-        ) from exc
+        raise APIError(f"NVIDIA API {exc.code}: {exc.read().decode('utf-8', errors='replace')[:3000]}") from exc
     except URLError as exc:
         raise APIError(f"NVIDIA API connection failed: {exc}") from exc
     try:
@@ -141,13 +122,7 @@ def nvidia_json(instructions: str, evidence: dict[str, Any], api_key: str) -> di
     return validate_analysis(extract_json_object(content))
 
 
-def github_alerts(
-    token: str,
-    ref: str,
-    state: str,
-    updated_after: str | None = None,
-    alert_numbers: set[int] | None = None,
-) -> list[dict[str, Any]]:
+def github_alerts(token: str, ref: str, state: str, updated_after: str | None = None, alert_numbers: set[int] | None = None) -> list[dict[str, Any]]:
     if alert_numbers:
         alerts = []
         for number in sorted(alert_numbers):
@@ -176,10 +151,7 @@ def github_alerts(
 
 
 def github_file(token: str, path: str, ref: str) -> str:
-    data = request_json(
-        f"{GITHUB_API}/repos/{OWNER}/{REPO}/contents/{quote(path, safe='/')}?ref={quote(ref, safe='')}",
-        token,
-    )
+    data = request_json(f"{GITHUB_API}/repos/{OWNER}/{REPO}/contents/{quote(path, safe='/')}?ref={quote(ref, safe='')}", token)
     if not isinstance(data, dict) or data.get("encoding") != "base64":
         raise APIError(f"Could not retrieve text source file {path}")
     try:
@@ -217,13 +189,7 @@ def build_input(alert: dict[str, Any], context: str, target_ref: str) -> dict[st
             "html_url": alert.get("html_url"),
             "rule": {k: rule.get(k) for k in ("id", "name", "description", "full_description", "severity", "security_severity_level", "tags")},
             "tool": {"name": tool.get("name"), "version": tool.get("version")},
-            "instance": {
-                "ref": instance.get("ref"),
-                "commit_sha": instance.get("commit_sha"),
-                "message": instance.get("message"),
-                "location": instance.get("location") or {},
-                "classifications": instance.get("classifications", []),
-            },
+            "instance": {"ref": instance.get("ref"), "commit_sha": instance.get("commit_sha"), "message": instance.get("message"), "location": instance.get("location") or {}, "classifications": instance.get("classifications", [])},
         },
         "source_context": context,
     }
@@ -279,16 +245,7 @@ def main() -> int:
             evidence["source_context_error"] = context_error
         try:
             analysis = nvidia_json(instructions, evidence, nvidia_key)
-            report.append(
-                {
-                    "alert_number": alert.get("number"),
-                    "html_url": alert.get("html_url"),
-                    "rule_id": (alert.get("rule") or {}).get("id"),
-                    "path": path,
-                    "line": start,
-                    "analysis": analysis,
-                }
-            )
+            report.append({"alert_number": alert.get("number"), "html_url": alert.get("html_url"), "rule_id": (alert.get("rule") or {}).get("id"), "path": path, "line": start, "analysis": analysis})
         except APIError as exc:
             failures.append({"alert_number": alert.get("number"), "error": str(exc)})
         print(f"Analyzed {index}/{len(alerts)} alert(s)", flush=True)
@@ -364,26 +321,21 @@ def main() -> int:
             f"**Attack path:** {analysis['attack_path']}",
             "",
             "### Evidence",
-            *[f"- {item}" for item in analysis["evidence"]],
+            *[f"- {value}" for value in analysis["evidence"]],
             "",
             "### Recommended fix",
-            *[f"- {item}" for item in analysis["recommended_fix"]],
+            *[f"- {value}" for value in analysis["recommended_fix"]],
             "",
             "### Required tests",
-            *[f"- {item}" for item in analysis["tests_required"]],
+            *[f"- {value}" for value in analysis["tests_required"]],
             "",
             "### Missing context",
-            *([f"- {item}" for item in analysis["missing_context"]] if analysis["missing_context"] else ["- None identified."]),
+            *([f"- {value}" for value in analysis["missing_context"]] if analysis["missing_context"] else ["- None identified."]),
             "",
         ]
 
     if failures:
-        markdown += [
-            "## Analysis failures",
-            "",
-            *[f"- Alert #{item['alert_number']}: {item['error']}" for item in failures],
-            "",
-        ]
+        markdown += ["## Analysis failures", "", *[f"- Alert #{item['alert_number']}: {item['error']}" for item in failures], ""]
 
     (OUTPUT_DIR / "security-triage-report.md").write_text("\n".join(markdown), encoding="utf-8")
     print(f"Completed read-only security analysis: {len(report)}/{len(alerts)}")
