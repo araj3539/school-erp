@@ -8,7 +8,6 @@ import { createAuditLog } from "../services/auditLog.js";
 import { enqueueHomeworkNotification } from "../services/notificationService.js";
 import { buildR2Key, deleteFromR2, getR2SignedUrl, sanitizeFileName, uploadToR2 } from "../services/r2.js";
 import { UserRole } from "@school-erp/shared";
-
 interface MulterRequest extends Request { file?: Express.Multer.File; }
 const MAX_HOMEWORK_ATTACHMENTS = 10;
 const SIGNED_URL_EXPIRY = 600;
