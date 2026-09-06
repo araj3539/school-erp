@@ -36,6 +36,7 @@ async function claimNextEvent() {
   return NotificationEvent.findOneAndUpdate(
     { $or: [
       { status: "pending", nextAttemptAt: { $lte: now } },
+      { status: "failed", attempts: { $lt: MAX_ATTEMPTS }, nextAttemptAt: { $lte: now } },
       { status: "processing", lockedAt: { $lt: staleBefore } },
     ] },
     { $set: { status: "processing", lockedAt: now }, $inc: { attempts: 1 } },
@@ -44,6 +45,11 @@ async function claimNextEvent() {
 }
 
 async function processEvent(event: NonNullable<Awaited<ReturnType<typeof claimNextEvent>>>) {
+  const expiresAt = typeof event.payload?.expiresAt === "string" ? new Date(event.payload.expiresAt) : undefined;
+  if (expiresAt && expiresAt <= new Date()) {
+    await NotificationEvent.updateOne({ _id: event._id }, { $set: { status: "completed", processedAt: new Date() }, $unset: { lockedAt: 1 } });
+    return;
+  }
   const users = await User.find({ _id: { $in: event.recipientIds }, schoolId: event.schoolId, isActive: true }).select("_id").lean();
   const validRecipientIds = users.map((user) => user._id);
   const preferences = await NotificationPreference.find({ schoolId: event.schoolId, userId: { $in: validRecipientIds }, category: event.category }).lean();
