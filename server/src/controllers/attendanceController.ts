@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { Attendance, Student, Class, Section, Teacher, AcademicYear, School } from "../models/index.js";
 import { createAuditLog } from "../services/auditLog.js";
+import { enqueueAttendanceNotifications } from "../services/notificationService.js";
 import { AppError } from "../utils/errors.js";
 import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
 import { getTenantId } from "../utils/tenant.js";
@@ -106,10 +107,12 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
       const before = existing.records.map((record) => ({ studentId: record.studentId.toString(), status: record.status, remark: record.remark }));
       existing.records = records; existing.markedBy = new Types.ObjectId(req.user!.userId); await existing.save();
       await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { recordsCount: records.length, date: date.toISOString(), classId: data.classId, sectionId: data.sectionId } });
+      void enqueueAttendanceNotifications(existing).catch(() => undefined);
       return res.json({ attendance: existing, corrected: true });
     }
     const attendance = await Attendance.create({ ...data, records, date, schoolId, markedBy: new Types.ObjectId(req.user!.userId) });
     await createAuditLog({ schoolId, userId: req.user!.userId, action: "CREATE", entity: "Attendance", entityId: attendance._id.toString(), after: { recordsCount: data.records.length, date: date.toISOString(), classId: data.classId, sectionId: data.sectionId } });
+    void enqueueAttendanceNotifications(attendance).catch(() => undefined);
     res.status(201).json({ attendance, corrected: false });
   } catch (error) { next(error); }
 }
@@ -121,6 +124,7 @@ export async function bulkMarkAttendance(req: Request, res: Response, next: Next
     const prepared: Array<{ entry: any; schoolId: string; date: Date; records: any[] }> = [];
     for (const entry of data.entries) prepared.push({ entry, ...(await validateAttendanceEntry(req, entry, session)) });
     const results: Array<{ date: string; classId: string; sectionId: string; corrected: boolean }> = [];
+    const persistedAttendance: any[] = [];
     await session.withTransaction(async () => {
       for (const item of prepared) {
         const { entry, schoolId, date, records } = item;
@@ -135,9 +139,11 @@ export async function bulkMarkAttendance(req: Request, res: Response, next: Next
           [attendance] = await Attendance.create([{ ...entry, records, date, schoolId, markedBy: new Types.ObjectId(req.user!.userId) }], { session });
           await createAuditLog({ schoolId, userId: req.user!.userId, action: "CREATE", entity: "Attendance", entityId: attendance._id.toString(), after: { recordsCount: records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId }, session });
         }
+        persistedAttendance.push(attendance);
         results.push({ date: entry.date, classId: entry.classId, sectionId: entry.sectionId, corrected });
       }
     });
+    for (const attendance of persistedAttendance) void enqueueAttendanceNotifications(attendance).catch(() => undefined);
     res.status(200).json({ results, count: results.length });
   } catch (error) { next(error); }
   finally { await session.endSession(); }
@@ -217,6 +223,7 @@ export async function importAttendanceSpreadsheet(req: MulterRequest, res: Respo
     }
     if (validationErrors.length) return res.status(400).json({ error: "Attendance import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
 
+    const persistedAttendance: any[] = [];
     await session.withTransaction(async () => {
       const existingByKey = new Map<string, any>();
       for (const entry of prepared) {
@@ -235,12 +242,15 @@ export async function importAttendanceSpreadsheet(req: MulterRequest, res: Respo
           existing.markedBy = new Types.ObjectId(req.user!.userId);
           await existing.save({ session });
           await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { recordsCount: entry.records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId, source: "spreadsheet-import" }, session });
+          persistedAttendance.push(existing);
         } else {
           const [attendance] = await Attendance.create([{ date, classId: entry.classId, sectionId: entry.sectionId, schoolId, markedBy: new Types.ObjectId(req.user!.userId), records: entry.records.map((record: any) => ({ ...record, studentId: new Types.ObjectId(record.studentId) })) }], { session });
           await createAuditLog({ schoolId, userId: req.user!.userId, action: "CREATE", entity: "Attendance", entityId: attendance._id.toString(), after: { recordsCount: entry.records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId, source: "spreadsheet-import" }, session });
+          persistedAttendance.push(attendance);
         }
       }
     });
+    for (const attendance of persistedAttendance) void enqueueAttendanceNotifications(attendance).catch(() => undefined);
     return res.status(200).json({ imported: prepared.length, errors: [] });
   } catch (error) {
     next(error);
