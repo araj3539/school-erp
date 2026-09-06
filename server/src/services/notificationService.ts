@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { Notification, NotificationEvent, NotificationPreference, User } from "../models/index.js";
+import { Notification, NotificationEvent, NotificationPreference, User, Student, Teacher, Notice } from "../models/index.js";
 import type { NotificationCategory, NotificationPriority } from "../models/Notification.js";
 import type { NotificationChannel } from "../models/NotificationPreference.js";
 
@@ -26,6 +26,65 @@ export async function enqueueNotificationEvent(input: EnqueueNotificationEventIn
     { $setOnInsert: { ...input, priority: input.priority ?? "normal", status: "pending", attempts: 0, nextAttemptAt: input.nextAttemptAt ?? new Date() } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).lean();
+}
+
+/** Resolve the authenticated application users who should receive a notice. */
+export async function resolveNoticeRecipients(notice: Pick<Notice, "schoolId" | "audience" | "classId" | "sectionId">) {
+  const schoolId = notice.schoolId;
+  const studentFilter: Record<string, unknown> = { schoolId, status: "active" };
+  if (notice.audience === "class") studentFilter.classId = notice.classId;
+  if (notice.audience === "section") {
+    studentFilter.classId = notice.classId;
+    studentFilter.sectionId = notice.sectionId;
+  }
+
+  const students = await Student.find(studentFilter).select("userId parentIds").lean();
+  const recipientIds = new Set<string>();
+  for (const student of students) {
+    if (student.userId) recipientIds.add(student.userId.toString());
+    for (const parentId of student.parentIds ?? []) recipientIds.add(parentId.toString());
+  }
+
+  // Teachers are recipients of school notices, and of notices addressed to classes they teach.
+  if (notice.audience === "school") {
+    const teachers = await Teacher.find({ schoolId }).select("userId").lean();
+    for (const teacher of teachers) if (teacher.userId) recipientIds.add(teacher.userId.toString());
+  } else {
+    const teachers = await Teacher.find({ schoolId }).select("userId classTeacherOf").lean();
+    for (const teacher of teachers) {
+      if (!teacher.userId) continue;
+      const teachesTarget = (teacher.classTeacherOf ?? []).some((classId) => classId.equals(notice.classId));
+      if (teachesTarget) recipientIds.add(teacher.userId.toString());
+    }
+  }
+
+  const ids = [...recipientIds].map((id) => new Types.ObjectId(id));
+  if (!ids.length) return [];
+  const users = await User.find({ _id: { $in: ids }, schoolId, isActive: true }).select("_id").lean();
+  return users.map((user) => user._id);
+}
+
+export async function enqueueNoticeNotification(notice: Pick<Notice, "_id" | "schoolId" | "audience" | "classId" | "sectionId" | "title" | "message" | "priority" | "publishAt" | "expiresAt">) {
+  const recipientIds = await resolveNoticeRecipients(notice);
+  if (!recipientIds.length) return null;
+  return enqueueNotificationEvent({
+    schoolId: notice.schoolId,
+    eventType: "notice.published",
+    category: "announcement",
+    priority: notice.priority === "urgent" ? "urgent" : notice.priority,
+    recipientIds,
+    title: notice.title,
+    message: notice.message,
+    idempotencyKey: `notice:${notice._id.toString()}:${notice.publishAt.toISOString()}`,
+    payload: {
+      noticeId: notice._id.toString(),
+      audience: notice.audience,
+      classId: notice.classId?.toString(),
+      sectionId: notice.sectionId?.toString(),
+      expiresAt: notice.expiresAt?.toISOString(),
+    },
+    nextAttemptAt: notice.publishAt,
+  });
 }
 
 function retryDelay(attempt: number) { return Math.min(60_000, 1000 * 2 ** Math.max(0, attempt - 1)); }
