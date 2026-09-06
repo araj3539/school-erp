@@ -35,7 +35,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout analyzer
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -68,13 +68,12 @@ jobs:
             echo "state=$STATE"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Analyze alerts with OpenAI
+      - name: Analyze alerts with NVIDIA Nemotron
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           TARGET_REF: ${{ steps.target.outputs.ref }}
           ALERT_STATE: ${{ steps.target.outputs.state }}
-          OPENAI_MODEL: gpt-5.6
         run: |
           python3 .github/scripts/security_alert_analyzer.py
 
