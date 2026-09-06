@@ -43,7 +43,7 @@ test.describe("Phase 7 authenticated responsive browser acceptance", () => {
       window.history.pushState({}, "", path);
       window.dispatchEvent(new PopStateEvent("popstate"));
     }, route);
-    await expect(page).toHaveURL(new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), { timeout: 15_000 });
+    await expect(page).toHaveURL((url) => url.pathname === route, { timeout: 15_000 });
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   }
 
