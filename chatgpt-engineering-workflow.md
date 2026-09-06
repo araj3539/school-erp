@@ -476,19 +476,210 @@ Never claim Graphify passed unless the GitHub evidence actually exists.
 
 # 8. Semgrep doctrine
 
-Semgrep is the **security/static-analysis gate** accessed through GitHub.
+Semgrep is the repository's **authoritative static-application-security-testing (SAST) gate**. In this project, Semgrep is intentionally operated through **one GitHub Actions workflow named `Semgrep`**, using **`semgrep ci` as the sole execution path**. Do not create or reintroduce a second Semgrep workflow, a local Semgrep CI-equivalent workflow, Semgrep Managed Scanning, or a Semgrep GitHub App path unless the project architecture is explicitly changed and this section is updated at the same time.
 
-Before merging non-trivial/security-sensitive changes:
+## 8.1 Current repository architecture
 
-1. check whether Semgrep ran,
-2. inspect the actual result,
-3. understand findings,
-4. fix meaningful high-severity findings,
-5. re-check after material changes.
+The canonical workflow is `.github/workflows/semgrep.yml` and currently uses:
 
-A missing scan is not a clean scan.
+```text
+GitHub event
+    ↓
+Semgrep workflow (`Semgrep`)
+    ↓
+`semgrep ci`
+    ↓
+`SEMGREP_APP_TOKEN` (GitHub Actions secret; Agent (CI) token)
+    ↓
+Semgrep AppSec Platform policies/rules
+    ↓
+SARIF output
+    ↓
+GitHub Code Scanning
+```
 
-Do not silence a finding merely to obtain a green status without understanding the underlying risk.
+The workflow is triggered by:
+
+- `pull_request` — diff-aware security review of changed code,
+- `push` to `main` — full-branch/post-merge review of `main`,
+- weekly scheduled scan of `main`,
+- `workflow_dispatch` — on-demand scan of a selected branch.
+
+The workflow uses the official `semgrep/semgrep` container and pins GitHub Actions to immutable commit SHAs. It grants only the permissions required by the workflow: `contents: read`, `actions: read`, and `security-events: write`.
+
+For pull requests, the workflow deliberately skips fork PRs so the AppSec token is never exposed to untrusted fork code. Same-repository PRs continue through the normal CI path.
+
+## 8.2 `semgrep ci` is the source of Semgrep policy truth
+
+Use **`semgrep ci`**, not `semgrep --config auto`, when the goal is to reproduce the repository's CI security gate. Semgrep's official documentation states that `semgrep ci` connected to the AppSec Platform evaluates the organization's configured policies, including organization-specific rules. By contrast, `semgrep --config auto` selects relevant rules from the Semgrep Registry and does not automatically reproduce organization-specific AppSec policies. See the official [Semgrep in CI vs CLI](https://docs.semgrep.dev/kb/semgrep-ci/ci-vs-cli) guidance.
+
+Therefore:
+
+- A local `semgrep scan --config auto` result is **not equivalent** to the repository's CI result.
+- Different findings between CLI and CI do not automatically indicate a broken CI scan.
+- If local/CI comparison is required, use the same Semgrep version/image and deliberately align the rule configuration and analysis mode. Semgrep recommends matching the version and installation method when comparing CLI and CI results.
+- Do not add local Semgrep execution merely to obtain a second security signal unless there is a concrete diagnostic reason. The repository's release gate is the GitHub `semgrep/ci` result.
+
+## 8.3 Understand PR findings versus full-branch findings
+
+A pull-request Semgrep CI scan is normally **diff-aware**. It is intended to report findings identified in changed code rather than every finding in the repository. A full scan of the default branch can therefore legitimately contain findings that do not appear in a PR scan.
+
+Use this model when interpreting results:
+
+```text
+PR scan
+  → changed-code / diff-aware findings
+  → review before merge
+
+main push / scheduled scan
+  → full-branch baseline/review
+  → review repository-level security state
+
+workflow_dispatch on another branch
+  → on-demand full branch review
+```
+
+Never compare finding counts from two different scan modes and conclude that one scan is wrong without first checking that they scanned the same code, branch/ref, rule configuration, Semgrep version, and analysis mode.
+
+## 8.4 Where to fetch and review findings
+
+Semgrep findings must be retrieved from **GitHub's security/check surfaces first**. Do not assume a green `semgrep/ci` check means that no findings exist; `semgrep ci` can complete successfully when findings are non-blocking under the organization's policy. The workflow's exit status represents the configured blocking policy, not simply the existence of any finding.
+
+### Pull request findings
+
+For a PR, inspect all of the following as applicable:
+
+1. **PR → Checks → `semgrep/ci`** — confirms whether the CI scan executed and whether the job succeeded/failed.
+2. **PR → Security / Code scanning** — review Semgrep Code Scanning alerts/annotations associated with the PR.
+3. **PR review comments/annotations** — inspect file/line-level findings when GitHub exposes them.
+4. **Semgrep AppSec Platform** — use it when deeper Semgrep-specific context, policy status, rule information, or platform-side triage is required.
+
+### Main-branch findings
+
+For `main`, inspect:
+
+1. **Repository → Security → Code scanning** for SARIF-uploaded Semgrep alerts.
+2. The corresponding **Semgrep Actions workflow run** for execution status/logs.
+3. **Semgrep AppSec Platform** for the Semgrep-side finding/policy context when deeper investigation is needed.
+
+### Existing non-PR branch
+
+Use **Actions → Semgrep → Run workflow**, select the target branch, and run the workflow manually. This is the supported way to obtain an on-demand full-branch Semgrep CI review without creating another workflow.
+
+## 8.5 How to fetch findings programmatically through GitHub
+
+When an exact finding list is needed, do not rely only on the green/red check summary. Use GitHub's Code Scanning/Checks APIs or the connected GitHub tooling to retrieve the actual alerts/check annotations for the relevant commit or PR.
+
+Recommended investigation sequence:
+
+```text
+identify PR / commit / branch
+        ↓
+fetch GitHub check runs
+        ↓
+locate `semgrep/ci`
+        ↓
+inspect conclusion + annotations/output
+        ↓
+fetch Code Scanning alerts for the relevant ref
+        ↓
+inspect rule, severity, file, line, state, and remediation
+        ↓
+use Semgrep AppSec Platform for deeper Semgrep-specific context if needed
+```
+
+For a GitHub Actions run, fetch the workflow run and job details first. The `semgrep/ci` job is the execution evidence. For Code Scanning, use the repository's Security → Code scanning alert surface or the corresponding GitHub Code Scanning API for the relevant branch/PR.
+
+If the GitHub check payload exposes only a pass/fail summary and no finding details, **do not invent the missing findings**. Fetch them from Code Scanning or the Semgrep AppSec Platform instead. If authenticated Semgrep API access is unavailable, report that detailed Semgrep-platform findings could not be fetched rather than claiming that the scan was clean.
+
+## 8.6 Interpreting Semgrep exit status correctly
+
+With Semgrep AppSec Platform policy configuration, blocking findings determine whether the CI job fails. A scan can report non-blocking findings and still exit successfully. Semgrep's documentation distinguishes this policy-aware `semgrep ci` behavior from `semgrep scan`, which normally exits successfully when it completes even if findings exist.
+
+Therefore:
+
+- **Green `semgrep/ci` ≠ zero findings.**
+- **Green `semgrep/ci` = no policy-blocking failure for that scan.**
+- Findings still require review according to severity, exploitability, reachability, code context, and project policy.
+- High-severity/security-critical findings should be treated as release blockers unless explicitly triaged and accepted through the project's security process.
+- A non-blocking finding must not be dismissed automatically merely because CI is green.
+
+## 8.7 Triage rules
+
+For every meaningful Semgrep finding, capture:
+
+- rule ID/name,
+- product/category when available (for example Code or Supply Chain),
+- severity,
+- file and line,
+- branch/PR/commit where it was observed,
+- whether it is newly introduced or pre-existing,
+- whether the input is actually attacker-controlled,
+- reachability/exploitability context,
+- whether the code is production/runtime code or test/tooling code,
+- remediation or documented rationale if retained.
+
+Do not equate a static-analysis match with a confirmed vulnerability without reviewing the code path. Conversely, do not dismiss a finding simply because it occurs in a test or helper file; determine whether it can affect production behavior and whether the rule is correctly identifying a risky pattern.
+
+When a finding is fixed:
+
+```text
+fix on feature branch
+→ push/update PR
+→ Semgrep CI reruns
+→ verify finding is resolved or correctly changed
+→ re-check Code Scanning/AppSec Platform
+→ merge only after required security gates pass
+```
+
+## 8.8 Full-scan versus PR-baseline investigation
+
+If a finding appears on `main` but not on a PR, first determine whether it is simply outside the PR diff. Do not assume the PR scan missed it. Conversely, if a finding appears in a PR, determine whether it is newly introduced or an existing baseline finding before deciding whether the change caused it.
+
+When comparing scans, align:
+
+1. exact commit/ref,
+2. Semgrep version/image,
+3. `semgrep ci` versus CLI mode,
+4. AppSec policy/ruleset,
+5. Pro/cross-file analysis settings,
+6. diff-aware versus full-branch scan mode.
+
+Semgrep's documentation specifically notes that Pro analysis/cross-file settings can also change results.
+
+## 8.9 Security and supply-chain hygiene for the workflow
+
+Keep the Semgrep workflow itself security-reviewed. In particular:
+
+- keep the workflow name exactly **`Semgrep`** unless the architecture is intentionally changed,
+- keep **one** Semgrep workflow,
+- use **`semgrep ci`** as the only Semgrep execution path in CI,
+- keep `SEMGREP_APP_TOKEN` in GitHub Actions secrets; never commit or print it,
+- use the appropriate **Agent (CI)** token for `semgrep ci`,
+- keep the token out of fork PR execution,
+- keep third-party GitHub Actions pinned to immutable SHAs,
+- retain least-privilege workflow permissions,
+- upload SARIF through `github/codeql-action/upload-sarif` so findings are available in GitHub Code Scanning,
+- do not introduce duplicate manual/managed Semgrep workflows,
+- remove obsolete Semgrep workflow experiments and branches when they are no longer required.
+
+## 8.10 Required Semgrep release-gate checklist
+
+Before merging non-trivial/security-sensitive work:
+
+- [ ] `Semgrep` workflow exists and is the single Semgrep workflow.
+- [ ] `semgrep/ci` ran for the intended PR/commit.
+- [ ] The scan used the repository's AppSec Platform policy configuration.
+- [ ] The PR result was interpreted as diff-aware when triggered by `pull_request`.
+- [ ] Relevant Code Scanning alerts/annotations were inspected.
+- [ ] Meaningful findings were triaged rather than ignored because CI was green.
+- [ ] Blocking/high-severity findings are resolved or explicitly handled through the project's security process.
+- [ ] SARIF upload succeeded when the workflow is expected to publish Code Scanning results.
+- [ ] For post-merge/main verification, the full-branch Semgrep scan was checked.
+- [ ] No duplicate Semgrep workflow or alternative Semgrep execution path was introduced.
+- [ ] No Semgrep token, credential, or sensitive scan output was committed.
+
+**Core rule:** Semgrep is a security evidence source, not merely a green check. Always distinguish **scan success**, **policy-blocking status**, and **actual findings**.
 
 ---
 
