@@ -97,6 +97,60 @@ export async function enqueueNoticeNotification(notice: NoticeNotificationInput)
   });
 }
 
+interface AttendanceNotificationInput {
+  _id: Types.ObjectId;
+  schoolId: Types.ObjectId;
+  date: Date;
+  records: Array<{ studentId: Types.ObjectId; status: string; remark?: string }>;
+}
+
+const attendanceAlertStatuses = new Set(["absent", "late", "half_day"]);
+
+export async function enqueueAttendanceNotifications(attendance: AttendanceNotificationInput) {
+  const alertRecords = attendance.records.filter((record) => attendanceAlertStatuses.has(record.status));
+  if (!alertRecords.length) return [];
+
+  const studentIds = [...new Set(alertRecords.map((record) => record.studentId.toString()))].map((id) => new Types.ObjectId(id));
+  const students = await Student.find({ _id: { $in: studentIds }, schoolId }).select("firstName lastName userId parentIds").lean();
+  const studentById = new Map(students.map((student) => [student._id.toString(), student]));
+  const recipientIds = new Set<string>();
+  for (const student of students) {
+    if (student.userId) recipientIds.add(student.userId.toString());
+    for (const parentId of student.parentIds ?? []) recipientIds.add(parentId.toString());
+  }
+  if (!recipientIds.size) return [];
+
+  const users = await User.find({ _id: { $in: [...recipientIds].map((id) => new Types.ObjectId(id)) }, schoolId, isActive: true }).select("_id").lean();
+  const validUserIds = new Set(users.map((user) => user._id.toString()));
+  const events = [];
+  for (const record of alertRecords) {
+    const student = studentById.get(record.studentId.toString());
+    if (!student) continue;
+    const studentRecipients = [student.userId, ...(student.parentIds ?? [])].filter((id): id is Types.ObjectId => Boolean(id) && validUserIds.has(id.toString()));
+    if (!studentRecipients.length) continue;
+    const name = `${student.firstName} ${student.lastName}`.trim();
+    const statusLabel = record.status === "half_day" ? "half-day" : record.status;
+    events.push(await enqueueNotificationEvent({
+      schoolId: attendance.schoolId,
+      eventType: "attendance.alert",
+      category: "attendance",
+      priority: record.status === "absent" ? "high" : "normal",
+      recipientIds: [...new Map(studentRecipients.map((id) => [id.toString(), id])).values()],
+      title: `Attendance alert: ${name}`,
+      message: `${name} was marked ${statusLabel} on ${attendance.date.toISOString().slice(0, 10)}.`,
+      idempotencyKey: `attendance:${attendance._id.toString()}:${record.studentId.toString()}:${record.status}`,
+      payload: {
+        attendanceId: attendance._id.toString(),
+        studentId: record.studentId.toString(),
+        status: record.status,
+        remark: record.remark,
+        date: attendance.date.toISOString(),
+      },
+    }));
+  }
+  return events.filter(Boolean);
+}
+
 function retryDelay(attempt: number) { return Math.min(60_000, 1000 * 2 ** Math.max(0, attempt - 1)); }
 
 async function claimNextEvent() {
