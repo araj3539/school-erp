@@ -12,6 +12,20 @@ describe("role permission boundaries", () => {
     expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).not.toContain("payments:write");
   });
 
+  it("allows principals to manage staff while keeping compensation reads explicit", () => {
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).toContain("staff:read");
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).toContain("staff:write");
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).toContain("staff:delete");
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).not.toContain("salary:read");
+  });
+
+  it("allows accountants to read staff and compensation without staff mutation", () => {
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).toContain("staff:read");
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).toContain("salary:read");
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain("staff:write");
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain("staff:delete");
+  });
+
   it("limits accountants to financial operations rather than student administration", () => {
     expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).toContain("payments:write");
     expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain("students:write");
