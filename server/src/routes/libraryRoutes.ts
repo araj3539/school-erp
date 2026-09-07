@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware/index.js";
 import { getBooks, getBookById, createBook, updateBook, deactivateBook, getCopies, createCopy, updateCopy, getLoans, issueLoan, returnLoan } from "../controllers/libraryController.js";
-import { CreateLibraryBookSchema, UpdateLibraryBookSchema, LibraryBookQuerySchema, CreateLibraryCopySchema, UpdateLibraryCopySchema, LibraryCopyQuerySchema, IssueLibraryLoanSchema, ReturnLibraryLoanSchema, LibraryLoanQuerySchema, IdParamSchema } from "../validators/index.js";
+import { CreateLibraryBookSchema, UpdateLibraryBookSchema, LibraryBookQuerySchema, UpdateLibraryCopySchema, LibraryCopyQuerySchema, IssueLibraryLoanSchema, ReturnLibraryLoanSchema, LibraryLoanQuerySchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
 router.use(authenticate);
@@ -11,7 +11,7 @@ router.post("/books", requirePermission("library:write"), validate(CreateLibrary
 router.put("/books/:id", requirePermission("library:write"), validate(IdParamSchema, "params"), validate(UpdateLibraryBookSchema), updateBook);
 router.delete("/books/:id", requirePermission("library:delete"), validate(IdParamSchema, "params"), deactivateBook);
 router.get("/copies", requirePermission("library:read"), validate(LibraryCopyQuerySchema, "query"), getCopies);
-router.post("/books/:id/copies", requirePermission("library:write"), validate(IdParamSchema, "params"), validate(CreateLibraryCopySchema), createCopy);
+router.post("/books/:id/copies", requirePermission("library:write"), validate(IdParamSchema, "params"), createCopy);
 router.put("/copies/:id", requirePermission("library:write"), validate(IdParamSchema, "params"), validate(UpdateLibraryCopySchema), updateCopy);
 router.get("/loans", requirePermission("library:read"), validate(LibraryLoanQuerySchema, "query"), getLoans);
 router.post("/loans", requirePermission("library:circulate"), validate(IssueLibraryLoanSchema), issueLoan);
