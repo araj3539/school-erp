@@ -8,6 +8,8 @@ export { Student } from "./Student.js";
 export type { IStudent, IStudentDocument } from "./Student.js";
 export { Teacher } from "./Teacher.js";
 export type { ITeacher, ITeacherDocument } from "./Teacher.js";
+export { Staff } from "./Staff.js";
+export type { IStaff } from "./Staff.js";
 export { Class } from "./Class.js";
 export type { IClass } from "./Class.js";
 export { Section } from "./Section.js";
