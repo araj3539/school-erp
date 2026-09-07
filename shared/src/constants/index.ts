@@ -8,7 +8,7 @@ export enum FeeStatus { PAID = "paid", PARTIAL = "partial", PENDING = "pending",
 export enum PaymentMode { CASH = "cash", UPI = "upi", CARD = "card", BANK_TRANSFER = "bank_transfer", CHEQUE = "cheque", ONLINE = "online" }
 export enum Gender { MALE = "male", FEMALE = "female", OTHER = "other" }
 export enum BloodGroup { A_POS = "A+", A_NEG = "A-", B_POS = "B+", B_NEG = "B-", AB_POS = "AB+", AB_NEG = "AB-", O_POS = "O+", O_NEG = "O-" }
-export enum DocumentType { BIRTH_CERTIFICATE = "birth_certificate", AADAR = "aadhar", TRANSFER_CERTIFICATE = "transfer_certificate", MARKSHEET = "marksheet", PHOTO = "photo", SIGNATURE = "signature", OTHER = "other" }
+export enum DocumentType { BIRTH_CERTIFICATE = "birth_certificate", AADHAR = "aadhar", TRANSFER_CERTIFICATE = "transfer_certificate", MARKSHEET = "marksheet", PHOTO = "photo", SIGNATURE = "signature", OTHER = "other" }
 export enum ExamStatus { DRAFT = "draft", PUBLISHED = "published" }
 export enum ExamResultStatus { DRAFT = "draft", PUBLISHED = "published" }
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
