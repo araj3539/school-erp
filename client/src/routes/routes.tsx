@@ -31,6 +31,7 @@ const TimetablePage = lazy(() => import("../pages/TimetablePage"));
 const FeesPage = lazy(() => import("../pages/FeesPage"));
 const ReportsPage = lazy(() => import("../pages/ReportsPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+const InventoryPage = lazy(() => import("../pages/InventoryPage"));
 const PortalDashboardPage = lazy(() => import("../pages/PortalDashboardPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const any = (permissions: string[], element: React.ReactNode) => <RequireAnyPermission permissions={permissions}>{element}</RequireAnyPermission>;
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
     { path: "/notices", element: role(adminRoles, only("notices:read", <NoticesPage />)) },
     { path: "/timetable", element: role(adminRoles, only("timetable:read", <TimetablePage />) ) },
     { path: "/fees", element: role(adminRoles, only("fees:read", <FeesPage />)) },
+    { path: "/inventory", element: only("inventory:read", <InventoryPage />) },
     { path: "/reports", element: only("reports:read", <ReportsPage />) },
     { path: "/settings", element: only("settings:read", <SettingsPage />) },
     { path: "*", element: <NotFoundPage /> }
