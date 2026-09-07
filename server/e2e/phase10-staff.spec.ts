@@ -55,6 +55,15 @@ test("staff lifecycle enforces tenant isolation, RBAC and compensation visibilit
   expect(listBody.data[0].schoolId).toBeTruthy();
   expect(listBody.data[0].salary).toBeUndefined();
 
+  const updateResponse = await request.put(apiUrl(`/api/v1/staff/${staffId}`), {
+    headers: principalHeaders,
+    data: { designation: "Senior Operations Coordinator" }
+  });
+  const updateBody = await updateResponse.json().catch(() => ({}));
+  expect(updateResponse.status(), `Staff update failed: ${JSON.stringify(updateBody)}`).toBe(200);
+  expect(updateBody.staff.designation).toBe("Senior Operations Coordinator");
+  expect(updateBody.staff.salary).toBeUndefined();
+
   const teacherToken = await login(request, "teacher.e2e.a@example.com");
   const teacherResponse = await request.get(apiUrl(`/api/v1/staff/${staffId}`), {
     headers: { Authorization: `Bearer ${teacherToken}` }
@@ -66,13 +75,6 @@ test("staff lifecycle enforces tenant isolation, RBAC and compensation visibilit
     headers: { Authorization: `Bearer ${principalBToken}` }
   });
   expect(crossTenantResponse.status()).toBe(404);
-
-  const updateResponse = await request.put(apiUrl(`/api/v1/staff/${staffId}`), {
-    headers: principalHeaders,
-    data: { designation: "Senior Operations Coordinator" }
-  });
-  expect(updateResponse.status()).toBe(200);
-  expect((await updateResponse.json()).staff.designation).toBe("Senior Operations Coordinator");
 
   const deactivateResponse = await request.delete(apiUrl(`/api/v1/staff/${staffId}`), { headers: principalHeaders });
   expect(deactivateResponse.status()).toBe(200);
