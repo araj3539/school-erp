@@ -102,7 +102,42 @@ export async function getStudentDocumentUrl(req: Request, res: Response, next: N
   try { const { id, documentId } = req.validatedParams as any; await assertStudentReadAccess(req, id); const student = await Student.findOne({ _id: id, schoolId: getTenantId(req) }).select("documents"); if (!student) throw AppError.notFound("Student not found"); const document = student.documents.find((item: any) => item._id?.toString() === documentId); if (!document) throw AppError.notFound("Document not found"); if (!document.url) throw AppError.notFound("Document storage key is missing"); const signedUrl = await getR2SignedUrl(document.url, 600); res.json({ url: signedUrl, expiresIn: 600 }); } catch (error) { next(error); }
 }
 
-export async function createStudent(req: Request, res: Response, next: NextFunction) { try { const data = withTenant(req, CreateStudentSchema.parse(req.body) as any); if (!data.admissionNo) data.admissionNo = generateAdmissionNumber(); const existing = await Student.findOne({ schoolId: data.schoolId, admissionNo: data.admissionNo }); if (existing) throw AppError.conflict("Admission number already exists"); const student = await Student.create(data); await createAuditLog({ userId: req.user!.userId, action: "CREATE", entity: "Student", entityId: student._id.toString(), after: { admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}` } }); res.status(201).json({ student }); } catch (error) { next(error); } }
+export async function createStudent(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = CreateStudentSchema.parse(req.body);
+    const data = withTenant(req, parsed as any);
+    const admissionNo = data.admissionNo || generateAdmissionNumber();
+    const schoolId = getTenantId(req);
+    const existing = await Student.findOne({ schoolId, admissionNo });
+    if (existing) throw AppError.conflict("Admission number already exists");
+    const student = await Student.create({
+      schoolId,
+      admissionNo,
+      userId: data.userId,
+      parentIds: data.parentIds,
+      classId: data.classId,
+      sectionId: data.sectionId,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      dob: data.dob,
+      gender: data.gender,
+      bloodGroup: data.bloodGroup,
+      religion: data.religion,
+      category: data.category,
+      fatherName: data.fatherName,
+      motherName: data.motherName,
+      phone: data.phone,
+      address: data.address,
+      guardianPhone: data.guardianPhone,
+      previousSchool: data.previousSchool,
+      transportId: data.transportId,
+      status: data.status,
+      admissionDate: data.admissionDate,
+    });
+    await createAuditLog({ userId: req.user!.userId, action: "CREATE", entity: "Student", entityId: student._id.toString(), after: { admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}` } });
+    res.status(201).json({ student });
+  } catch (error) { next(error); }
+}
 export async function updateStudent(req: Request, res: Response, next: NextFunction) { try { const { id } = req.validatedParams as any; const rawData = req.validatedBody as any; const { schoolId: _ignored, ...data } = rawData; const student = await Student.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, data, { new: true }); if (!student) throw AppError.notFound("Student not found"); await createAuditLog({ userId: req.user!.userId, action: "UPDATE", entity: "Student", entityId: student._id.toString(), after: data }); res.json({ student }); } catch (error) { next(error); } }
 export async function deleteStudent(req: Request, res: Response, next: NextFunction) { try { const { id } = req.validatedParams as any; const student = await Student.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, { status: "left" }, { new: true }); if (!student) throw AppError.notFound("Student not found"); await createAuditLog({ userId: req.user!.userId, action: "DELETE", entity: "Student", entityId: student._id.toString() }); res.json({ message: "Student marked as left" }); } catch (error) { next(error); } }
 
