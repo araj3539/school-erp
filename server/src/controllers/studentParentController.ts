@@ -31,25 +31,26 @@ export async function assignStudentParents(req: Request, res: Response, next: Ne
     const { id } = req.validatedParams as { id: string };
     const schoolId = getTenantId(req);
     const { parentIds } = ParentAssignmentSchema.parse(req.body);
+    const parentObjectIds = parentIds.map((parentId) => new Types.ObjectId(parentId));
 
     const student = await Student.findOne({ _id: id, schoolId });
     if (!student) throw AppError.notFound("Student not found");
 
-    if (parentIds.length) {
+    if (parentObjectIds.length) {
       const parents = await User.find({
-        _id: { $in: parentIds },
+        _id: { $in: parentObjectIds },
         schoolId,
         role: UserRole.PARENT,
         isActive: true,
       }).select("_id").lean();
 
-      if (parents.length !== parentIds.length) {
+      if (parents.length !== parentObjectIds.length) {
         throw AppError.badRequest("Every assigned parent must be an active parent user in this school");
       }
     }
 
     const previousParentIds = student.parentIds.map((parentId: Types.ObjectId) => parentId.toString());
-    student.parentIds = parentIds.map((parentId: string) => new Types.ObjectId(parentId));
+    student.parentIds = parentObjectIds;
     await student.save();
 
     await createAuditLog({
@@ -61,7 +62,7 @@ export async function assignStudentParents(req: Request, res: Response, next: Ne
       after: { parentIds },
     });
 
-    const parents = await User.find({ _id: { $in: parentIds }, schoolId, role: UserRole.PARENT })
+    const parents = await User.find({ _id: { $in: parentObjectIds }, schoolId, role: UserRole.PARENT })
       .select("_id email isActive profileId createdAt")
       .lean();
 
