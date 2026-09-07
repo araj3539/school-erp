@@ -10,6 +10,7 @@ const baseUrl = process.env.E2E_API_URL;
 const fixturePassword = process.env.E2E_FIXTURE_PASSWORD;
 const schoolACode = process.env.E2E_SCHOOL_A_CODE || "SCH-PHASE1-A";
 const existingStudentId = process.env.E2E_SCHOOL_A_STUDENT_ID;
+const STUDENT_EXPORT_HEADERS = ["admissionNo", "firstName", "lastName", "class", "section", "gender", "phone", "status"];
 
 function apiUrl(path: string): string {
   expect(baseUrl, "E2E_API_URL is required").toBeTruthy();
@@ -86,8 +87,15 @@ test("invalid student import is rejected atomically and filtered export remains 
   const exportBody = await exportResponse.body();
   expect(exportResponse.status(), `Filtered export response status: ${exportResponse.status()}`).toBe(200);
   expect(exportResponse.headers()["content-type"]).toContain("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  expect(exportResponse.headers()["content-disposition"]).toContain("filename=students.xlsx");
   const exportedSheets = await readSheet(exportBody);
   const exportedRows = exportedSheets[0]?.data ?? [];
   expect(exportedRows.length, `Export rows did not include the student; list response was ${JSON.stringify(listBody)}`).toBeGreaterThanOrEqual(2);
+  expect(exportedRows[0]?.map((header: unknown) => String(header))).toEqual(STUDENT_EXPORT_HEADERS);
   expect(String(exportedRows[1][0])).toBe(existing.admissionNo);
+  expect(String(exportedRows[1][1])).toBe(String(existing.firstName));
+  expect(String(exportedRows[1][2])).toBe(String(existing.lastName));
+  expect(exportedRows[0]).not.toContain("documents");
+  expect(exportedRows[0]).not.toContain("url");
+  expect(exportedRows[0]).not.toContain("publicId");
 });
