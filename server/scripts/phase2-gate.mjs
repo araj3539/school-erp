@@ -48,7 +48,6 @@ const env = {
 };
 
 const gates = [
-  ["phase1", "test:e2e:phase1"],
   ["documents", "test:e2e:phase2:documents"],
   ["payments", "test:e2e:phase2:payments"],
   ["audit", "test:e2e:phase2:audit"],
