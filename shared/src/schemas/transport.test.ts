@@ -1,0 +1,4 @@
+import {describe,expect,it} from "vitest";
+import {CreateTransportAllocationSchema,CreateTransportRouteSchema,CreateTransportStopSchema,CreateTransportVehicleSchema} from "./phase10.js";
+const id="67e000000000000000000001";
+describe("transport schemas",()=>{it("accepts valid route, vehicle, stop and allocation",()=>{expect(CreateTransportRouteSchema.parse({name:"Route A",code:"R-A"}).status).toBe("active");expect(CreateTransportVehicleSchema.parse({registrationNo:"BR01A0001",vehicleType:"bus",capacity:40}).capacity).toBe(40);expect(CreateTransportStopSchema.parse({name:"Main Gate",sequence:1}).sequence).toBe(1);expect(CreateTransportAllocationSchema.parse({studentId:id,routeId:id,vehicleId:id,stopId:id}).studentId).toBe(id)});it("rejects invalid capacity and stop sequence",()=>{expect(()=>CreateTransportVehicleSchema.parse({registrationNo:"X",vehicleType:"bus",capacity:0})).toThrow();expect(()=>CreateTransportStopSchema.parse({name:"X",sequence:0})).toThrow()})});
