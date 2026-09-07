@@ -12,6 +12,7 @@ export interface ILibraryLoan extends Document {
   dailyFineRate: number;
   fineAmount: number;
   status: (typeof LibraryLoanStatus)[keyof typeof LibraryLoanStatus];
+  activeLoan: boolean;
   notes?: string;
   issuedBy: Types.ObjectId;
   returnedBy?: Types.ObjectId;
@@ -30,6 +31,7 @@ const LibraryLoanSchema = new Schema<ILibraryLoan>({
   dailyFineRate: { type: Number, required: true, min: 0 },
   fineAmount: { type: Number, required: true, min: 0, default: 0 },
   status: { type: String, enum: Object.values(LibraryLoanStatus), required: true, default: LibraryLoanStatus.ACTIVE },
+  activeLoan: { type: Boolean, required: true, default: true },
   notes: { type: String, trim: true, maxlength: 500 },
   issuedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   returnedBy: { type: Schema.Types.ObjectId, ref: "User" }
@@ -42,11 +44,5 @@ LibraryLoanSchema.index(
   { schoolId: 1, copyId: 1, activeLoan: 1 },
   { unique: true, partialFilterExpression: { activeLoan: true } }
 );
-
-LibraryLoanSchema.virtual("activeLoan").get(function () {
-  return this.status === LibraryLoanStatus.ACTIVE;
-});
-LibraryLoanSchema.set("toJSON", { virtuals: true });
-LibraryLoanSchema.set("toObject", { virtuals: true });
 
 export const LibraryLoan = mongoose.model<ILibraryLoan>("LibraryLoan", LibraryLoanSchema);
