@@ -12,18 +12,23 @@ function apiUrl(path: string): string {
   return new URL(path, baseUrl).toString();
 }
 
-async function login(request: any, email: string, schoolCode = "SCH-E2E-A") {
+async function login(playwright: any, email: string, schoolCode = "SCH-E2E-A") {
   expect(fixturePassword, "E2E_FIXTURE_PASSWORD is required").toBeTruthy();
-  const response = await request.post(apiUrl("/api/v1/auth/login"), {
-    data: { email, password: fixturePassword, schoolCode }
-  });
-  const body = await response.json().catch(() => ({}));
-  expect(response.status(), `Login failed: ${JSON.stringify(body)}`).toBe(200);
-  return body.accessToken ?? body.data?.accessToken;
+  const authRequest = await playwright.request.newContext();
+  try {
+    const response = await authRequest.post(apiUrl("/api/v1/auth/login"), {
+      data: { email, password: fixturePassword, schoolCode }
+    });
+    const body = await response.json().catch(() => ({}));
+    expect(response.status(), `Login failed: ${JSON.stringify(body)}`).toBe(200);
+    return body.accessToken ?? body.data?.accessToken;
+  } finally {
+    await authRequest.dispose();
+  }
 }
 
-test("staff lifecycle enforces tenant isolation, RBAC and compensation visibility", async ({ request }) => {
-  const principalToken = await login(request, "principal.e2e.a@example.com");
+test("staff lifecycle enforces tenant isolation, RBAC and compensation visibility", async ({ request, playwright }) => {
+  const principalToken = await login(playwright, "principal.e2e.a@example.com");
   const principalHeaders = { Authorization: `Bearer ${principalToken}` };
   const employeeId = `ALO31-${Date.now()}`;
 
@@ -64,20 +69,21 @@ test("staff lifecycle enforces tenant isolation, RBAC and compensation visibilit
   expect(updateBody.staff.designation).toBe("Senior Operations Coordinator");
   expect(updateBody.staff.salary).toBeUndefined();
 
-  const teacherToken = await login(request, "teacher.e2e.a@example.com");
+  const teacherToken = await login(playwright, "teacher.e2e.a@example.com");
   const teacherResponse = await request.get(apiUrl(`/api/v1/staff/${staffId}`), {
     headers: { Authorization: `Bearer ${teacherToken}` }
   });
   expect(teacherResponse.status()).toBe(403);
 
-  const principalBToken = await login(request, "principal.e2e.b@example.com", "SCH-E2E-B");
+  const principalBToken = await login(playwright, "principal.e2e.b@example.com", "SCH-E2E-B");
   const crossTenantResponse = await request.get(apiUrl(`/api/v1/staff/${staffId}`), {
     headers: { Authorization: `Bearer ${principalBToken}` }
   });
   expect(crossTenantResponse.status()).toBe(404);
 
   const deactivateResponse = await request.delete(apiUrl(`/api/v1/staff/${staffId}`), { headers: principalHeaders });
-  expect(deactivateResponse.status()).toBe(200);
+  const deactivateBody = await deactivateResponse.json().catch(() => ({}));
+  expect(deactivateResponse.status(), `Staff deactivation failed: ${JSON.stringify(deactivateBody)}`).toBe(200);
 
   const detailResponse = await request.get(apiUrl(`/api/v1/staff/${staffId}`), { headers: principalHeaders });
   const detailBody = await detailResponse.json().catch(() => ({}));
