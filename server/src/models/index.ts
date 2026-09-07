@@ -54,3 +54,7 @@ export { LibraryCopy } from "./LibraryCopy.js";
 export type { ILibraryCopy } from "./LibraryCopy.js";
 export { LibraryLoan } from "./LibraryLoan.js";
 export type { ILibraryLoan } from "./LibraryLoan.js";
+export { InventoryItem } from "./InventoryItem.js";
+export type { IInventoryItem } from "./InventoryItem.js";
+export { InventoryMovement } from "./InventoryMovement.js";
+export type { IInventoryMovement } from "./InventoryMovement.js";
