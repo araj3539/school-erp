@@ -1,12 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { ROLE_PERMISSIONS, StaffStatus } from "@school-erp/shared";
+import { ROLE_PERMISSIONS, StaffStatus, generateEmployeeId } from "@school-erp/shared";
 import { Staff } from "../models/Staff.js";
 import { CreateStaffSchema, UpdateStaffSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
 import { escapeRegex } from "../utils/strings.js";
-import { generateEmployeeId } from "@school-erp/shared";
 
 function canReadSalary(req: Request): boolean {
   const permissions = ROLE_PERMISSIONS[req.user!.role as keyof typeof ROLE_PERMISSIONS] || [];
@@ -42,7 +41,7 @@ export async function getStaff(req: Request, res: Response, next: NextFunction) 
       Staff.countDocuments(dbQuery)
     ]);
     res.json({
-      data: staff.map((item) => sanitizeStaff(item as Record<string, unknown>, canReadSalary(req))),
+      data: staff.map((item) => sanitizeStaff(item as unknown as Record<string, unknown>, canReadSalary(req))),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
     });
   } catch (error) {
@@ -55,7 +54,7 @@ export async function getStaffById(req: Request, res: Response, next: NextFuncti
     const { id } = req.validatedParams as { id: string };
     const staff = await Staff.findOne({ _id: id, schoolId: getTenantId(req) }).lean();
     if (!staff) throw AppError.notFound("Staff member not found");
-    res.json({ staff: sanitizeStaff(staff as Record<string, unknown>, canReadSalary(req)) });
+    res.json({ staff: sanitizeStaff(staff as unknown as Record<string, unknown>, canReadSalary(req)) });
   } catch (error) {
     next(error);
   }
@@ -79,7 +78,7 @@ export async function createStaff(req: Request, res: Response, next: NextFunctio
       entityId: staff._id.toString(),
       after: { employeeId: staff.employeeId, name: `${staff.firstName} ${staff.lastName}`, department: staff.department }
     });
-    res.status(201).json({ staff: sanitizeStaff(staff.toObject() as Record<string, unknown>, canReadSalary(req)) });
+    res.status(201).json({ staff: sanitizeStaff(staff.toObject() as unknown as Record<string, unknown>, canReadSalary(req)) });
   } catch (error) {
     next(error);
   }
@@ -89,12 +88,11 @@ export async function updateStaff(req: Request, res: Response, next: NextFunctio
   try {
     const { id } = req.validatedParams as { id: string };
     const data = UpdateStaffSchema.parse(req.body) as any;
-    const { schoolId: _ignored, employeeId, ...safeData } = data;
-    const update = employeeId === undefined ? safeData : { ...safeData, employeeId };
-    const staff = await Staff.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, update, { new: true, runValidators: true }).lean();
+    const { schoolId: _ignored, ...safeData } = data;
+    const staff = await Staff.findOneAndUpdate({ _id: id, schoolId: getTenantId(req) }, safeData, { new: true, runValidators: true }).lean();
     if (!staff) throw AppError.notFound("Staff member not found");
-    await createAuditLog({ userId: req.user!.userId, action: "UPDATE", entity: "Staff", entityId: id, after: update });
-    res.json({ staff: sanitizeStaff(staff as Record<string, unknown>, canReadSalary(req)) });
+    await createAuditLog({ userId: req.user!.userId, action: "UPDATE", entity: "Staff", entityId: id, after: safeData });
+    res.json({ staff: sanitizeStaff(staff as unknown as Record<string, unknown>, canReadSalary(req)) });
   } catch (error) {
     next(error);
   }
