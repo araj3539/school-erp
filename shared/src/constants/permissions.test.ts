@@ -48,4 +48,15 @@ describe("role permission boundaries", () => {
     expect(ROLE_PERMISSIONS[UserRole.PARENT]).toContain("students:read:child");
     expect(ROLE_PERMISSIONS[UserRole.PARENT]).not.toContain("students:read");
   });
+
+  it("allows principal library operations while keeping circulation out of read-only roles", () => {
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).toContain("library:read");
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).toContain("library:write");
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).toContain("library:delete");
+    expect(ROLE_PERMISSIONS[UserRole.PRINCIPAL]).toContain("library:circulate");
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).toContain("library:read");
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain("library:write");
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain("library:circulate");
+    expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain("library:read");
+  });
 });
