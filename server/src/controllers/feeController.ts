@@ -1,11 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { Fee, FeeStructure, Payment, Student } from "../models/index.js";
-import { CreateFeeStructureSchema, CreatePaymentSchema, PaymentQuerySchema } from "../validators/index.js";
+import { CreateFeeStructureSchema, PaymentQuerySchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
-import { FeeStatus, generateReceiptNumber } from "@school-erp/shared";
-import { generateReceiptPDF } from "../services/pdf.js";
+import { FeeStatus } from "@school-erp/shared";
 
 const tenantId = (req: Request) => req.user!.schoolId;
 
@@ -121,40 +120,6 @@ export async function generateFees(req: Request, res: Response, next: NextFuncti
     await createAuditLog({ userId: req.user!.userId, action: "GENERATE_FEES", entity: "Fee", entityId: classId, after: { generated: results.length, classId, academicYear } });
     res.json({ generated: results.length, fees: results });
   } catch (error) { next(error); }
-}
-
-export async function collectPayment(req: Request, res: Response, next: NextFunction) {
-  const session = await mongoose.startSession();
-  try {
-    const schoolId = tenantId(req);
-    const receiptNo = generateReceiptNumber();
-    const data = CreatePaymentSchema.parse({ ...req.body, receiptNo, collectedBy: req.user!.userId });
-    let paymentId: mongoose.Types.ObjectId | undefined;
-
-    await session.withTransaction(async () => {
-      const fee = await Fee.findOne({ _id: data.feeId, schoolId }).session(session).populate("feeStructureId studentId");
-      if (!fee) throw AppError.notFound("Fee not found");
-      if (data.amount <= 0) throw AppError.badRequest("Payment amount must be greater than zero");
-      if (data.amount > fee.balance) throw AppError.badRequest("Payment amount exceeds balance");
-      const studentId = (fee.studentId as any)._id;
-      const payment = new Payment({ ...data, schoolId, studentId });
-      await payment.save({ session });
-      fee.paidAmount += data.amount;
-      fee.balance = Math.max(0, fee.totalDue - fee.paidAmount);
-      fee.status = fee.balance === 0 ? FeeStatus.PAID : FeeStatus.PARTIAL;
-      await fee.save({ session });
-      await createAuditLog({ userId: req.user!.userId, action: "CREATE", entity: "Payment", entityId: payment._id.toString(), after: { amount: data.amount, feeId: data.feeId, mode: data.mode, receiptNo }, session });
-      paymentId = payment._id;
-    });
-
-    const payment = await Payment.findOne({ _id: paymentId!, schoolId }).populate("collectedBy").lean();
-    if (!payment) throw AppError.notFound("Payment not found after collection");
-    const fee = await Fee.findOne({ _id: payment.feeId, schoolId }).populate("feeStructureId studentId").lean();
-    if (!fee) throw AppError.notFound("Fee not found after collection");
-    const receiptPdf = await generateReceiptPDF({ ...payment, fee: { ...fee, feeStructure: fee.feeStructureId, student: fee.studentId }, collectedBy: { fullName: req.user!.email } } as any);
-    res.json({ payment, receiptPdf: receiptPdf.toString("base64") });
-  } catch (error) { next(error); }
-  finally { await session.endSession(); }
 }
 
 export async function getPayments(req: Request, res: Response, next: NextFunction) {
