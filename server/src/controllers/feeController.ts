@@ -5,6 +5,7 @@ import { CreateFeeStructureSchema, PaymentQuerySchema } from "../validators/inde
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { FeeStatus } from "@school-erp/shared";
+import { generateReceiptPDF } from "../services/pdf.js";
 
 const tenantId = (req: Request) => req.user!.schoolId;
 
