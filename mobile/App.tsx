@@ -31,9 +31,12 @@ function LoginScreen() {
     <Text style={styles.eyebrow}>SCHOOL ERP</Text>
     <Text accessibilityRole="header" style={styles.title}>Sign in</Text>
     <Text style={styles.body}>Use the same school account as the web application.</Text>
-    <TextInput accessibilityLabel="Email address" autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder="Email" value={credentials.email} onChangeText={(email) => setCredentials((current) => ({ ...current, email }))} style={styles.input} />
-    <TextInput accessibilityLabel="Password" autoCapitalize="none" autoComplete="password" placeholder="Password" secureTextEntry value={credentials.password} onChangeText={(password) => setCredentials((current) => ({ ...current, password }))} style={styles.input} />
-    <TextInput accessibilityLabel="School code" autoCapitalize="characters" placeholder="School code (required for school users)" value={credentials.schoolCode} onChangeText={(schoolCode) => setCredentials((current) => ({ ...current, schoolCode }))} style={styles.input} />
+    <Text style={styles.inputLabel}>Email address</Text>
+    <TextInput accessibilityLabel="Email address" autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder="e.g. teacher.a@phase1.example.com" value={credentials.email} onChangeText={(email) => setCredentials((current) => ({ ...current, email }))} style={styles.input} />
+    <Text style={styles.inputLabel}>Password</Text>
+    <TextInput accessibilityLabel="Password" autoCapitalize="none" autoComplete="password" placeholder="Enter your account password" secureTextEntry value={credentials.password} onChangeText={(password) => setCredentials((current) => ({ ...current, password }))} style={styles.input} />
+    <Text style={styles.inputLabel}>School code</Text>
+    <TextInput accessibilityLabel="School code" autoCapitalize="characters" placeholder="e.g. SCH-E2E-A" value={credentials.schoolCode} onChangeText={(schoolCode) => setCredentials((current) => ({ ...current, schoolCode }))} style={styles.input} />
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={submitting ? "Signing in" : "Sign in"} accessibilityState={{ disabled: submitting, busy: submitting }} disabled={submitting} onPress={() => void submit()} style={({ pressed }) => [styles.primaryButton, (pressed || submitting) && styles.buttonPressed]}>
       <Text style={styles.primaryButtonText}>{submitting ? "Signing in…" : "Sign in"}</Text>
@@ -75,6 +78,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: mobileTheme.typography.small, fontWeight: "700", letterSpacing: 1.4, marginBottom: 8, color: mobileTheme.colors.textMuted },
   title: { fontSize: 32, fontWeight: "700", marginBottom: 12, color: mobileTheme.colors.text },
   body: { fontSize: 16, lineHeight: 24, color: mobileTheme.colors.textMuted, marginBottom: 24 },
+  inputLabel: { fontSize: 14, fontWeight: "600", color: mobileTheme.colors.text, marginBottom: 6 },
   input: { minHeight: mobileTheme.touchTarget, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, paddingHorizontal: 14, marginBottom: 12, backgroundColor: mobileTheme.colors.surface, fontSize: 16 },
   error: { color: mobileTheme.colors.dangerText, marginBottom: 12 },
   primaryButton: { minHeight: mobileTheme.touchTarget, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, borderRadius: 10, backgroundColor: mobileTheme.colors.active, marginTop: 4 },
