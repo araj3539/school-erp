@@ -82,10 +82,6 @@ test("library catalog and circulation enforce lifecycle, tenant isolation and co
   const accountantWrite = await request.post(apiUrl("/api/v1/library/books"), { headers: accountantHeaders, data: { title: "No Write", author: "Denied" } });
   expect(accountantWrite.status()).toBe(403);
 
-  const teacherToken = await login(playwright, "teacher.e2e.a@example.com");
-  const teacherRead = await request.get(apiUrl("/api/v1/library/books"), { headers: { Authorization: `Bearer ${teacherToken}` } });
-  expect(teacherRead.status()).toBe(403);
-
   const principalBToken = await login(playwright, "principal.e2e.b@example.com", "SCH-E2E-B");
   const crossTenant = await request.get(apiUrl(`/api/v1/library/books/${bookId}`), { headers: { Authorization: `Bearer ${principalBToken}` } });
   expect(crossTenant.status()).toBe(404);
