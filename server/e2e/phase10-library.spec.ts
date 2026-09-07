@@ -40,7 +40,7 @@ test("library catalog and circulation enforce lifecycle, tenant isolation and co
   const studentId = studentBody.data[0]._id;
 
   const accountantEmail = `${suffix.toLowerCase()}-accountant@example.com`;
-  const accountantCreate = await request.post(apiUrl("/api/v1/auth/register"), { headers: principalHeaders, data: { email: accountantEmail, password: fixturePassword, role: "accountant" } });
+  const accountantCreate = await request.post(apiUrl("/api/v1/auth/users"), { headers: principalHeaders, data: { email: accountantEmail, password: fixturePassword, role: "accountant" } });
   const accountantCreateBody = await jsonBody(accountantCreate);
   expect(accountantCreate.status(), JSON.stringify(accountantCreateBody)).toBe(201);
 
