@@ -33,6 +33,7 @@ export const StaffSchema = z.object({
 });
 
 export const CreateStaffSchema = StaffSchema.omit({ _id: true, schoolId: true, createdAt: true, updatedAt: true }).extend({
+  employeeId: StaffSchema.shape.employeeId.optional(),
   userId: ObjectIdSchema.optional(),
   salary: z.number().finite().nonnegative().default(0)
 });
