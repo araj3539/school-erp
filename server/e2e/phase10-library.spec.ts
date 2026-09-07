@@ -39,11 +39,6 @@ test("library catalog and circulation enforce lifecycle, tenant isolation and co
   expect(studentBody.data?.[0]?._id).toBeTruthy();
   const studentId = studentBody.data[0]._id;
 
-  const accountantEmail = `${suffix.toLowerCase()}-accountant@example.com`;
-  const accountantCreate = await request.post(apiUrl("/api/v1/auth/users"), { headers: principalHeaders, data: { email: accountantEmail, password: fixturePassword, role: "accountant" } });
-  const accountantCreateBody = await jsonBody(accountantCreate);
-  expect(accountantCreate.status(), JSON.stringify(accountantCreateBody)).toBe(201);
-
   const staffResponse = await request.post(apiUrl("/api/v1/staff"), {
     headers: principalHeaders,
     data: {
@@ -80,7 +75,7 @@ test("library catalog and circulation enforce lifecycle, tenant isolation and co
   const staffCopyId = await createCopy(`${suffix}-F`);
   const raceCopyId = await createCopy(`${suffix}-R`);
 
-  const accountantToken = await login(playwright, accountantEmail);
+  const accountantToken = await login(playwright, "accountant.e2e.a@example.com");
   const accountantHeaders = { Authorization: `Bearer ${accountantToken}` };
   const accountantRead = await request.get(apiUrl(`/api/v1/library/books/${bookId}`), { headers: accountantHeaders });
   expect(accountantRead.status()).toBe(200);
