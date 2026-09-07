@@ -1,0 +1,10 @@
+import {z} from "zod";
+import {ObjectIdSchema} from "./index.js";
+export const InventoryItemStatus={ACTIVE:"active",INACTIVE:"inactive",RETIRED:"retired"} as const;
+export const InventoryMovementType={STOCK_IN:"stock_in",STOCK_OUT:"stock_out",ADJUSTMENT:"adjustment"} as const;
+export const InventoryMovementStatus={POSTED:"posted",REVERSED:"reversed"} as const;
+export const InventoryItemSchema=z.object({_id:ObjectIdSchema.optional(),schoolId:ObjectIdSchema.optional(),itemCode:z.string().trim().min(1).max(40),name:z.string().trim().min(1).max(150),category:z.string().trim().max(80).optional(),unit:z.string().trim().min(1).max(30),quantity:z.number().int().nonnegative().default(0),reorderLevel:z.number().int().nonnegative().default(0),status:z.enum([InventoryItemStatus.ACTIVE,InventoryItemStatus.INACTIVE,InventoryItemStatus.RETIRED]).default(InventoryItemStatus.ACTIVE)});
+export const CreateInventoryItemSchema=InventoryItemSchema.omit({_id:true,schoolId:true,quantity:true}); export const UpdateInventoryItemSchema=CreateInventoryItemSchema.partial();
+export const InventoryItemQuerySchema=z.object({page:z.coerce.number().int().positive().default(1),limit:z.coerce.number().int().positive().max(100).default(20),status:z.enum([InventoryItemStatus.ACTIVE,InventoryItemStatus.INACTIVE,InventoryItemStatus.RETIRED]).optional(),category:z.string().trim().max(80).optional(),search:z.string().trim().max(100).optional()});
+export const CreateInventoryMovementSchema=z.object({itemId:ObjectIdSchema,type:z.enum([InventoryMovementType.STOCK_IN,InventoryMovementType.STOCK_OUT,InventoryMovementType.ADJUSTMENT]),quantity:z.number().int().positive().max(1000000),reason:z.string().trim().max(500).optional()});
+export const InventoryMovementQuerySchema=z.object({page:z.coerce.number().int().positive().default(1),limit:z.coerce.number().int().positive().max(100).default(20),itemId:ObjectIdSchema.optional(),type:z.enum([InventoryMovementType.STOCK_IN,InventoryMovementType.STOCK_OUT,InventoryMovementType.ADJUSTMENT]).optional()});
