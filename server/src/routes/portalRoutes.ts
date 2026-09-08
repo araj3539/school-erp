@@ -4,6 +4,7 @@ import { getPortalDashboard } from "../controllers/portalController.js";
 import { getStudentWorkspace } from "../controllers/studentPortalController.js";
 import { getTeacherWorkspace } from "../controllers/teacherPortalController.js";
 import { getTeacherHomework, getTeacherHomeworkOptions } from "../controllers/teacherHomeworkController.js";
+import { getTeacherMarksExams } from "../controllers/teacherMarksController.js";
 import { getParentWorkspace } from "../controllers/parentPortalController.js";
 import { getPortalAttendance } from "../controllers/portalAttendanceController.js";
 import { getPortalResults } from "../controllers/portalResultsController.js";
@@ -27,5 +28,6 @@ router.get("/teacher/workspace", requirePermission("timetable:read:own"), requir
 router.get("/teacher/homework/options", requirePermission("homework:write"), (req, res, next) => getTeacherHomeworkOptions(req, res, next));
 router.get("/teacher/homework", requirePermission("homework:read"), (req, res, next) => getTeacherHomework(req, res, next));
 router.post("/teacher/homework", requirePermission("homework:write"), validate(CreateHomeworkSchema), (req, res, next) => createHomework(req, res, next));
+router.get("/teacher/marks", requirePermission("marks:read"), (req, res, next) => getTeacherMarksExams(req, res, next));
 router.get("/parent/workspace", requirePermission("students:read:child"), requirePermission("attendance:read:child"), requirePermission("homework:read:child"), requirePermission("fees:read:child"), requirePermission("results:read:child"), requirePermission("timetable:read:child"), requirePermission("notices:read"), (req, res, next) => req.user!.role !== UserRole.PARENT ? res.status(403).json({ error: "Parent workspace is not available for this role" }) : getParentWorkspace(req, res, next));
 export default router;
