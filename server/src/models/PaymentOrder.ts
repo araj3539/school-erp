@@ -1,4 +1,6 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
+import { Fee } from "./Fee.js";
+import { Student } from "./Student.js";
 
 export const PAYMENT_ORDER_STATUSES = [
   "created",
@@ -55,7 +57,6 @@ PaymentOrderSchema.index({ schoolId: 1, providerOrderId: 1 }, { unique: true, sp
 PaymentOrderSchema.index({ schoolId: 1, providerPaymentId: 1 }, { unique: true, sparse: true });
 
 PaymentOrderSchema.pre("validate", async function () {
-  const { Fee, Student } = await import("./index.js");
   const [fee, student] = await Promise.all([
     Fee.exists({ _id: this.feeId, schoolId: this.schoolId, studentId: this.studentId }),
     Student.exists({ _id: this.studentId, schoolId: this.schoolId })
