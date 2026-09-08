@@ -82,8 +82,24 @@ export async function handleRazorpayWebhook(req: RawBodyRequest, res: Response):
   try { body = JSON.parse(rawBody.toString("utf8")); } catch { res.status(400).json({ message: "Invalid webhook JSON" }); return; }
   const eventType = String(body?.event || "unknown");
   let event: any;
-  try { event = await PaymentWebhookEvent.create({ provider: "razorpay", eventId, eventType, status: "received" }); }
-  catch (error: any) { if (error?.code === 11000) { res.status(200).json({ received: true, duplicate: true }); return; } throw error; }
+  try {
+    event = await PaymentWebhookEvent.create({ provider: "razorpay", eventId, eventType, status: "received" });
+  } catch (error: any) {
+    if (error?.code !== 11000) throw error;
+    const existing = await PaymentWebhookEvent.findOne({ provider: "razorpay", eventId });
+    if (!existing) throw error;
+    if (existing.status === "processed") { res.status(200).json({ received: true, duplicate: true }); return; }
+    if (existing.status === "received") { res.status(200).json({ received: true, duplicate: true, processing: true }); return; }
+    if (existing.status === "failed") {
+      const claimed = await PaymentWebhookEvent.findOneAndUpdate(
+        { _id: existing._id, status: "failed" },
+        { $set: { status: "received", errorMessage: undefined, processedAt: undefined } },
+        { new: true }
+      );
+      if (!claimed) { res.status(200).json({ received: true, duplicate: true, processing: true }); return; }
+      event = claimed;
+    } else { res.status(200).json({ received: true, duplicate: true }); return; }
+  }
 
   const session = await mongoose.startSession();
   try {
