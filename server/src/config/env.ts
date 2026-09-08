@@ -19,6 +19,10 @@ const EnvSchema = z.object({
   B2_KEY_ID: z.string().optional(),
   B2_APPLICATION_KEY: z.string().optional(),
   B2_BUCKET_NAME: z.string().optional(),
+  PAYMENT_PROVIDER: z.enum(["disabled", "razorpay"]).default("disabled"),
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export const env = EnvSchema.parse(process.env);
