@@ -1,0 +1,93 @@
+name: Mobile Release Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - "server/**"
+      - "shared/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/mobile-release-gate.yml"
+
+concurrency:
+  group: mobile-release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mongodb:
+        image: mongo:8.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      NODE_ENV: test
+      PORT: 5003
+      CORS_ORIGIN: http://127.0.0.1:5003
+      MONGODB_URI: mongodb://127.0.0.1:27017/school_erp_mobile_release_e2e
+      E2E_MONGODB_URI: mongodb://127.0.0.1:27017/school_erp_mobile_release_e2e
+      E2E_FIXTURE_SEED_ENABLED: "true"
+      E2E_FIXTURE_RESET: "true"
+      E2E_FIXTURE_PASSWORD: MobileReleaseGateFixture-2026!
+      E2E_SCHOOL_A_CODE: SCH-E2E-A
+      MOBILE_E2E_API_URL: http://127.0.0.1:5003/api/v1
+      MOBILE_E2E_PASSWORD: MobileReleaseGateFixture-2026!
+      MOBILE_E2E_SCHOOL_CODE: SCH-E2E-A
+      JWT_SECRET: MobileReleaseGateJwtSecret-2026-OnlyForCI
+      JWT_REFRESH_SECRET: MobileReleaseGateRefreshSecret-2026-OnlyForCI
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Build shared package
+        run: npm run build --prefix shared
+
+      - name: Build server
+        run: npm run build --prefix server
+
+      - name: Seed isolated E2E fixtures
+        run: node server/scripts/seed-e2e-fixtures.mjs
+
+      - name: Start isolated E2E API
+        run: |
+          nohup npm start --prefix server > /tmp/mobile-release-gate-server.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5003/api/v1/health >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mobile-release-gate-server.log
+          exit 1
+
+      - name: Run mobile release gate
+        run: npm run test:e2e:release --prefix mobile
+
+      - name: Upload API log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-release-gate-server-log
+          path: /tmp/mobile-release-gate-server.log
+          if-no-files-found: ignore
