@@ -7,5 +7,6 @@ export const ProviderPaymentVerificationSchema = z.object({
 
 export const ProviderRefundSchema = z.object({
   amount: z.number().positive().finite(),
-  reason: z.string().trim().min(3).max(500).optional()
+  reason: z.string().trim().min(3).max(500).optional(),
+  idempotencyKey: z.string().trim().min(8).max(100).optional()
 });
