@@ -1,7 +1,7 @@
 export { User } from "./User.js";
 export type { IUser } from "./User.js";
 export { School } from "./School.js";
-export type { ISchool } from "./School.js";
+export type { ISchool, TenantStatus } from "./School.js";
 export { AcademicYear } from "./AcademicYear.js";
 export type { IAcademicYear } from "./AcademicYear.js";
 export { Student } from "./Student.js";
