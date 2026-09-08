@@ -9,6 +9,7 @@ export interface IPaymentReversal extends Document {
   amount: number;
   type: PaymentReversalType;
   reason: string;
+  providerRefundId?: string;
   createdBy: Types.ObjectId;
   createdAt: Date;
 }
@@ -19,6 +20,7 @@ const PaymentReversalSchema = new Schema<IPaymentReversal>({
   amount: { type: Number, required: true, min: 0.01 },
   type: { type: String, enum: ["reversal", "refund"], required: true },
   reason: { type: String, required: true, minlength: 3, maxlength: 500 },
+  providerRefundId: { type: String, maxlength: 150 },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
@@ -30,5 +32,6 @@ PaymentReversalSchema.pre("validate", async function () {
 
 PaymentReversalSchema.index({ schoolId: 1, paymentId: 1, createdAt: -1 });
 PaymentReversalSchema.index({ schoolId: 1, createdAt: -1 });
+PaymentReversalSchema.index({ schoolId: 1, providerRefundId: 1 }, { unique: true, sparse: true });
 
 export const PaymentReversal = mongoose.model<IPaymentReversal>("PaymentReversal", PaymentReversalSchema);

@@ -28,6 +28,8 @@ export { PaymentOrder } from "./PaymentOrder.js";
 export type { IPaymentOrder, PaymentOrderStatus } from "./PaymentOrder.js";
 export { PaymentReversal } from "./PaymentReversal.js";
 export type { IPaymentReversal, PaymentReversalType } from "./PaymentReversal.js";
+export { PaymentWebhookEvent } from "./PaymentWebhookEvent.js";
+export type { IPaymentWebhookEvent } from "./PaymentWebhookEvent.js";
 export { AuditLog } from "./AuditLog.js";
 export type { IAuditLog } from "./AuditLog.js";
 export { DocumentRecovery } from "./DocumentRecovery.js";

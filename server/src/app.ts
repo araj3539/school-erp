@@ -8,12 +8,10 @@ import { csrfProtection } from "./middleware/csrf.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import routes from "./routes/index.js";
 import { startNotificationWorker } from "./services/notificationService.js";
+import { handleRazorpayWebhook } from "./controllers/paymentWebhookController.js";
 
 const app = express();
 
-// Render runs the service behind a reverse proxy and forwards the client IP
-// in X-Forwarded-For. Trust the first proxy so express-rate-limit can safely
-// identify clients by their forwarded IP address.
 app.set("trust proxy", 1);
 
 app.use(helmet({
@@ -33,14 +31,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-const allowedOrigins = env.CORS_ORIGIN
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-// Vercel generates a new preview hostname for each deployment. Keep the
-// allowlist explicit for production/custom domains while permitting only
-// this project's Vercel deployment namespace for previews.
+const allowedOrigins = env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
 const isAllowedOrigin = (origin: string): boolean =>
   allowedOrigins.includes(origin) ||
   (isDevelopment && /^https?:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin)) ||
@@ -55,28 +46,20 @@ app.use(cors({
   credentials: true,
 }));
 
-// Keep request bodies bounded to reduce parser memory/CPU abuse.
+// Payment provider webhooks are machine-to-machine callbacks. They must see the raw
+// body for HMAC verification and must bypass browser CSRF checks.
+app.post("/api/v1/payments/webhooks/razorpay", express.raw({ type: "application/json", limit: "2mb" }), (req, res, next) => {
+  void handleRazorpayWebhook(Object.assign(req, { rawBody: req.body as Buffer }), res).catch(next);
+});
+
 app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({
-  extended: true,
-  limit: "1mb",
-  parameterLimit: 100,
-}));
+app.use(express.urlencoded({ extended: true, limit: "1mb", parameterLimit: 100 }));
 app.use(cookieParser());
-
-// Lightweight liveness endpoint for UptimeRobot. Keep it outside the API
-// prefix so monitoring can use /health without authentication.
 app.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
-
-// Production auth uses cross-site HttpOnly cookies because the SPA and API
-// are hosted on different sites. Validate browser request context before any
-// state-changing API route to prevent CSRF.
 app.use(csrfProtection);
-
 app.use(rateLimiter);
 app.use("/api/v1/auth", authRateLimiter);
 app.use("/api/v1", routes);
-
 app.use(errorHandler);
 
 export async function startServer() {
