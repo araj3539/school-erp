@@ -35,11 +35,8 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const payload = jwt.verify(accessToken, env.JWT_SECRET) as AuthPayload;
     if (!validatePayload(payload)) { res.status(401).json({ error: "Invalid authentication context" }); return; }
-    try {
-      req.user = await resolveRequestContext(req, payload);
-    } catch {
-      res.status(400).json({ error: "Invalid selected school" }); return;
-    }
+    try { req.user = await resolveRequestContext(req, payload); }
+    catch { res.status(400).json({ error: "Invalid selected school" }); return; }
     next();
   } catch { res.status(401).json({ error: "Invalid or expired token" }); }
 }
@@ -60,4 +57,13 @@ export function requireRole(...roles: UserRole[]) {
     if (!roles.includes(req.user.role)) { res.status(403).json({ error: "Insufficient permissions" }); return; }
     next();
   };
+}
+
+/** Platform-only routes require a super-admin identity with no school context selected. */
+export function requirePlatformRole(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (req.user.role !== UserRole.SUPER_ADMIN || req.user.schoolId) {
+    res.status(403).json({ error: "Platform administrator context required" }); return;
+  }
+  next();
 }
