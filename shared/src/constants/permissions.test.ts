@@ -31,7 +31,7 @@ describe("role permission boundaries", () => {
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).toContain("attendance:write");
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).toContain("students:read");
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).toContain("marks:write");
-    expect(ROLE_PERMISSIONS[UserRole.TEACHER]).toContain("exams:read");
+    expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain("exams:read");
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain("results:read");
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain("students:write");
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain("users:write");
