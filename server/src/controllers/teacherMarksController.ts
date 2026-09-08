@@ -18,7 +18,9 @@ export async function getTeacherMarksExams(req: Request, res: Response, next: Ne
 
     const filter: Record<string, unknown> = { schoolId: getTenantId(req), $or: scope };
     if (typeof req.query.classId === "string" && req.query.classId) filter.classId = req.query.classId;
-    const data = await Exam.find(filter).populate("classId subjects.subjectId").sort({ startDate: -1, createdAt: -1 }).limit(50).lean();
+    const candidates = await Exam.find(filter).populate("classId subjects.subjectId").sort({ startDate: -1, createdAt: -1 }).limit(50).lean();
+    const assignedSubjectIds = new Set(subjectIds);
+    const data = candidates.filter((exam: any) => (exam.subjects ?? []).every((item: any) => assignedSubjectIds.has((item.subjectId?._id ?? item.subjectId).toString())));
     return res.json({ data });
   } catch (error) {
     next(error);
