@@ -47,7 +47,8 @@ export async function requestProviderRefund(req: Request, res: Response, next: N
     const prior = await PaymentReversal.aggregate([{ $match: { schoolId: new mongoose.Types.ObjectId(tenant(req)), paymentId: payment._id } }, { $group: { _id: null, amount: { $sum: "$amount" } } }]);
     const alreadyRefunded = prior[0]?.amount ?? 0;
     if (req.body.amount > payment.amount - alreadyRefunded) throw AppError.badRequest("Refund exceeds the remaining refundable amount");
-    const refund = await createRazorpayRefund({ paymentId: order.providerPaymentId, amount: req.body.amount, idempotencyKey: `refund-${order._id}-${Date.now()}`, receipt: `refund-${payment.receiptNo}` });
+    const idempotencyKey = req.body.idempotencyKey || `refund-${order._id}-${req.body.amount}`;
+    const refund = await createRazorpayRefund({ paymentId: order.providerPaymentId, amount: req.body.amount, idempotencyKey, receipt: `refund-${payment.receiptNo}` });
     res.status(202).json({ refund, message: "Refund initiated; authoritative fee/ledger reversal is applied from the verified provider webhook." });
   } catch (error) { next(error); }
 }
