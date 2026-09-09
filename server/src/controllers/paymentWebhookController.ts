@@ -113,7 +113,7 @@ export async function handleRazorpayWebhook(req: RawBodyRequest, res: Response):
     const supportedSubscriptionEvent = ["subscription.authenticated", "subscription.activated", "subscription.charged", "subscription.completed", "subscription.expired", "subscription.updated", "subscription.pending", "subscription.halted", "subscription.paused", "subscription.resumed", "subscription.cancelled"].includes(eventType);
     await session.withTransaction(async () => {
       if (["order.paid", "payment.captured"].includes(eventType)) paymentOrderId = await applyCapturedPayment(body, session);
-      else if (eventType === "refund.processed") paymentOrderId = await applyRefund(body, session);
+      else if (eventType === "refund.processed") await applyRefund(body, session);
       else if (["payment.failed", "order.expired"].includes(eventType)) {
         const providerOrderId = eventEntity(body, "order")?.id || eventEntity(body, "payment")?.order_id;
         if (providerOrderId) {
