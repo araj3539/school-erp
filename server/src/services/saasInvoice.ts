@@ -151,13 +151,13 @@ export async function voidInvoice(invoiceId: string, actorUserId: string, ip?: s
       const invoice = await SaaSInvoice.findById(invoiceId).session(session);
       if (!invoice) throw AppError.notFound("Invoice not found");
       if (invoice.status === "paid") throw AppError.conflict("Paid invoices cannot be voided");
-      if (invoice.status === "void") { result = invoice.toObject(); return; }
+      if (invoice.status === "void") { result = invoice.toObject() as unknown as Record<string, unknown>; return; }
       const before = { status: invoice.status };
       invoice.status = "void";
       invoice.voidedAt = new Date();
       await invoice.save({ session });
       await createAuditLog({ userId: actorUserId, schoolId: invoice.schoolId.toString(), action: "INVOICE_VOID", entity: "SaaSInvoice", entityId: invoice._id.toString(), before, after: { status: invoice.status, voidedAt: invoice.voidedAt }, ip, userAgent, session });
-      result = invoice.toObject();
+      result = invoice.toObject() as unknown as Record<string, unknown>;
     });
     return result!;
   } finally {
