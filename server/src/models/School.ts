@@ -45,5 +45,6 @@ const SchoolSchema = new Schema<ISchool>({
 }, { timestamps: true });
 
 SchoolSchema.index({ tenantStatus: 1, createdAt: -1 });
+SchoolSchema.index({ email: 1 }, { unique: true, name: "email_1" });
 
 export const School = mongoose.model<ISchool>("School", SchoolSchema);
