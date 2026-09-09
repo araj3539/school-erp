@@ -41,23 +41,16 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
   if (!isOpen) return null;
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} aria-hidden="true" />
-      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4 pointer-events-none">
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          tabIndex={-1}
-          className={cn("pointer-events-auto my-auto flex w-full min-w-0 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-lg bg-white shadow-xl focus:outline-none", sizes[size])}
-        >
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
-            <h3 id={titleId} className="min-w-0 truncate text-lg font-semibold text-gray-900">{title}</h3>
-            <button type="button" onClick={onClose} aria-label="Close dialog" className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+      <div className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-5">
+        <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn("pointer-events-auto my-auto flex w-full min-w-0 max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2.5rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] focus:outline-none", sizes[size])}>
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div className="min-w-0"><h3 id={titleId} className="truncate text-lg font-bold tracking-tight text-slate-950">{title}</h3></div>
+            <button type="button" onClick={onClose} aria-label="Close dialog" className="focus-ring shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">{children}</div>
         </div>
       </div>
     </>
