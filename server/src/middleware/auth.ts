@@ -36,6 +36,7 @@ async function assertActiveTenant(schoolId: string): Promise<void> {
   if (status !== "active") throw new Error("INACTIVE_TENANT");
 }
 export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (req.user) { next(); return; }
   const accessToken = getAccessToken(req);
   if (!accessToken) { res.status(401).json({ error: "Authentication required" }); return; }
   try {
