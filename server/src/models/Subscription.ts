@@ -19,6 +19,10 @@ export interface ISubscription extends Document {
   currentPeriodEnd: Date;
   cancelAt?: Date;
   cancelledAt?: Date;
+  provider?: string;
+  providerSubscriptionId?: string;
+  providerPlanId?: string;
+  lastBillingEventAt?: Date;
   stateRevision: number;
   createdAt: Date;
   updatedAt: Date;
@@ -40,11 +44,16 @@ const SubscriptionSchema = new Schema<ISubscription>({
   currentPeriodEnd: { type: Date, required: true },
   cancelAt: { type: Date },
   cancelledAt: { type: Date },
+  provider: { type: String, maxlength: 50 },
+  providerSubscriptionId: { type: String, maxlength: 150 },
+  providerPlanId: { type: String, maxlength: 150 },
+  lastBillingEventAt: { type: Date },
   stateRevision: { type: Number, required: true, min: 0, default: 0 },
 }, { timestamps: true });
 
 SubscriptionSchema.index({ schoolId: 1 }, { unique: true, name: "schoolId_1_unique" });
 SubscriptionSchema.index({ status: 1, currentPeriodEnd: 1 }, { name: "status_1_currentPeriodEnd_1" });
 SubscriptionSchema.index({ planId: 1, status: 1 }, { name: "planId_1_status_1" });
+SubscriptionSchema.index({ provider: 1, providerSubscriptionId: 1 }, { unique: true, sparse: true, name: "provider_1_providerSubscriptionId_1_unique" });
 
 export const Subscription = mongoose.model<ISubscription>("Subscription", SubscriptionSchema);
