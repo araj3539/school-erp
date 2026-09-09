@@ -21,6 +21,7 @@ import timetableRoutes from "./timetableRoutes.js";
 import portalRoutes from "./portalRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
 import platformTenantRoutes from "./platformTenantRoutes.js";
+import platformOperationsRoutes from "./platformOperationsRoutes.js";
 import moduleEntitlementRoutes from "./moduleEntitlementRoutes.js";
 import billingRoutes from "./billingRoutes.js";
 import saasInvoiceRoutes from "./saasInvoiceRoutes.js";
@@ -53,6 +54,7 @@ router.use("/timetable", authenticate, requireModule("timetable"), timetableRout
 router.use("/portal", authenticate, requireModule("portal"), portalRoutes);
 router.use("/notifications", authenticate, requireModule("notifications"), notificationRoutes);
 router.use("/platform", platformTenantRoutes);
+router.use("/platform", platformOperationsRoutes);
 router.use("/platform/billing", billingRoutes);
 router.use("/platform/usage", tenantUsageRoutes);
 router.use("/billing", saasInvoiceRoutes);
