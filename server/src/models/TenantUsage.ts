@@ -19,6 +19,4 @@ const TenantUsageSchema = new Schema<ITenantUsage>({
   },
 }, { timestamps: true });
 
-TenantUsageSchema.index({ schoolId: 1 }, { unique: true, name: "schoolId_1_unique" });
-
 export const TenantUsage = mongoose.model<ITenantUsage>("TenantUsage", TenantUsageSchema);
