@@ -63,7 +63,7 @@ export async function createSubscription(schoolId: string, planId: string, actor
       const subscription = new Subscription({ schoolId, productId: plan.productId, planId: plan._id, planCode: plan.code, planVersion: plan.version, status, currency: plan.currency, amountMinor: plan.amountMinor, billingInterval: plan.billingInterval, startedAt, trialEndsAt, currentPeriodStart: startedAt, currentPeriodEnd: addBillingInterval(startedAt, plan.billingInterval), stateRevision: 0 });
       await subscription.save({ session });
       await createAuditLog({ userId: actorUserId, schoolId, action: "CREATE", entity: "Subscription", entityId: subscription._id.toString(), after: { planId: plan._id.toString(), planCode: plan.code, planVersion: plan.version, status }, ip, userAgent, session });
-      created = subscription.toObject();
+      created = subscription.toObject() as unknown as Record<string, unknown>;
     });
     return created!;
   } finally {
@@ -82,7 +82,7 @@ export async function transitionSubscription(schoolId: string, event: Subscripti
       const updated = await Subscription.findOneAndUpdate({ _id: current._id, stateRevision: current.stateRevision }, { $set: { status: nextStatus, ...(nextStatus === "cancelled" ? { cancelledAt: new Date() } : {}), ...(nextStatus === "expired" ? { cancelledAt: current.cancelledAt ?? new Date() } : {}) }, $inc: { stateRevision: 1 } }, { new: true, session });
       if (!updated) throw AppError.conflict("Subscription changed concurrently; retry the transition");
       await createAuditLog({ userId: actorUserId, schoolId, action: "SUBSCRIPTION_STATE_CHANGE", entity: "Subscription", entityId: updated._id.toString(), before: { status: current.status, stateRevision: current.stateRevision }, after: { status: updated.status, stateRevision: updated.stateRevision, event }, ip, userAgent, session });
-      result = updated.toObject();
+      result = updated.toObject() as unknown as Record<string, unknown>;
     });
     return result!;
   } finally {
@@ -110,7 +110,7 @@ export async function changeSubscriptionPlan(schoolId: string, planId: string, a
       subscription.billingInterval = plan.billingInterval;
       await subscription.save({ session });
       await createAuditLog({ userId: actorUserId, schoolId, action: "SUBSCRIPTION_PLAN_CHANGE", entity: "Subscription", entityId: subscription._id.toString(), before, after: { planId: plan._id.toString(), planCode: plan.code, planVersion: plan.version, amountMinor: plan.amountMinor, currency: plan.currency, billingInterval: plan.billingInterval }, ip, userAgent, session });
-      result = subscription.toObject();
+      result = subscription.toObject() as unknown as Record<string, unknown>;
     });
     return result!;
   } finally {
