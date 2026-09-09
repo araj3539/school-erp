@@ -24,6 +24,7 @@ import platformTenantRoutes from "./platformTenantRoutes.js";
 import moduleEntitlementRoutes from "./moduleEntitlementRoutes.js";
 import billingRoutes from "./billingRoutes.js";
 import saasInvoiceRoutes from "./saasInvoiceRoutes.js";
+import supportAccessRoutes from "./supportAccessRoutes.js";
 import { requireModule } from "../middleware/moduleEntitlement.js";
 
 const router = Router();
@@ -52,6 +53,7 @@ router.use("/notifications", requireModule("notifications"), notificationRoutes)
 router.use("/platform", platformTenantRoutes);
 router.use("/platform/billing", billingRoutes);
 router.use("/billing", saasInvoiceRoutes);
+router.use("/support", supportAccessRoutes);
 router.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
 
 export default router;
