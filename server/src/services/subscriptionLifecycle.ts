@@ -41,7 +41,7 @@ export async function reconcileSubscriptionLifecycle(schoolId: string, actorUser
   const event = policy.effectiveStatus === "expired" ? "expire" : policy.effectiveStatus === "cancelled" ? "cancel" : "suspend";
   getNextSubscriptionStatus(subscription.status, event);
   const updated = await transitionSubscription(schoolId, event, actorUserId);
-  return { subscription: updated, policy: evaluateSubscriptionLifecycle(updated as ISubscription, now) };
+  return { subscription: updated, policy: evaluateSubscriptionLifecycle(updated as unknown as ISubscription, now) };
 }
 
 export async function scheduleSubscriptionCancellation(schoolId: string, actorUserId: string, cancelAt?: Date, ip?: string, userAgent?: string) {
