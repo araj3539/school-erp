@@ -29,17 +29,31 @@ async function resolveRequestContext(req: Request, payload: AuthPayload): Promis
   if (!schoolExists) throw new Error("UNKNOWN_SELECTED_SCHOOL");
   return { ...payload, schoolId: selectedSchoolId };
 }
+async function assertActiveTenant(schoolId: string): Promise<void> {
+  const school = await School.findById(schoolId).select("tenantStatus").lean();
+  if (!school) throw new Error("UNKNOWN_TENANT");
+  const status = school.tenantStatus ?? "active";
+  if (status !== "active") throw new Error("INACTIVE_TENANT");
+}
 export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const accessToken = getAccessToken(req);
   if (!accessToken) { res.status(401).json({ error: "Authentication required" }); return; }
   try {
     const payload = jwt.verify(accessToken, env.JWT_SECRET) as AuthPayload;
     if (!validatePayload(payload)) { res.status(401).json({ error: "Invalid authentication context" }); return; }
-    try {
-      req.user = await resolveRequestContext(req, payload);
-    } catch {
-      res.status(400).json({ error: "Invalid selected school" }); return;
+    let context: AuthPayload;
+    try { context = await resolveRequestContext(req, payload); }
+    catch { res.status(400).json({ error: "Invalid selected school" }); return; }
+    if (context.schoolId) {
+      try { await assertActiveTenant(context.schoolId); }
+      catch (error) {
+        if (error instanceof Error && error.message === "INACTIVE_TENANT") {
+          res.status(403).json({ error: "Tenant is not active" }); return;
+        }
+        res.status(401).json({ error: "Invalid tenant context" }); return;
+      }
     }
+    req.user = context;
     next();
   } catch { res.status(401).json({ error: "Invalid or expired token" }); }
 }
@@ -60,4 +74,13 @@ export function requireRole(...roles: UserRole[]) {
     if (!roles.includes(req.user.role)) { res.status(403).json({ error: "Insufficient permissions" }); return; }
     next();
   };
+}
+
+/** Platform-only routes require a super-admin identity with no school context selected. */
+export function requirePlatformRole(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (req.user.role !== UserRole.SUPER_ADMIN || req.user.schoolId) {
+    res.status(403).json({ error: "Platform administrator context required" }); return;
+  }
+  next();
 }

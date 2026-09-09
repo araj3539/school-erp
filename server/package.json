@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "seed:demo": "tsx src/scripts/seedDemo.ts",
     "seed:e2e": "node scripts/seed-e2e-fixtures.mjs",
+    "migrate:tenant-lifecycle": "tsx src/scripts/migrateTenantLifecycle.ts",
     "report:orphaned-documents": "tsx src/scripts/reportOrphanedStudentDocuments.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -54,12 +55,11 @@
     "@school-erp/shared": "0.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.46.0",
     "@types/bcryptjs": "^2.4.0",
     "@types/cookie-parser": "^1.4.0",
     "@types/cors": "^2.4.0",
-    "@types/express": "^4.17.0",
     "@types/express-rate-limit": "^5.1.0",
+    "@types/express": "^4.17.0",
     "@types/jsonwebtoken": "^9.0.0",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.0.0",
