@@ -6,6 +6,8 @@ export { AcademicYear } from "./AcademicYear.js";
 export type { IAcademicYear } from "./AcademicYear.js";
 export { TenantProvisioning } from "./TenantProvisioning.js";
 export type { ITenantProvisioning, TenantProvisioningStatus } from "./TenantProvisioning.js";
+export { ModuleEntitlement } from "./ModuleEntitlement.js";
+export type { IModuleEntitlement } from "./ModuleEntitlement.js";
 export { Student } from "./Student.js";
 export type { IStudent, IStudentDocument } from "./Student.js";
 export { Teacher } from "./Teacher.js";
