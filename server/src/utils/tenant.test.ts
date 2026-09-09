@@ -3,8 +3,8 @@ import type { Request } from "express";
 import { UserRole } from "@school-erp/shared";
 import { getTenantId, withTenant } from "./tenant.js";
 
-function requestWithUser(schoolId?: string) {
-  return { user: schoolId ? { schoolId } : undefined, get: () => undefined } as unknown as Request;
+function requestWithUser(schoolId?: string, selectedSchoolId?: string) {
+  return { user: schoolId ? { userId: "school-user", email: "user@example.com", role: UserRole.PRINCIPAL, schoolId } : undefined, get: (name: string) => name === "X-School-Id" ? selectedSchoolId : undefined } as unknown as Request;
 }
 
 function superAdminRequest(selectedSchoolId?: string) {
@@ -14,6 +14,10 @@ function superAdminRequest(selectedSchoolId?: string) {
 describe("tenant helpers", () => {
   it("returns the school id from the authenticated school user", () => {
     expect(getTenantId(requestWithUser("school-a"))).toBe("school-a");
+  });
+
+  it("ignores an attempted tenant switch by a school user", () => {
+    expect(getTenantId(requestWithUser("school-a", "school-b"))).toBe("school-a");
   });
 
   it("rejects requests without a tenant context", () => {
