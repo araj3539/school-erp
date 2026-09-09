@@ -62,11 +62,11 @@ async function syncSubscriptionEntitlements(subscription: any, plan: any, sessio
     return;
   }
 
-  const includedModules = Array.from(new Set(plan.includedModules || []));
+  const includedModules: string[] = Array.from(new Set((plan.includedModules || []) as string[]));
   await ModuleEntitlement.updateMany({ schoolId: subscription.schoolId, enabled: true, moduleId: { $nin: includedModules } }, { $set: { enabled: false } }, { session });
   if (includedModules.length > 0) {
     await ModuleEntitlement.bulkWrite(
-      includedModules.map((moduleId: string) => ({
+      includedModules.map((moduleId) => ({
         updateOne: {
           filter: { schoolId: subscription.schoolId, moduleId },
           update: { $set: { enabled: true } },
@@ -97,13 +97,10 @@ export async function applyRazorpaySubscriptionWebhook(
   let command: SubscriptionEvent | undefined;
   if (eventName === "updated") command = providerStatusCommand(String(providerSubscription?.status || ""));
   else if (eventName === "charged") command = "activate";
-  else if (eventName !== "authenticated") command = subscriptionEventToCommand[eventName];
+  else if (eventName !== "authenticated" && eventName !== "updated") command = subscriptionEventToCommand[eventName as Exclude<RazorpaySubscriptionEvent, "authenticated" | "updated" | "charged">];
 
   const beforeStatus = subscription.status;
   let nextStatus = subscription.status;
-  if (command && command !== "activate" && command !== "recover" && command !== "mark_past_due" && command !== "suspend" && command !== "cancel" && command !== "expire") {
-    throw AppError.conflict(`Unsupported provider subscription command: ${command}`);
-  }
   if (command) {
     if (command === "activate" && subscription.status === "active") nextStatus = "active";
     else if (command === "recover" && subscription.status === "active") nextStatus = "active";
