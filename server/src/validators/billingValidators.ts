@@ -36,9 +36,8 @@ export const TransitionSubscriptionSchema = z.object({
   event: z.enum(["activate", "mark_past_due", "suspend", "cancel", "expire", "recover"]),
 });
 
-export const ChangeSubscriptionPlanSchema = z.object({
-  planId: ObjectIdSchema,
-});
+export const ChangeSubscriptionPlanSchema = z.object({ planId: ObjectIdSchema });
+export const SchoolIdParamSchema = z.object({ schoolId: ObjectIdSchema });
 
 export type CreateProductVersionInput = z.infer<typeof CreateProductVersionSchema>;
 export type CreatePlanVersionInput = z.infer<typeof CreatePlanVersionSchema>;
