@@ -12,6 +12,7 @@
     "seed:e2e": "node scripts/seed-e2e-fixtures.mjs",
     "migrate:tenant-lifecycle": "tsx src/scripts/migrateTenantLifecycle.ts",
     "migrate:tenant-onboarding": "tsx src/scripts/migrateTenantOnboarding.ts",
+    "migrate:module-entitlements": "tsx src/scripts/migrateModuleEntitlements.ts",
     "report:orphaned-documents": "tsx src/scripts/reportOrphanedStudentDocuments.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",

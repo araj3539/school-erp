@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "../hooks";
+import { useAuth, useModules } from "../hooks";
 
 interface RequireAuthProps { children: React.ReactNode; }
 export function RequireAuth({ children }: RequireAuthProps) {
@@ -27,5 +27,16 @@ interface RequireAnyPermissionProps { children: React.ReactNode; permissions: st
 export function RequireAnyPermission({ children, permissions }: RequireAnyPermissionProps) {
   const { hasAnyPermission } = useAuth();
   if (!hasAnyPermission(permissions)) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
+interface RequireModuleProps { children: React.ReactNode; moduleId: string; }
+export function RequireModule({ children, moduleId }: RequireModuleProps) {
+  const { isAuthenticated, user } = useAuth();
+  const { isLoading, isError, isModuleEnabled } = useModules();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === "super_admin" && !user.schoolId) return <>{children}</>;
+  if (isLoading) return null;
+  if (isError || !isModuleEnabled(moduleId)) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
