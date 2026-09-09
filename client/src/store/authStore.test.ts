@@ -14,6 +14,7 @@ const user = {
   email: "principal@example.com",
   role: "principal",
   schoolId: "school-1",
+  isActive: true,
 } as User;
 
 describe("auth initialization", () => {
