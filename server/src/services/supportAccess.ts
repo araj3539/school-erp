@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { UserRole } from "@school-erp/shared";
 import { AuditLog, ModuleEntitlement, School, Subscription, User } from "../models/index.js";
 import { createAuditLog } from "./auditLog.js";
@@ -14,18 +15,19 @@ export async function getSupportDiagnostics(input: {
 }) {
   const reason = input.reason.trim();
   if (reason.length < 10 || reason.length > 500) throw AppError.badRequest("A support reason between 10 and 500 characters is required");
-  if (!input.schoolId) throw AppError.badRequest("Explicit tenant context required");
+  if (!mongoose.isValidObjectId(input.schoolId)) throw AppError.badRequest("Invalid tenant id");
 
+  const schoolObjectId = new mongoose.Types.ObjectId(input.schoolId);
   const [school, roleCounts, subscription, modules] = await Promise.all([
-    School.findById(input.schoolId).select("name email tenantStatus createdAt updatedAt").lean(),
+    School.findById(schoolObjectId).select("name email tenantStatus createdAt updatedAt").lean(),
     User.aggregate([
-      { $match: { schoolId: schoolIdObject(input.schoolId) } },
+      { $match: { schoolId: schoolObjectId } },
       { $group: { _id: "$role", count: { $sum: 1 } } },
       { $project: { _id: 0, role: "$_id", count: 1 } },
       { $sort: { role: 1 } }
     ]),
-    Subscription.findOne({ schoolId: input.schoolId }).select("planCode planVersion status currency amountMinor billingInterval startedAt trialEndsAt currentPeriodStart currentPeriodEnd cancelAt cancelledAt provider providerSubscriptionId lastBillingEventAt stateRevision").lean(),
-    ModuleEntitlement.find({ schoolId: input.schoolId }).select("moduleId enabled source updatedAt").sort({ moduleId: 1 }).lean(),
+    Subscription.findOne({ schoolId: schoolObjectId }).select("planCode planVersion status currency amountMinor billingInterval startedAt trialEndsAt currentPeriodStart currentPeriodEnd cancelAt cancelledAt provider providerSubscriptionId lastBillingEventAt stateRevision").lean(),
+    ModuleEntitlement.find({ schoolId: schoolObjectId }).select("moduleId enabled source updatedAt").sort({ moduleId: 1 }).lean(),
   ]);
 
   if (!school) throw AppError.notFound("Tenant not found");
@@ -75,39 +77,8 @@ export async function getSupportDiagnostics(input: {
   return diagnostics;
 }
 
-export async function recordSupportAccessOutcome(input: {
-  supportUserId: string;
-  schoolId: string;
-  reason: string;
-  outcome: "denied" | "error";
-  errorCode?: string;
-  ip?: string;
-  userAgent?: string;
-}): Promise<void> {
-  await createAuditLog({
-    userId: input.supportUserId,
-    schoolId: input.schoolId,
-    action: SUPPORT_ACTION,
-    entity: "School",
-    entityId: input.schoolId,
-    after: { outcome: input.outcome, reason: input.reason.trim().slice(0, 500), errorCode: input.errorCode },
-    ip: input.ip,
-    userAgent: input.userAgent,
-  });
-}
-
-function schoolIdObject(value: string) {
-  const mongoose = requireMongoose();
-  if (!mongoose.isValidObjectId(value)) throw AppError.badRequest("Invalid tenant id");
-  return new mongoose.Types.ObjectId(value);
-}
-
-function requireMongoose() {
-  return require("mongoose") as typeof import("mongoose");
-}
-
 export async function getSupportAuditHistory(schoolId: string, page = 1, limit = 20) {
-  if (!schoolId || !requireMongoose().isValidObjectId(schoolId)) throw AppError.badRequest("Invalid tenant id");
+  if (!mongoose.isValidObjectId(schoolId)) throw AppError.badRequest("Invalid tenant id");
   const safePage = Math.max(1, Math.min(page, 100000));
   const safeLimit = Math.max(1, Math.min(limit, 100));
   const query = { schoolId, action: { $regex: /^SUPPORT_/ } };
