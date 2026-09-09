@@ -20,6 +20,7 @@ export const MODULES = {
   parents: true,
   portal: true,
   dashboard: true,
+  reports: true,
   school: true,
   academicYears: true,
 } as const;
