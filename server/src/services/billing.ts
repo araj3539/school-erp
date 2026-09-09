@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { SaaSPlan, SaaSProduct, School, Subscription } from "../models/index.js";
+import { ModuleEntitlement, SaaSPlan, SaaSProduct, School, Subscription } from "../models/index.js";
 import { createAuditLog } from "./auditLog.js";
 import { AppError } from "../utils/errors.js";
 import type { CreatePlanVersionInput, CreateProductVersionInput } from "../validators/billingValidators.js";
@@ -15,6 +15,18 @@ const transitions: Record<SubscriptionStatus, Partial<Record<SubscriptionEvent, 
 };
 
 type SubscriptionEvent = "activate" | "mark_past_due" | "suspend" | "cancel" | "expire" | "recover";
+type RazorpaySubscriptionEvent = "authenticated" | "activated" | "charged" | "completed" | "updated" | "pending" | "halted" | "paused" | "resumed" | "cancelled" | "expired";
+
+const subscriptionEventToCommand: Record<Exclude<RazorpaySubscriptionEvent, "authenticated" | "updated" | "charged">, SubscriptionEvent> = {
+  activated: "activate",
+  completed: "expire",
+  pending: "mark_past_due",
+  halted: "suspend",
+  paused: "suspend",
+  resumed: "recover",
+  cancelled: "cancel",
+  expired: "expire",
+};
 
 export function getNextSubscriptionStatus(status: SubscriptionStatus, event: SubscriptionEvent): SubscriptionStatus {
   const nextStatus = transitions[status][event];
@@ -27,6 +39,110 @@ function addBillingInterval(date: Date, interval: "month" | "year"): Date {
   if (interval === "month") result.setUTCMonth(result.getUTCMonth() + 1);
   else result.setUTCFullYear(result.getUTCFullYear() + 1);
   return result;
+}
+
+function providerStatusCommand(status: string): SubscriptionEvent | undefined {
+  if (status === "active") return "activate";
+  if (status === "pending") return "mark_past_due";
+  if (status === "halted" || status === "paused") return "suspend";
+  if (status === "cancelled") return "cancel";
+  if (status === "completed" || status === "expired") return "expire";
+  return undefined;
+}
+
+function providerEventDate(body: any): Date {
+  const timestamp = Number(body?.created_at || 0);
+  return Number.isFinite(timestamp) && timestamp > 0 ? new Date(timestamp * 1000) : new Date();
+}
+
+async function syncSubscriptionEntitlements(subscription: any, plan: any, session: mongoose.ClientSession): Promise<void> {
+  const hasAccess = ["trialing", "active", "past_due"].includes(subscription.status);
+  if (!hasAccess) {
+    await ModuleEntitlement.updateMany({ schoolId: subscription.schoolId, enabled: true }, { $set: { enabled: false } }, { session });
+    return;
+  }
+
+  const includedModules: string[] = Array.from(new Set((plan.includedModules || []) as string[]));
+  await ModuleEntitlement.updateMany({ schoolId: subscription.schoolId, enabled: true, moduleId: { $nin: includedModules } }, { $set: { enabled: false } }, { session });
+  if (includedModules.length > 0) {
+    await ModuleEntitlement.bulkWrite(
+      includedModules.map((moduleId) => ({
+        updateOne: {
+          filter: { schoolId: subscription.schoolId, moduleId },
+          update: { $set: { enabled: true } },
+          upsert: true,
+        },
+      })),
+      { session },
+    );
+  }
+}
+
+export async function applyRazorpaySubscriptionWebhook(
+  body: any,
+  eventType: string,
+  session: mongoose.ClientSession,
+): Promise<mongoose.Types.ObjectId | undefined> {
+  const providerSubscription = body?.payload?.subscription?.entity;
+  const providerSubscriptionId = String(providerSubscription?.id || "").trim();
+  if (!providerSubscriptionId) throw AppError.badRequest("Subscription webhook is missing the provider subscription id");
+
+  const subscription = await Subscription.findOne({ provider: "razorpay", providerSubscriptionId }).session(session);
+  if (!subscription) throw AppError.notFound("Subscription for provider webhook was not found");
+
+  const eventDate = providerEventDate(body);
+  if (subscription.lastBillingEventAt && eventDate <= subscription.lastBillingEventAt) return subscription._id;
+
+  const eventName = eventType.replace("subscription.", "") as RazorpaySubscriptionEvent;
+  let command: SubscriptionEvent | undefined;
+  if (eventName === "updated") command = providerStatusCommand(String(providerSubscription?.status || ""));
+  else if (eventName === "charged") command = "activate";
+  else if (eventName !== "authenticated") command = subscriptionEventToCommand[eventName as Exclude<RazorpaySubscriptionEvent, "authenticated" | "updated" | "charged">];
+
+  const beforeStatus = subscription.status;
+  let nextStatus = subscription.status;
+  if (command) {
+    if (command === "activate" && subscription.status === "active") nextStatus = "active";
+    else if (command === "recover" && subscription.status === "active") nextStatus = "active";
+    else if (command === "mark_past_due" && subscription.status === "past_due") nextStatus = "past_due";
+    else if (command === "suspend" && subscription.status === "suspended") nextStatus = "suspended";
+    else if (command === "cancel" && subscription.status === "cancelled") nextStatus = "cancelled";
+    else if (command === "expire" && subscription.status === "expired") nextStatus = "expired";
+    else nextStatus = getNextSubscriptionStatus(subscription.status, command);
+  }
+
+  subscription.provider = "razorpay";
+  subscription.providerPlanId = String(providerSubscription?.plan_id || subscription.providerPlanId || "");
+  subscription.lastBillingEventAt = eventDate;
+  if (nextStatus !== subscription.status) {
+    subscription.status = nextStatus;
+    subscription.stateRevision += 1;
+    if (nextStatus === "cancelled") subscription.cancelledAt = new Date();
+    if (nextStatus === "expired" && !subscription.cancelledAt) subscription.cancelledAt = new Date();
+  }
+
+  const currentStart = Number(providerSubscription?.current_start || 0);
+  const currentEnd = Number(providerSubscription?.current_end || 0);
+  if (currentStart > 0) subscription.currentPeriodStart = new Date(currentStart * 1000);
+  if (currentEnd > 0) subscription.currentPeriodEnd = new Date(currentEnd * 1000);
+
+  const plan = await SaaSPlan.findOne({ _id: subscription.planId, status: "active" }).session(session);
+  if (!plan) throw AppError.notFound("Active SaaS plan for provider subscription was not found");
+  await subscription.save({ session });
+  await syncSubscriptionEntitlements(subscription, plan, session);
+
+  await createAuditLog({
+    actorType: "system",
+    schoolId: subscription.schoolId.toString(),
+    action: "BILLING_WEBHOOK",
+    entity: "Subscription",
+    entityId: subscription._id.toString(),
+    before: { status: beforeStatus, stateRevision: subscription.stateRevision - (nextStatus !== beforeStatus ? 1 : 0) },
+    after: { status: subscription.status, stateRevision: subscription.stateRevision, provider: "razorpay", providerSubscriptionId, eventType },
+    session,
+  });
+
+  return subscription._id;
 }
 
 export async function createProductVersion(input: CreateProductVersionInput, actorUserId: string, ip?: string, userAgent?: string) {

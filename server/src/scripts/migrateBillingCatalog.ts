@@ -9,7 +9,7 @@ try { loadEnvFile(resolve(__dirname, "../../../.env")); } catch {
 }
 
 const { connectDB, disconnectDB } = await import("../config/index.js");
-const { SaaSProduct, SaaSPlan, Subscription } = await import("../models/index.js");
+const { PaymentWebhookEvent, SaaSProduct, SaaSPlan, Subscription } = await import("../models/index.js");
 
 async function main(): Promise<void> {
   await connectDB();
@@ -21,7 +21,11 @@ async function main(): Promise<void> {
     await Subscription.collection.createIndex({ schoolId: 1 }, { unique: true, name: "schoolId_1_unique" });
     await Subscription.collection.createIndex({ status: 1, currentPeriodEnd: 1 }, { name: "status_1_currentPeriodEnd_1" });
     await Subscription.collection.createIndex({ planId: 1, status: 1 }, { name: "planId_1_status_1" });
-    console.log("Billing catalog and subscription indexes verified");
+    await Subscription.collection.createIndex({ provider: 1, providerSubscriptionId: 1 }, { unique: true, sparse: true, name: "provider_1_providerSubscriptionId_1_unique" });
+    await PaymentWebhookEvent.collection.createIndex({ provider: 1, eventId: 1 }, { unique: true });
+    await PaymentWebhookEvent.collection.createIndex({ provider: 1, receivedAt: -1 });
+    await PaymentWebhookEvent.collection.createIndex({ provider: 1, status: 1, processingAt: 1 });
+    console.log("Billing catalog, subscription, and webhook indexes verified");
   } finally {
     await disconnectDB();
   }
