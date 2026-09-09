@@ -21,10 +21,12 @@ import timetableRoutes from "./timetableRoutes.js";
 import portalRoutes from "./portalRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
 import platformTenantRoutes from "./platformTenantRoutes.js";
+import moduleEntitlementRoutes from "./moduleEntitlementRoutes.js";
 import { requireModule } from "../middleware/moduleEntitlement.js";
 
 const router = Router();
 router.use("/auth", authRoutes);
+router.use("/modules", moduleEntitlementRoutes);
 router.use("/students", requireModule("students"), studentRoutes);
 router.use("/teachers", requireModule("teachers"), teacherRoutes);
 router.use("/staff", requireModule("staff"), staffRoutes);
