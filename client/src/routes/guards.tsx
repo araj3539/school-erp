@@ -38,7 +38,7 @@ export function RequireModule({ children, moduleId }: RequireModuleProps) {
   const { isLoading, isError, isModuleEnabled } = useModules();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role === "super_admin" && !user.schoolId && !activeSchoolId) return <>{children}</>;
-  if (isLoading) return null;
+  if (isLoading) return <div className="p-8 text-center text-gray-600">Loading module access...</div>;
   if (isError || !isModuleEnabled(moduleId)) {
     return <div className="p-8 text-center"><h1 className="text-xl font-semibold">Module unavailable</h1><p className="mt-2 text-gray-600">This module is not enabled for the selected school.</p></div>;
   }
