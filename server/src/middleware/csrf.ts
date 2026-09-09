@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { env } from "../config/index.js";
+import { env, isDevelopment } from "../config/index.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -10,6 +10,7 @@ const allowedOrigins = env.CORS_ORIGIN
 
 const isAllowedOrigin = (origin: string): boolean =>
   allowedOrigins.includes(origin) ||
+  (isDevelopment && /^https?:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin)) ||
   /^https:\/\/school-[a-z0-9-]+-araj3539s-projects\.vercel\.app$/.test(origin);
 
 /**
