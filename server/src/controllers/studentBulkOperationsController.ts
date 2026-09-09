@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Student, Teacher } from "../models/index.js";
 import { CreateStudentSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
+import { incrementTenantUsage } from "../services/tenantUsage.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
 import { escapeRegex } from "../utils/strings.js";
@@ -29,9 +30,12 @@ async function getTeacherClassIds(req: Request): Promise<string[] | null> {
 }
 
 export async function bulkImportStudentsHardened(req: MulterRequest, res: Response, next: NextFunction) {
+  let usageReserved = false;
+  let reservedCount = 0;
+  let schoolId = "";
   try {
     if (!req.file) throw AppError.badRequest("No file uploaded", "FILE_REQUIRED");
-    const schoolId = getTenantId(req);
+    schoolId = getTenantId(req);
     const rows = await parseExcelFile(req.file.buffer);
     if (rows.length === 0) throw AppError.badRequest("Excel file contains no data rows", "EMPTY_IMPORT");
 
@@ -67,6 +71,10 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
 
     if (validationErrors.length) return res.status(400).json({ error: "Student import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
 
+    reservedCount = documents.length;
+    await incrementTenantUsage(schoolId, "students", reservedCount);
+    usageReserved = true;
+
     const session = await mongoose.startSession();
     let created: any[] = [];
     try {
@@ -81,8 +89,12 @@ export async function bulkImportStudentsHardened(req: MulterRequest, res: Respon
     } finally {
       await session.endSession();
     }
+    usageReserved = false;
     return res.status(200).json({ imported: created.length, errors: [] });
   } catch (error) {
+    if (usageReserved && reservedCount > 0 && schoolId) {
+      await incrementTenantUsage(schoolId, "students", -reservedCount).catch(() => undefined);
+    }
     next(error);
   }
 }

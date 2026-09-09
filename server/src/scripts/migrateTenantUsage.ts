@@ -12,12 +12,21 @@ const { connectDB, disconnectDB } = await import("../config/index.js");
 const { School, TenantLimit, TenantUsage } = await import("../models/index.js");
 const { reconcileTenantUsage } = await import("../services/tenantUsage.js");
 
+async function ensureIndexes(): Promise<void> {
+  const usageDiff = await TenantUsage.diffIndexes();
+  const limitDiff = await TenantLimit.diffIndexes();
+  if (usageDiff.toDrop.length || usageDiff.toCreate.length) {
+    await TenantUsage.syncIndexes();
+  }
+  if (limitDiff.toDrop.length || limitDiff.toCreate.length) {
+    await TenantLimit.syncIndexes();
+  }
+}
+
 async function main(): Promise<void> {
   await connectDB();
   try {
-    await TenantUsage.collection.createIndex({ schoolId: 1 }, { unique: true, name: "schoolId_1_unique" });
-    await TenantLimit.collection.createIndex({ schoolId: 1, dimension: 1 }, { unique: true, name: "schoolId_1_dimension_1_unique" });
-
+    await ensureIndexes();
     const schools = await School.find({}).select("_id").lean();
     for (const school of schools) await reconcileTenantUsage(school._id.toString());
     console.log(`Tenant usage indexes verified; reconciled ${schools.length} tenants`);
