@@ -22,7 +22,4 @@ const TenantProvisioningSchema = new Schema<ITenantProvisioning>({
   status: { type: String, enum: ["completed"], required: true, default: "completed", immutable: true },
 }, { timestamps: true });
 
-TenantProvisioningSchema.index({ idempotencyKey: 1 }, { unique: true });
-TenantProvisioningSchema.index({ schoolId: 1 }, { unique: true });
-
 export const TenantProvisioning = mongoose.model<ITenantProvisioning>("TenantProvisioning", TenantProvisioningSchema);
