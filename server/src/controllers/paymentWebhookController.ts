@@ -13,7 +13,6 @@ const PROCESSING_LEASE_MS = 5 * 60 * 1000;
 
 function providerEventId(req: Request): string { return req.get("x-razorpay-event-id")?.trim() || ""; }
 function eventEntity(body: any, key: string): any { return body?.payload?.[key]?.entity; }
-function isSubscriptionEvent(eventType: string): boolean { return eventType.startsWith("subscription."); }
 
 async function applyCapturedPayment(body: any, session: mongoose.ClientSession): Promise<mongoose.Types.ObjectId | undefined> {
   const providerOrderId = eventEntity(body, "order")?.id || eventEntity(body, "payment")?.order_id;
@@ -111,7 +110,7 @@ export async function handleRazorpayWebhook(req: RawBodyRequest, res: Response):
   try {
     let paymentOrderId: mongoose.Types.ObjectId | undefined;
     let subscriptionId: mongoose.Types.ObjectId | undefined;
-    const supportedSubscriptionEvent = ["subscription.authenticated", "subscription.activated", "subscription.charged", "subscription.completed", "subscription.updated", "subscription.pending", "subscription.halted", "subscription.paused", "subscription.resumed", "subscription.cancelled"].includes(eventType);
+    const supportedSubscriptionEvent = ["subscription.authenticated", "subscription.activated", "subscription.charged", "subscription.completed", "subscription.expired", "subscription.updated", "subscription.pending", "subscription.halted", "subscription.paused", "subscription.resumed", "subscription.cancelled"].includes(eventType);
     await session.withTransaction(async () => {
       if (["order.paid", "payment.captured"].includes(eventType)) paymentOrderId = await applyCapturedPayment(body, session);
       else if (eventType === "refund.processed") paymentOrderId = await applyRefund(body, session);
