@@ -1,5 +1,15 @@
-import { connectDB, disconnectDB } from "../config/index.js";
-import { School } from "../models/index.js";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadEnvFile } from "node:process";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+loadEnvFile(resolve(__dirname, "../../.env"));
+try { loadEnvFile(resolve(__dirname, "../../../.env")); } catch {
+  // The repository-level .env is optional when the server .env is present.
+}
+
+const { connectDB, disconnectDB } = await import("../config/index.js");
+const { School } = await import("../models/index.js");
 
 async function main(): Promise<void> {
   await connectDB();
