@@ -59,14 +59,25 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   initializeAuth: async () => {
+    // Do not start a competing session check after a successful login.
+    if (get().isAuthenticated) return;
+
     try {
       const { default: api } = await import("../lib/api");
       const response = await api.get("/auth/me");
+
+      // The request may have started before a user completed login. Keep the
+      // newer authenticated state instead of overwriting it with stale data.
+      if (get().isAuthenticated) return;
+
       const user = response.data.user as User;
       const schools = (response.data.schools || []) as TenantSchool[];
       const activeSchoolId = resolveActiveSchoolId(user, schools);
       set({ user, isAuthenticated: true, hasHydrated: true, activeSchoolId, availableSchools: schools });
     } catch {
+      // A pending initial /auth/me or refresh request can finish after login.
+      // Never let that stale failure clear a newer authenticated session.
+      if (get().isAuthenticated) return;
       set({ user: null, isAuthenticated: false, hasHydrated: true, activeSchoolId: null, availableSchools: [] });
     }
   },
