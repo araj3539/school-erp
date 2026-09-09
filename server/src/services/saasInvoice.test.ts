@@ -6,7 +6,7 @@ describe("SaaS invoice lifecycle", () => {
   it("generates a stable human-readable invoice number from immutable identity", () => {
     const id = new mongoose.Types.ObjectId("68c1a4d2b7c6e9f102030405");
     const issuedAt = new Date("2026-09-10T12:00:00.000Z");
-    expect(invoiceNumberForId(id, issuedAt)).toBe("INV-2026-9F102030405".replace("9F", "9F"));
+    expect(invoiceNumberForId(id, issuedAt)).toBe("INV-2026-F102030405");
     expect(invoiceNumberForId(id, issuedAt)).toBe(invoiceNumberForId(id, issuedAt));
   });
 
