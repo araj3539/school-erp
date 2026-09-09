@@ -29,6 +29,7 @@ describe("auth initialization", () => {
 
     const initialization = useAuthStore.getState().initializeAuth();
     useAuthStore.getState().login(user);
+    await Promise.resolve();
     rejectRequest(new Error("initial /auth/me request failed"));
     await initialization;
 
@@ -42,6 +43,7 @@ describe("auth initialization", () => {
 
     const initialization = useAuthStore.getState().initializeAuth();
     useAuthStore.getState().login(user);
+    await Promise.resolve();
     resolveRequest({ data: { user: { ...user, email: "stale@example.com" } } });
     await initialization;
 
@@ -55,6 +57,7 @@ describe("auth initialization", () => {
 
     const first = useAuthStore.getState().initializeAuth();
     const second = useAuthStore.getState().initializeAuth();
+    await Promise.resolve();
     expect(apiGet).toHaveBeenCalledTimes(1);
 
     resolveRequest({ data: { user } });
@@ -67,6 +70,7 @@ describe("auth initialization", () => {
     apiGet.mockReturnValueOnce(new Promise((resolve) => { resolveRequest = resolve; }));
 
     const initialization = useAuthStore.getState().initializeAuth();
+    await Promise.resolve();
     useAuthStore.getState().logout();
     resolveRequest({ data: { user } });
     await initialization;
