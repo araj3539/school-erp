@@ -1,14 +1,6 @@
 import { AuditLog, School, Subscription, TenantUsage } from "../models/index.js";
-import { getAuditLogs } from "./auditLog.js";
 
-const HIGH_RISK_ACTIONS = [
-  "TENANT_LIFECYCLE_CHANGE",
-  "MODULE_ENTITLEMENT_UPDATE",
-  "SUBSCRIPTION_STATE_CHANGE",
-  "SAAS_INVOICE_VOID",
-  "TENANT_USAGE_LIMIT_CHANGE",
-  "SUPPORT_DIAGNOSTIC_READ",
-] as const;
+const HIGH_RISK_ACTION_PATTERN = /^(TENANT_LIFECYCLE_CHANGE|MODULE_ENTITLEMENT_UPDATE|SUBSCRIPTION_|SAAS_INVOICE_|TENANT_USAGE_LIMIT_CHANGE|SUPPORT_)/;
 
 export async function getPlatformOperationsOverview() {
   const [tenantStatus, subscriptionStatus, usage, recentAudit] = await Promise.all([
@@ -33,7 +25,7 @@ export async function getPlatformOperationsOverview() {
       },
       { $project: { _id: 0, students: 1, school_users: 1, storage_bytes: 1 } },
     ]),
-    AuditLog.find({ action: { $in: HIGH_RISK_ACTIONS } })
+    AuditLog.find({ action: { $regex: HIGH_RISK_ACTION_PATTERN } })
       .sort({ createdAt: -1 })
       .limit(20)
       .select("schoolId userId actorType action entity entityId before after ip userAgent createdAt")
