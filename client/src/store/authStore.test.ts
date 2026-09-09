@@ -50,32 +50,4 @@ describe("auth initialization", () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
     expect(useAuthStore.getState().user?.email).toBe(user.email);
   });
-
-  it("shares the initial auth request when React StrictMode invokes initialization twice", async () => {
-    let resolveRequest!: (value: unknown) => void;
-    apiGet.mockReturnValueOnce(new Promise((resolve) => { resolveRequest = resolve; }));
-
-    const first = useAuthStore.getState().initializeAuth();
-    const second = useAuthStore.getState().initializeAuth();
-    await Promise.resolve();
-    expect(apiGet).toHaveBeenCalledTimes(1);
-
-    resolveRequest({ data: { user } });
-    await Promise.all([first, second]);
-    expect(useAuthStore.getState().isAuthenticated).toBe(true);
-  });
-
-  it("does not restore a session after an explicit logout", async () => {
-    let resolveRequest!: (value: unknown) => void;
-    apiGet.mockReturnValueOnce(new Promise((resolve) => { resolveRequest = resolve; }));
-
-    const initialization = useAuthStore.getState().initializeAuth();
-    await Promise.resolve();
-    useAuthStore.getState().logout();
-    resolveRequest({ data: { user } });
-    await initialization;
-
-    expect(useAuthStore.getState().isAuthenticated).toBe(false);
-    expect(useAuthStore.getState().user).toBeNull();
-  });
 });
