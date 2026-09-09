@@ -548,10 +548,10 @@ This design document is a **living UI/UX source of truth**. It must evolve with 
 
 ### Status Metadata
 
-- **Document version:** 1.1.0
+- **Document version:** 1.2.0
 - **Lifecycle status:** Living / actively maintained
-- **Baseline verified:** 11 August 2026
-- **Current implementation state:** Functional admin-oriented interface under active development
+- **Baseline verified:** 10 September 2026
+- **Current implementation state:** Flagship visual-system rollout started; shared shell/primitives and dashboard have been upgraded on ALO-57, with remaining screens continuing the same system.
 - **Next mandatory review:** After major screen/module additions, navigation changes, design-system changes, or responsive/accessibility changes
 
 ### Current vs Target Design
@@ -562,6 +562,32 @@ Clearly distinguish:
 - **DEPRECATED:** old pattern that should not be extended
 
 Do not describe target screens or components as if users can already access them.
+
+### Flagship Visual System — CURRENT
+
+The ALO-57 rollout establishes these shared patterns:
+- soft slate application canvas with white elevated surfaces
+- 12–16px corner language on interactive surfaces, with larger 16px+ cards where appropriate
+- restrained shadows instead of heavy borders/elevation
+- stronger typography hierarchy and compact uppercase metadata labels
+- 40px+ interactive controls with visible keyboard focus
+- clear primary/secondary/ghost action hierarchy
+- responsive sidebar and translucent sticky header treatment
+- data tables with stronger column hierarchy, row hover/focus, and explicit loading/empty states
+- dashboard sections with purposeful metrics instead of decorative card overload
+
+### Flagship Visual System — TARGET
+
+Continue the system through the rest of the application in descending frequency/value:
+1. Students and student detail
+2. Attendance and timetable
+3. Fees and payment/receipt workflows
+4. Teachers, classes and exams/results
+5. Operations, reports, notices and settings
+6. Role-specific portal surfaces
+7. Cross-screen accessibility and responsive polish pass
+
+The target is not visual novelty for its own sake. The product should feel coherent enough that a principal, accountant or teacher can move between modules without relearning the interface.
 
 ### Update Triggers
 
@@ -591,6 +617,6 @@ AI agents must reuse the established component and interaction patterns before i
 
 | Version | Date | Change | Verified By |
 |---|---|---|---|
+| 1.2.0 | 2026-09-10 | Documented the ALO-57 flagship visual system rollout and current/target screen priorities. | AI-assisted repository review + local client build/tests |
 | 1.1.0 | 2026-08-11 | Added living design lifecycle, CURRENT/TARGET states, verification, and versioning. | AI-assisted repository review |
 | 1.0.0 | 2026-08-11 | Initial design-system documentation. | AI-assisted repository review |
-
