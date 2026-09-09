@@ -19,8 +19,8 @@ const DEMO_ADMIN_ID = new mongoose.Types.ObjectId("66c000000000000000000003");
 
 async function seedDemo(): Promise<void> {
   const demoAdminPassword = process.env.DEMO_ADMIN_PASSWORD;
-  if (!demoAdminPassword || demoAdminPassword.length < 12) {
-    throw new Error("DEMO_ADMIN_PASSWORD must be set and contain at least 12 characters");
+  if (!demoAdminPassword || demoAdminPassword.length < 8) {
+    throw new Error("DEMO_ADMIN_PASSWORD must be set and contain at least 8 characters");
   }
 
   await connectDB();
@@ -69,6 +69,7 @@ async function seedDemo(): Promise<void> {
     { upsert: true }
   );
 
+  // Super admins are platform accounts and must not be scoped to a school.
   await db.collection("users").updateOne(
     { _id: DEMO_ADMIN_ID },
     {
@@ -76,10 +77,10 @@ async function seedDemo(): Promise<void> {
         email: "admin@school.com",
         passwordHash,
         role: "super_admin",
-        schoolId: DEMO_SCHOOL_ID,
         isActive: true,
         updatedAt: now
       },
+      $unset: { schoolId: "" },
       $setOnInsert: { _id: DEMO_ADMIN_ID, createdAt: now }
     },
     { upsert: true }
