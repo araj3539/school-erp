@@ -14,6 +14,8 @@ export { SaaSPlan } from "./SaaSPlan.js";
 export type { ISaaSPlan, SaaSPlanStatus, BillingInterval } from "./SaaSPlan.js";
 export { Subscription } from "./Subscription.js";
 export type { ISubscription, SubscriptionStatus } from "./Subscription.js";
+export { SaaSInvoice } from "./SaaSInvoice.js";
+export type { ISaaSInvoice, SaaSInvoiceStatus, ISaaSInvoiceLineItem } from "./SaaSInvoice.js";
 export { Student } from "./Student.js";
 export type { IStudent, IStudentDocument } from "./Student.js";
 export { Teacher } from "./Teacher.js";
