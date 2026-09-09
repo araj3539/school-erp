@@ -4,7 +4,7 @@ import { Badge } from "../components/ui/Badge";
 import api from "../lib/api";
 import { cn, formatCurrency } from "../utils";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Users, UserCheck, Building2, DollarSign, Calendar, TrendingUp, Cake } from "lucide-react";
+import { Users, UserCheck, Building2, DollarSign, Calendar, TrendingUp, Cake, UserRound } from "lucide-react";
 
 interface StatCardProps { title: string; value: string | number; icon: React.ReactNode; trend?: string; trendUp?: boolean; tone: string; isLoading?: boolean; }
 function StatCard({ title, value, icon, trend, trendUp, tone, isLoading }: StatCardProps) {
@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const attendanceTrend = charts?.attendanceTrend || [];
   const collectionTrend = charts?.collectionTrend || [];
   const feeStatus = charts?.feeStatus || [];
+  const recentAdmissions = stats?.recentAdmissions || [];
 
   return (
     <div className="space-y-6 lg:space-y-8">
@@ -58,6 +59,18 @@ export default function DashboardPage() {
         <StatCard title="Today's collection" value={formatCurrency(stats?.stats?.todayCollection || 0)} icon={<DollarSign className="h-5 w-5 text-amber-600" />} tone="bg-amber-50" isLoading={statsLoading} />
         <StatCard title="Attendance" value={stats?.stats?.attendanceRate ? `${stats.stats.attendanceRate}%` : "0%"} icon={<Calendar className="h-5 w-5 text-orange-600" />} tone="bg-orange-50" isLoading={statsLoading} />
         <StatCard title="Pending fees" value={stats?.stats?.pendingFees || 0} icon={<TrendingUp className="h-5 w-5 text-rose-600" />} tone="bg-rose-50" isLoading={statsLoading} />
+      </section>
+
+      <section aria-label="Recent admissions">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <div><h2 className="text-sm font-bold text-slate-900">Recent admissions</h2><p className="mt-1 text-xs text-slate-500">The latest students added to the school</p></div>
+            <UserRound className="h-5 w-5 text-primary-600" aria-hidden="true" />
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? <div className="space-y-3"><div className="h-11 animate-pulse rounded-xl bg-slate-100" /><div className="h-11 animate-pulse rounded-xl bg-slate-100" /><div className="h-11 animate-pulse rounded-xl bg-slate-100" /></div> : recentAdmissions.length === 0 ? <div className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm font-medium text-slate-500">No admissions recorded yet</div> : <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">{recentAdmissions.map((student: any) => <div key={student._id} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3 transition-colors hover:border-slate-200 hover:bg-white"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-xs font-bold text-primary-700" aria-hidden="true">{student.firstName?.charAt(0)}{student.lastName?.charAt(0)}</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-800">{student.firstName} {student.lastName}</p><p className="truncate text-xs text-slate-500">{student.classId?.displayName || "Class not assigned"}</p></div><Badge variant="secondary">{student.admissionNo}</Badge></div>)}</div>}
+          </CardContent>
+        </Card>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2" aria-label="Trends">
