@@ -97,7 +97,7 @@ export async function applyRazorpaySubscriptionWebhook(
   let command: SubscriptionEvent | undefined;
   if (eventName === "updated") command = providerStatusCommand(String(providerSubscription?.status || ""));
   else if (eventName === "charged") command = "activate";
-  else if (eventName !== "authenticated" && eventName !== "updated") command = subscriptionEventToCommand[eventName as Exclude<RazorpaySubscriptionEvent, "authenticated" | "updated" | "charged">];
+  else if (eventName !== "authenticated") command = subscriptionEventToCommand[eventName as Exclude<RazorpaySubscriptionEvent, "authenticated" | "updated" | "charged">];
 
   const beforeStatus = subscription.status;
   let nextStatus = subscription.status;
