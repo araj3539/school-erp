@@ -10,7 +10,7 @@ function createResponse() {
   return { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
 }
 function schoolQuery(tenantStatus: string | undefined) {
-  return { select: () => ({ lean: async () => ({ tenantStatus }) }) };
+  return { select: () => ({ lean: vi.fn().mockResolvedValue({ tenantStatus }) }) };
 }
 function principal() {
   return { userId: "principal-1", email: "principal@example.com", role: UserRole.PRINCIPAL, schoolId: "507f1f77bcf86cd799439011" };
