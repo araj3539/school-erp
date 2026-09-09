@@ -5,4 +5,3 @@ export * from "./errorHandler.js";
 export * from "./rateLimiter.js";
 export * from "./upload.js";
 export * from "./paymentOwnership.js";
-export * from "./tenantLifecycle.js";
