@@ -1,21 +1,43 @@
-import axios from "axios";
+import axios, { type AxiosRequestConfig } from "axios";
 import { useAuthStore } from "../store/authStore";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "https://school-erp-api-6gm7.onrender.com/api/v1";
 const api = axios.create({ baseURL: API_BASE_URL, withCredentials: true, timeout: 30_000 });
+
+type AuthRequestConfig = AxiosRequestConfig & { _retry?: boolean; _authSessionVersion?: number };
+let refreshPromise: Promise<void> | null = null;
+
+function refreshSession(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = api.post("/auth/refresh").then(() => undefined).finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
+}
+
 api.interceptors.request.use((config) => {
-  const { user, activeSchoolId } = useAuthStore.getState();
+  const { user, activeSchoolId, sessionVersion } = useAuthStore.getState();
+  (config as AuthRequestConfig)._authSessionVersion = sessionVersion;
   if (user?.role === "super_admin" && activeSchoolId) config.headers.set("X-School-Id", activeSchoolId);
   return config;
 });
+
 api.interceptors.response.use((response) => response, async (error) => {
-  const originalRequest = error.config;
+  const originalRequest = error.config as AuthRequestConfig | undefined;
   const requestUrl = originalRequest?.url ?? "";
   const isAuthRequest = ["/auth/login", "/auth/refresh", "/auth/logout"].includes(requestUrl);
-  if (error.response?.status === 401 && !originalRequest?._retry && !isAuthRequest) {
+  if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
     originalRequest._retry = true;
-    try { await api.post("/auth/refresh"); return api(originalRequest); }
-    catch { useAuthStore.getState().logout(); return Promise.reject(error); }
+    const currentSessionVersion = useAuthStore.getState().sessionVersion;
+    if (originalRequest._authSessionVersion !== currentSessionVersion) return Promise.reject(error);
+    try {
+      await refreshSession();
+      if (useAuthStore.getState().sessionVersion !== currentSessionVersion) return Promise.reject(error);
+      return api(originalRequest);
+    } catch {
+      const authState = useAuthStore.getState();
+      if (authState.sessionVersion === currentSessionVersion && authState.isAuthenticated) authState.logout();
+      return Promise.reject(error);
+    }
   }
   return Promise.reject(error);
 });
