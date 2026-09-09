@@ -3,14 +3,17 @@ import mongoose from "mongoose";
 import { Fee, Payment, PaymentOrder, PaymentReversal, PaymentWebhookEvent } from "../models/index.js";
 import { FeeStatus, PaymentMode, generateReceiptNumber } from "@school-erp/shared";
 import { createAuditLog } from "../services/auditLog.js";
+import { applyRazorpaySubscriptionWebhook } from "../services/billing.js";
 import { assertPaymentOrderTransition } from "../services/paymentOrderStateMachine.js";
 import { verifyRazorpayWebhookSignature } from "../services/paymentProvider.js";
 import { AppError } from "../utils/errors.js";
 
 type RawBodyRequest = Request & { rawBody?: Buffer };
+const PROCESSING_LEASE_MS = 5 * 60 * 1000;
 
 function providerEventId(req: Request): string { return req.get("x-razorpay-event-id")?.trim() || ""; }
 function eventEntity(body: any, key: string): any { return body?.payload?.[key]?.entity; }
+function isSubscriptionEvent(eventType: string): boolean { return eventType.startsWith("subscription."); }
 
 async function applyCapturedPayment(body: any, session: mongoose.ClientSession): Promise<mongoose.Types.ObjectId | undefined> {
   const providerOrderId = eventEntity(body, "order")?.id || eventEntity(body, "payment")?.order_id;
@@ -72,6 +75,26 @@ async function applyRefund(body: any, session: mongoose.ClientSession): Promise<
   return payment._id;
 }
 
+async function claimWebhookEvent(provider: string, eventId: string, eventType: string) {
+  const now = new Date();
+  try {
+    return await PaymentWebhookEvent.create({ provider, eventId, eventType, status: "received", processingAt: now });
+  } catch (error: any) {
+    if (error?.code !== 11000) throw error;
+    const existing = await PaymentWebhookEvent.findOne({ provider, eventId });
+    if (!existing) throw error;
+    if (["processed", "ignored"].includes(existing.status)) return null;
+    if (existing.status === "failed" || (existing.status === "received" && (!existing.processingAt || now.getTime() - existing.processingAt.getTime() >= PROCESSING_LEASE_MS))) {
+      return PaymentWebhookEvent.findOneAndUpdate(
+        { _id: existing._id, $or: [{ status: "failed" }, { status: "received", processingAt: { $lte: new Date(now.getTime() - PROCESSING_LEASE_MS) } }, { status: "received", processingAt: null }] },
+        { $set: { status: "received", processingAt: now }, $unset: { errorMessage: 1, processedAt: 1 } },
+        { new: true },
+      );
+    }
+    return null;
+  }
+}
+
 export async function handleRazorpayWebhook(req: RawBodyRequest, res: Response): Promise<void> {
   const signature = req.get("x-razorpay-signature") || "";
   const rawBody = req.rawBody;
@@ -81,43 +104,40 @@ export async function handleRazorpayWebhook(req: RawBodyRequest, res: Response):
   let body: any;
   try { body = JSON.parse(rawBody.toString("utf8")); } catch { res.status(400).json({ message: "Invalid webhook JSON" }); return; }
   const eventType = String(body?.event || "unknown");
-  let event: any;
-  try {
-    event = await PaymentWebhookEvent.create({ provider: "razorpay", eventId, eventType, status: "received" });
-  } catch (error: any) {
-    if (error?.code !== 11000) throw error;
-    const existing = await PaymentWebhookEvent.findOne({ provider: "razorpay", eventId });
-    if (!existing) throw error;
-    if (existing.status === "processed") { res.status(200).json({ received: true, duplicate: true }); return; }
-    if (existing.status === "received") { res.status(200).json({ received: true, duplicate: true, processing: true }); return; }
-    if (existing.status === "failed") {
-      const claimed = await PaymentWebhookEvent.findOneAndUpdate(
-        { _id: existing._id, status: "failed" },
-        { $set: { status: "received", errorMessage: undefined, processedAt: undefined } },
-        { new: true }
-      );
-      if (!claimed) { res.status(200).json({ received: true, duplicate: true, processing: true }); return; }
-      event = claimed;
-    } else { res.status(200).json({ received: true, duplicate: true }); return; }
-  }
+  const event = await claimWebhookEvent("razorpay", eventId, eventType);
+  if (!event) { res.status(200).json({ received: true, duplicate: true }); return; }
 
   const session = await mongoose.startSession();
   try {
     let paymentOrderId: mongoose.Types.ObjectId | undefined;
+    let subscriptionId: mongoose.Types.ObjectId | undefined;
+    const supportedSubscriptionEvent = ["subscription.authenticated", "subscription.activated", "subscription.charged", "subscription.completed", "subscription.updated", "subscription.pending", "subscription.halted", "subscription.paused", "subscription.resumed", "subscription.cancelled"].includes(eventType);
     await session.withTransaction(async () => {
       if (["order.paid", "payment.captured"].includes(eventType)) paymentOrderId = await applyCapturedPayment(body, session);
-      else if (eventType === "refund.processed") await applyRefund(body, session);
+      else if (eventType === "refund.processed") paymentOrderId = await applyRefund(body, session);
       else if (["payment.failed", "order.expired"].includes(eventType)) {
         const providerOrderId = eventEntity(body, "order")?.id || eventEntity(body, "payment")?.order_id;
         if (providerOrderId) {
           const order = await PaymentOrder.findOne({ provider: "razorpay", providerOrderId }).session(session);
           if (order && order.status === "pending") { const target = eventType === "payment.failed" ? "failed" : "expired"; assertPaymentOrderTransition(order.status, target); order.status = target; await order.save({ session }); paymentOrderId = order._id; }
         }
+      } else if (supportedSubscriptionEvent) {
+        subscriptionId = await applyRazorpaySubscriptionWebhook(body, eventType, session);
       }
-      event.status = "processed"; event.processedAt = new Date(); event.paymentOrderId = paymentOrderId; await event.save({ session });
+
+      event.status = supportedSubscriptionEvent || ["order.paid", "payment.captured", "refund.processed", "payment.failed", "order.expired"].includes(eventType) ? "processed" : "ignored";
+      event.processedAt = new Date();
+      event.processingAt = undefined;
+      event.paymentOrderId = paymentOrderId;
+      event.subscriptionId = subscriptionId;
+      await event.save({ session });
     });
     res.status(200).json({ received: true });
   } catch (error: any) {
-    event.status = "failed"; event.errorMessage = String(error?.message || "Webhook processing failed").slice(0, 500); await event.save().catch(() => undefined); throw error;
+    event.status = "failed";
+    event.processingAt = undefined;
+    event.errorMessage = String(error?.message || "Webhook processing failed").slice(0, 500);
+    await event.save().catch(() => undefined);
+    throw error;
   } finally { await session.endSession(); }
 }
