@@ -53,13 +53,14 @@ export async function setModuleEntitlement(schoolId: string, moduleId: string, e
 
   const session = await mongoose.startSession();
   try {
-    let entitlement: { enabled: boolean } | null = null;
+    let resultEnabled = enabled;
     await session.withTransaction(async () => {
-      entitlement = await ModuleEntitlement.findOneAndUpdate(
+      const entitlement = await ModuleEntitlement.findOneAndUpdate(
         { schoolId, moduleId },
         { $set: { enabled } },
         { upsert: true, new: true, setDefaultsOnInsert: true, session },
       ).select("enabled -_id").lean();
+      resultEnabled = entitlement?.enabled ?? enabled;
       await createAuditLog({
         userId: actorUserId,
         schoolId,
@@ -72,7 +73,7 @@ export async function setModuleEntitlement(schoolId: string, moduleId: string, e
         session,
       });
     });
-    return { moduleId, enabled: entitlement?.enabled ?? enabled };
+    return { moduleId, enabled: resultEnabled };
   } finally {
     await session.endSession();
   }
