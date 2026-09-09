@@ -16,15 +16,17 @@ const transitions: Record<SubscriptionStatus, Partial<Record<SubscriptionEvent, 
 
 type SubscriptionEvent = "activate" | "mark_past_due" | "suspend" | "cancel" | "expire" | "recover";
 
+export function getNextSubscriptionStatus(status: SubscriptionStatus, event: SubscriptionEvent): SubscriptionStatus {
+  const nextStatus = transitions[status][event];
+  if (!nextStatus) throw AppError.conflict(`Invalid subscription transition: ${status} -> ${event}`);
+  return nextStatus;
+}
+
 function addBillingInterval(date: Date, interval: "month" | "year"): Date {
   const result = new Date(date);
   if (interval === "month") result.setUTCMonth(result.getUTCMonth() + 1);
   else result.setUTCFullYear(result.getUTCFullYear() + 1);
   return result;
-}
-
-function invalidTransition(status: SubscriptionStatus, event: SubscriptionEvent): never {
-  throw AppError.conflict(`Invalid subscription transition: ${status} -> ${event}`);
 }
 
 export async function createProductVersion(input: CreateProductVersionInput, actorUserId: string, ip?: string, userAgent?: string) {
@@ -48,7 +50,7 @@ export async function createPlanVersion(input: CreatePlanVersionInput, actorUser
 export async function createSubscription(schoolId: string, planId: string, actorUserId: string, startedAt = new Date(), ip?: string, userAgent?: string) {
   const session = await mongoose.startSession();
   try {
-    let created: ReturnType<typeof Subscription.prototype.toObject> | undefined;
+    let created: Record<string, unknown> | undefined;
     await session.withTransaction(async () => {
       const school = await School.findById(schoolId).session(session);
       if (!school) throw AppError.notFound("School not found");
@@ -76,8 +78,7 @@ export async function transitionSubscription(schoolId: string, event: Subscripti
     await session.withTransaction(async () => {
       const current = await Subscription.findOne({ schoolId }).session(session);
       if (!current) throw AppError.notFound("Subscription not found");
-      const nextStatus = transitions[current.status][event];
-      if (!nextStatus) invalidTransition(current.status, event);
+      const nextStatus = getNextSubscriptionStatus(current.status, event);
       const updated = await Subscription.findOneAndUpdate({ _id: current._id, stateRevision: current.stateRevision }, { $set: { status: nextStatus, ...(nextStatus === "cancelled" ? { cancelledAt: new Date() } : {}), ...(nextStatus === "expired" ? { cancelledAt: current.cancelledAt ?? new Date() } : {}) }, $inc: { stateRevision: 1 } }, { new: true, session });
       if (!updated) throw AppError.conflict("Subscription changed concurrently; retry the transition");
       await createAuditLog({ userId: actorUserId, schoolId, action: "SUBSCRIPTION_STATE_CHANGE", entity: "Subscription", entityId: updated._id.toString(), before: { status: current.status, stateRevision: current.stateRevision }, after: { status: updated.status, stateRevision: updated.stateRevision, event }, ip, userAgent, session });
