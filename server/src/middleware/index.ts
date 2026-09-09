@@ -7,3 +7,4 @@ export * from "./upload.js";
 export * from "./paymentOwnership.js";
 export * from "./moduleEntitlement.js";
 export * from "./subscriptionLifecycle.js";
+export * from "./tenantUsage.js";

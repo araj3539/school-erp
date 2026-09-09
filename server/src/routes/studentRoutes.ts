@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
+import { authenticate, requireAnyPermission, requirePermission, validate, reserveTenantUsage } from "../middleware/index.js";
 import { upload, validateStudentDocumentUpload } from "../middleware/upload.js";
 import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument, deleteStudentDocument } from "../controllers/studentController.js";
 import { bulkImportStudentsHardened, exportStudentsHardened } from "../controllers/studentBulkOperationsController.js";
@@ -30,7 +30,7 @@ router.post("/:id/document-recoveries/:recoveryId/restore", requirePermission("s
 
 router.get("/:id", parentOnly, requirePermission("students:read:child"), validate(IdParamSchema, "params"), getParentStudentById);
 router.get("/:id", requireAnyPermission("students:read", "students:read:own"), validate(IdParamSchema, "params"), getStudentById);
-router.post("/", requirePermission("students:write"), validate(CreateStudentSchema), createStudent);
+router.post("/", requirePermission("students:write"), validate(CreateStudentSchema), reserveTenantUsage("students"), createStudent);
 router.put("/:id", requirePermission("students:write"), validate(IdParamSchema, "params"), validate(UpdateStudentSchema), updateStudent);
 router.delete("/:id", requirePermission("students:delete"), validate(IdParamSchema, "params"), deleteStudent);
 router.post("/bulk-import", requirePermission("students:write"), upload.single("file"), bulkImportStudentsHardened);
