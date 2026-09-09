@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { ModuleEntitlement, SaaSPlan, SaaSProduct, School, Subscription } from "../models/index.js";
 import { createAuditLog } from "./auditLog.js";
+import { recordSubscriptionCharge, createInvoiceForSubscription } from "./saasInvoice.js";
 import { AppError } from "../utils/errors.js";
 import type { CreatePlanVersionInput, CreateProductVersionInput } from "../validators/billingValidators.js";
 import type { SubscriptionStatus } from "../models/Subscription.js";
@@ -130,6 +131,7 @@ export async function applyRazorpaySubscriptionWebhook(
   if (!plan) throw AppError.notFound("Active SaaS plan for provider subscription was not found");
   await subscription.save({ session });
   await syncSubscriptionEntitlements(subscription, plan, session);
+  if (eventName === "charged") await recordSubscriptionCharge(body, session);
 
   await createAuditLog({
     actorType: "system",
@@ -178,6 +180,7 @@ export async function createSubscription(schoolId: string, planId: string, actor
       const status: SubscriptionStatus = plan.trialDays > 0 ? "trialing" : "active";
       const subscription = new Subscription({ schoolId, productId: plan.productId, planId: plan._id, planCode: plan.code, planVersion: plan.version, status, currency: plan.currency, amountMinor: plan.amountMinor, billingInterval: plan.billingInterval, startedAt, trialEndsAt, currentPeriodStart: startedAt, currentPeriodEnd: addBillingInterval(startedAt, plan.billingInterval), stateRevision: 0 });
       await subscription.save({ session });
+      await createInvoiceForSubscription(subscription._id, session);
       await createAuditLog({ userId: actorUserId, schoolId, action: "CREATE", entity: "Subscription", entityId: subscription._id.toString(), after: { planId: plan._id.toString(), planCode: plan.code, planVersion: plan.version, status }, ip, userAgent, session });
       created = subscription.toObject() as unknown as Record<string, unknown>;
     });
