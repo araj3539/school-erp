@@ -52,6 +52,10 @@ export async function provisionTenant(input: TenantOnboardingInput, actorUserId:
     return resultFromProvisioning(existing, true);
   }
 
+  if (await School.exists({ email: input.email })) {
+    throw Object.assign(new Error("Tenant email is already registered"), { statusCode: 409 });
+  }
+
   const session = await mongoose.startSession();
   try {
     let provisioning: { schoolId: mongoose.Types.ObjectId; academicYearId: mongoose.Types.ObjectId; adminUserId: mongoose.Types.ObjectId } | undefined;
@@ -128,6 +132,7 @@ export async function provisionTenant(input: TenantOnboardingInput, actorUserId:
         if (replay.requestFingerprint !== requestFingerprint) throw Object.assign(new Error("Idempotency key was already used with different tenant data"), { statusCode: 409 });
         return resultFromProvisioning(replay, true);
       }
+      throw Object.assign(new Error("Tenant identity is already registered"), { statusCode: 409 });
     }
     throw error;
   } finally {
