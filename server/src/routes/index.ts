@@ -22,6 +22,7 @@ import portalRoutes from "./portalRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
 import platformTenantRoutes from "./platformTenantRoutes.js";
 import moduleEntitlementRoutes from "./moduleEntitlementRoutes.js";
+import billingRoutes from "./billingRoutes.js";
 import { requireModule } from "../middleware/moduleEntitlement.js";
 
 const router = Router();
@@ -48,6 +49,7 @@ router.use("/timetable", requireModule("timetable"), timetableRoutes);
 router.use("/portal", requireModule("portal"), portalRoutes);
 router.use("/notifications", requireModule("notifications"), notificationRoutes);
 router.use("/platform", platformTenantRoutes);
+router.use("/platform/billing", billingRoutes);
 router.get("/health", (req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
 
 export default router;
