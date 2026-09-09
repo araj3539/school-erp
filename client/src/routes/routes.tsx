@@ -33,12 +33,12 @@ export const router = createBrowserRouter([{ element: <AuthLayout />, errorEleme
 { path: "/notices", element: mod("notices", role(adminRoles, only("notices:read", <NoticesPage />))) },
 { path: "/timetable", element: mod("timetable", role(adminRoles, only("timetable:read", <TimetablePage />))) },
 { path: "/fees", element: mod("fees", role(adminRoles, only("fees:read", <FeesPage />))) },
-{ path: "/operations", element: any(["staff:read", "library:read", "transport:read", "inventory:read"], mod("staff", <OperationsPage />)) },
+{ path: "/operations", element: any(["staff:read", "library:read", "transport:read", "inventory:read"], <OperationsPage />) },
 { path: "/staff", element: mod("staff", only("staff:read", <StaffPage />)) },
 { path: "/library", element: mod("library", only("library:read", <LibraryPage />)) },
 { path: "/transport", element: mod("transport", only("transport:read", <TransportPage />)) },
 { path: "/inventory", element: mod("inventory", only("inventory:read", <InventoryPage />)) },
-{ path: "/reports", element: mod("fees", only("reports:read", <ReportsPage />)) },
+{ path: "/reports", element: mod("reports", only("reports:read", <ReportsPage />)) },
 { path: "/settings", element: only("settings:read", <SettingsPage />) },
 { path: "*", element: <NotFoundPage /> }
 ] }]);
