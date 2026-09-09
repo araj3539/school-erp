@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { createAuditLog } from "../services/auditLog.js";
 import { getTenantUsage, setTenantLimit } from "../services/tenantUsage.js";
 
 export async function getPlatformTenantUsage(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -13,6 +14,7 @@ export async function setPlatformTenantLimit(req: Request, res: Response, next: 
     const { schoolId, dimension } = req.validatedParams as { schoolId: string; dimension: "students" | "school_users" | "storage_bytes" };
     const { limit } = req.validatedBody as { limit: number };
     const data = await setTenantLimit(schoolId, dimension, limit);
+    await createAuditLog({ userId: req.user!.userId, schoolId, action: "TENANT_USAGE_LIMIT_CHANGE", entity: "TenantLimit", entityId: data!._id.toString(), after: { dimension, limit } });
     res.json({ data });
   } catch (error) { next(error); }
 }
