@@ -14,8 +14,15 @@ api.interceptors.response.use((response) => response, async (error) => {
   const isAuthRequest = ["/auth/login", "/auth/refresh", "/auth/logout"].includes(requestUrl);
   if (error.response?.status === 401 && !originalRequest?._retry && !isAuthRequest) {
     originalRequest._retry = true;
-    try { await api.post("/auth/refresh"); return api(originalRequest); }
-    catch { useAuthStore.getState().logout(); return Promise.reject(error); }
+    try {
+      await api.post("/auth/refresh");
+      return api(originalRequest);
+    } catch {
+      // A refresh can be racing with a successful login. Only clear auth when
+      // the store is still unauthenticated; never destroy the newer session.
+      if (!useAuthStore.getState().isAuthenticated) useAuthStore.getState().logout();
+      return Promise.reject(error);
+    }
   }
   return Promise.reject(error);
 });
