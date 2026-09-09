@@ -4,6 +4,8 @@ export { School } from "./School.js";
 export type { ISchool, TenantStatus } from "./School.js";
 export { AcademicYear } from "./AcademicYear.js";
 export type { IAcademicYear } from "./AcademicYear.js";
+export { TenantProvisioning } from "./TenantProvisioning.js";
+export type { ITenantProvisioning, TenantProvisioningStatus } from "./TenantProvisioning.js";
 export { Student } from "./Student.js";
 export type { IStudent, IStudentDocument } from "./Student.js";
 export { Teacher } from "./Teacher.js";

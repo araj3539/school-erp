@@ -11,6 +11,7 @@
     "seed:demo": "tsx src/scripts/seedDemo.ts",
     "seed:e2e": "node scripts/seed-e2e-fixtures.mjs",
     "migrate:tenant-lifecycle": "tsx src/scripts/migrateTenantLifecycle.ts",
+    "migrate:tenant-onboarding": "tsx src/scripts/migrateTenantOnboarding.ts",
     "report:orphaned-documents": "tsx src/scripts/reportOrphanedStudentDocuments.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -65,7 +66,6 @@
     "@types/node": "^22.0.0",
     "@types/pdfkit": "^0.13.0",
     "eslint": "^9.0.0",
-    "typescript": "^5.5.0",
     "vitest": "^3.2.6"
   }
 }
