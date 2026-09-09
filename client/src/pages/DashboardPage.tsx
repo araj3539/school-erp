@@ -4,7 +4,7 @@ import { Badge } from "../components/ui/Badge";
 import api from "../lib/api";
 import { cn, formatCurrency } from "../utils";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Users, UserCheck, Building2, DollarSign, Calendar, TrendingUp, ArrowUpRight, Cake } from "lucide-react";
+import { Users, UserCheck, Building2, DollarSign, Calendar, TrendingUp, Cake } from "lucide-react";
 
 interface StatCardProps { title: string; value: string | number; icon: React.ReactNode; trend?: string; trendUp?: boolean; tone: string; isLoading?: boolean; }
 function StatCard({ title, value, icon, trend, trendUp, tone, isLoading }: StatCardProps) {
