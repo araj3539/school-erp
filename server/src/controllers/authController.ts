@@ -21,12 +21,13 @@ async function getTenantSchools() {
   const schools = await School.find({}).select("_id name code").sort({ name: 1 }).lean();
   return schools.map((school: any) => ({ id: school._id.toString(), name: school.name, code: school.code }));
 }
+function isPlatformAccount(role: UserRole) { return role === UserRole.SUPER_ADMIN || role === UserRole.SUPPORT_ADMIN; }
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.user?.schoolId) throw AppError.forbidden("Only school administrators can register school users");
     const data = CreateUserSchema.parse({ ...req.body, schoolId: req.user.schoolId });
-    if (data.role === UserRole.SUPER_ADMIN) throw AppError.forbidden("Super admin accounts cannot be created from a school context");
+    if (data.role === UserRole.SUPER_ADMIN || data.role === UserRole.SUPPORT_ADMIN) throw AppError.forbidden("Platform accounts cannot be created from a school context");
     if (await User.findOne({ email: data.email, schoolId: data.schoolId })) throw AppError.conflict("Email already registered");
     const user = await User.create({ ...data, passwordHash: await hashPassword(data.password) });
     await createAuditLog({ schoolId: user.schoolId!.toString(), userId: user._id.toString(), action: "CREATE", entity: "User", entityId: user._id.toString(), after: { email: user.email, role: user.role } });
@@ -43,7 +44,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
     let user: (IUser & { passwordHash: string }) | null;
     if (!schoolCode) {
-      user = await User.findOne({ email: credentials.email, role: UserRole.SUPER_ADMIN, schoolId: { $exists: false } }).select("+passwordHash") as (IUser & { passwordHash: string }) | null;
+      user = await User.findOne({ email: credentials.email, role: { $in: [UserRole.SUPER_ADMIN, UserRole.SUPPORT_ADMIN] }, schoolId: { $exists: false } }).select("+passwordHash") as (IUser & { passwordHash: string }) | null;
     } else {
       let school = await School.findOne({ code: schoolCode }).select("_id code");
       if (!school) {
@@ -58,7 +59,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     if (!user || !user.isActive || !(await comparePassword(credentials.password, user.passwordHash))) {
       res.status(401).json({ error: "Invalid credentials", code: "UNAUTHORIZED" }); return;
     }
-    if (user.role === UserRole.SUPER_ADMIN ? Boolean(user.schoolId) : !user.schoolId) {
+    if (isPlatformAccount(user.role) ? Boolean(user.schoolId) : !user.schoolId) {
       res.status(401).json({ error: "Invalid account configuration", code: "UNAUTHORIZED" }); return;
     }
 
@@ -76,8 +77,8 @@ export async function refresh(req: Request, res: Response, next: NextFunction) {
     const refreshToken = req.cookies?.refresh_token ?? RefreshTokenSchema.parse(req.body ?? {}).refreshToken;
     const payload = verifyRefreshToken(refreshToken);
     const expectedVersion = payload.refreshTokenVersion ?? 0;
-    const filter = payload.role === UserRole.SUPER_ADMIN
-      ? { _id: payload.userId, role: UserRole.SUPER_ADMIN, schoolId: { $exists: false }, refreshTokenVersion: expectedVersion, isActive: true }
+    const filter = isPlatformAccount(payload.role)
+      ? { _id: payload.userId, role: payload.role, schoolId: { $exists: false }, refreshTokenVersion: expectedVersion, isActive: true }
       : { _id: payload.userId, schoolId: payload.schoolId, role: { $ne: UserRole.SUPER_ADMIN }, refreshTokenVersion: expectedVersion, isActive: true };
     const user = await User.findOneAndUpdate(filter, { $inc: { refreshTokenVersion: 1 } }, { new: true });
     if (!user) throw AppError.unauthorized("Refresh session is invalid or has already been rotated");
@@ -100,8 +101,8 @@ export async function logout(req: Request, res: Response, next: NextFunction) {
 export async function me(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw AppError.unauthorized();
-    const filter = req.user.role === UserRole.SUPER_ADMIN
-      ? { _id: req.user.userId, role: UserRole.SUPER_ADMIN, schoolId: { $exists: false } }
+    const filter = isPlatformAccount(req.user.role)
+      ? { _id: req.user.userId, role: req.user.role, schoolId: { $exists: false } }
       : { _id: req.user.userId, schoolId: req.user.schoolId, role: { $ne: UserRole.SUPER_ADMIN } };
     const user = await User.findOne(filter).populate("schoolId");
     if (!user) throw AppError.notFound("User not found");
@@ -114,8 +115,8 @@ export async function changePassword(req: Request, res: Response, next: NextFunc
   try {
     if (!req.user) throw AppError.unauthorized();
     const data = ChangePasswordSchema.parse(req.body);
-    const filter = req.user.role === UserRole.SUPER_ADMIN
-      ? { _id: req.user.userId, role: UserRole.SUPER_ADMIN, schoolId: { $exists: false } }
+    const filter = isPlatformAccount(req.user.role)
+      ? { _id: req.user.userId, role: req.user.role, schoolId: { $exists: false } }
       : { _id: req.user.userId, schoolId: req.user.schoolId, role: { $ne: UserRole.SUPER_ADMIN } };
     const user = await User.findOne(filter).select("+passwordHash");
     if (!user) throw AppError.notFound("User not found");
