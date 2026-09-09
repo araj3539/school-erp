@@ -18,7 +18,7 @@ export async function updatePlatformTenantLifecycle(req: Request, res: Response,
   try {
     const tenantId = (req.validatedParams as { id: string }).id;
     const { status, reason } = req.body as { status: "active" | "suspended" | "archived"; reason: string };
-    let result: Record<string, unknown> | undefined;
+    let result: ReturnType<typeof School.prototype.toObject> | undefined;
     let idempotentReplay = false;
 
     await session.withTransaction(async () => {
@@ -46,7 +46,7 @@ export async function updatePlatformTenantLifecycle(req: Request, res: Response,
         userAgent: req.get("user-agent"),
         session,
       });
-      result = school.toObject() as Record<string, unknown>;
+      result = school.toObject();
     });
 
     res.json({ data: result, idempotentReplay });
