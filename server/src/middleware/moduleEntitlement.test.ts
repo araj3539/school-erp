@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UserRole } from "@school-erp/shared";
 
 const { isModuleEnabled } = vi.hoisted(() => ({ isModuleEnabled: vi.fn() }));
@@ -17,6 +17,8 @@ function request(role: UserRole, schoolId?: string) {
 }
 
 describe("requireModule", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("allows a tenant when the server entitlement is enabled", async () => {
     isModuleEnabled.mockResolvedValueOnce(true);
     const next = vi.fn();
