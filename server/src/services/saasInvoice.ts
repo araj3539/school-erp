@@ -16,7 +16,7 @@ function providerDate(value: unknown, fallback: Date): Date {
 function invoiceSnapshot(subscription: any, plan: any, invoiceId: mongoose.Types.ObjectId, issuedAt: Date, periodStart: Date, periodEnd: Date) {
   const amountMinor = Number(subscription.amountMinor);
   if (!Number.isInteger(amountMinor) || amountMinor < 0) throw AppError.conflict("Subscription has an invalid authoritative invoice amount");
-  const invoice = new SaaSInvoice({
+  return new SaaSInvoice({
     _id: invoiceId,
     schoolId: subscription.schoolId,
     subscriptionId: subscription._id,
@@ -35,7 +35,6 @@ function invoiceSnapshot(subscription: any, plan: any, invoiceId: mongoose.Types
     provider: subscription.provider,
     providerSubscriptionId: subscription.providerSubscriptionId,
   });
-  return invoice;
 }
 
 export async function createInvoiceForSubscription(subscriptionId: mongoose.Types.ObjectId, session: mongoose.ClientSession): Promise<ISaaSInvoice | undefined> {
@@ -118,8 +117,16 @@ export async function reconcileOverdueInvoices(schoolId: string): Promise<void> 
   const now = new Date();
   const invoices = await SaaSInvoice.find({ schoolId, status: "issued", dueAt: { $lt: now } }).select("_id status dueAt").lean();
   for (const invoice of invoices) {
-    const updated = await SaaSInvoice.findOneAndUpdate({ _id: invoice._id, schoolId, status: "issued", dueAt: { $lt: now } }, { $set: { status: "overdue" } }, { new: true });
-    if (updated) await createAuditLog({ actorType: "system", schoolId, action: "INVOICE_OVERDUE", entity: "SaaSInvoice", entityId: updated._id.toString(), before: { status: "issued" }, after: { status: "overdue" } });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const updated = await SaaSInvoice.findOneAndUpdate({ _id: invoice._id, schoolId, status: "issued", dueAt: { $lt: now } }, { $set: { status: "overdue" } }, { new: true, session });
+        if (!updated) return;
+        await createAuditLog({ actorType: "system", schoolId, action: "INVOICE_OVERDUE", entity: "SaaSInvoice", entityId: updated._id.toString(), before: { status: "issued" }, after: { status: "overdue" }, session });
+      });
+    } finally {
+      await session.endSession();
+    }
   }
 }
 
@@ -137,14 +144,23 @@ export async function getBillingHistory(schoolId: string, page = 1, limit = 20, 
 
 export async function voidInvoice(invoiceId: string, actorUserId: string, ip?: string, userAgent?: string) {
   if (!mongoose.isValidObjectId(invoiceId)) throw AppError.badRequest("Invalid invoice id");
-  const invoice = await SaaSInvoice.findById(invoiceId);
-  if (!invoice) throw AppError.notFound("Invoice not found");
-  if (invoice.status === "paid") throw AppError.conflict("Paid invoices cannot be voided");
-  if (invoice.status === "void") return invoice.toObject();
-  const before = { status: invoice.status };
-  invoice.status = "void";
-  invoice.voidedAt = new Date();
-  await invoice.save();
-  await createAuditLog({ userId: actorUserId, schoolId: invoice.schoolId.toString(), action: "INVOICE_VOID", entity: "SaaSInvoice", entityId: invoice._id.toString(), before, after: { status: invoice.status, voidedAt: invoice.voidedAt }, ip, userAgent });
-  return invoice.toObject();
+  const session = await mongoose.startSession();
+  try {
+    let result: Record<string, unknown> | undefined;
+    await session.withTransaction(async () => {
+      const invoice = await SaaSInvoice.findById(invoiceId).session(session);
+      if (!invoice) throw AppError.notFound("Invoice not found");
+      if (invoice.status === "paid") throw AppError.conflict("Paid invoices cannot be voided");
+      if (invoice.status === "void") { result = invoice.toObject(); return; }
+      const before = { status: invoice.status };
+      invoice.status = "void";
+      invoice.voidedAt = new Date();
+      await invoice.save({ session });
+      await createAuditLog({ userId: actorUserId, schoolId: invoice.schoolId.toString(), action: "INVOICE_VOID", entity: "SaaSInvoice", entityId: invoice._id.toString(), before, after: { status: invoice.status, voidedAt: invoice.voidedAt }, ip, userAgent, session });
+      result = invoice.toObject();
+    });
+    return result!;
+  } finally {
+    await session.endSession();
+  }
 }
