@@ -18,10 +18,10 @@ function getAccessToken(req: Request): string | undefined {
   return scheme?.toLowerCase() === "bearer" && token ? token : undefined;
 }
 function validatePayload(payload: AuthPayload): boolean {
-  return payload.role === UserRole.SUPER_ADMIN ? !payload.schoolId : Boolean(payload.schoolId);
+  return (payload.role === UserRole.SUPER_ADMIN || payload.role === UserRole.SUPPORT_ADMIN) ? !payload.schoolId : Boolean(payload.schoolId);
 }
 async function resolveRequestContext(req: Request, payload: AuthPayload): Promise<AuthPayload> {
-  if (payload.role !== UserRole.SUPER_ADMIN) return payload;
+  if (payload.role !== UserRole.SUPER_ADMIN && payload.role !== UserRole.SUPPORT_ADMIN) return payload;
   const selectedSchoolId = req.get("X-School-Id")?.trim();
   if (!selectedSchoolId) return payload;
   if (!mongoose.isValidObjectId(selectedSchoolId)) throw new Error("INVALID_SELECTED_SCHOOL");
@@ -81,6 +81,18 @@ export function requirePlatformRole(req: Request, res: Response, next: NextFunct
   if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
   if (req.user.role !== UserRole.SUPER_ADMIN || req.user.schoolId) {
     res.status(403).json({ error: "Platform administrator context required" }); return;
+  }
+  next();
+}
+
+/** Support routes require a dedicated support identity and an explicit tenant selected by X-School-Id. */
+export function requireSupportRole(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (req.user.role !== UserRole.SUPPORT_ADMIN) {
+    res.status(403).json({ error: "Support administrator context required" }); return;
+  }
+  if (!req.user.schoolId) {
+    res.status(400).json({ error: "Explicit tenant context required" }); return;
   }
   next();
 }

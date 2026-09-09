@@ -1,4 +1,4 @@
-export enum UserRole { SUPER_ADMIN = "super_admin", PRINCIPAL = "principal", ACCOUNTANT = "accountant", TEACHER = "teacher", STUDENT = "student", PARENT = "parent" }
+export enum UserRole { SUPER_ADMIN = "super_admin", PRINCIPAL = "principal", ACCOUNTANT = "accountant", TEACHER = "teacher", STUDENT = "student", PARENT = "parent", SUPPORT_ADMIN = "support_admin" }
 export enum UserStatus { ACTIVE = "active", INACTIVE = "inactive", SUSPENDED = "suspended" }
 export enum StudentStatus { ACTIVE = "active", LEFT = "left", GRADUATED = "graduated", TRANSFERRED = "transferred" }
 export enum TeacherStatus { ACTIVE = "active", INACTIVE = "inactive", ON_LEAVE = "on_leave" }
@@ -13,6 +13,7 @@ export enum ExamStatus { DRAFT = "draft", PUBLISHED = "published" }
 export enum ExamResultStatus { DRAFT = "draft", PUBLISHED = "published" }
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.SUPER_ADMIN]: ["*"],
+  [UserRole.SUPPORT_ADMIN]: ["support:read"],
   [UserRole.PRINCIPAL]: ["students:read", "students:write", "students:delete", "teachers:read", "teachers:write", "teachers:delete", "staff:read", "staff:write", "staff:delete", "library:read", "library:write", "library:delete", "library:circulate", "transport:read", "transport:write", "transport:delete", "transport:allocate", "inventory:read", "inventory:write", "inventory:delete", "classes:read", "classes:write", "classes:delete", "attendance:read", "attendance:write", "fees:read", "fees:write", "fees:delete", "payments:read", "payments:reverse", "reports:read", "reports:export", "settings:read", "settings:write", "users:read", "users:write", "audit:read", "exams:read", "exams:write", "exams:publish", "marks:read", "marks:write", "marks:correct", "results:read", "results:publish", "homework:read", "homework:write", "notices:read", "notices:write", "timetable:read", "timetable:write"],
   [UserRole.ACCOUNTANT]: ["staff:read", "library:read", "transport:read", "inventory:read", "fees:read", "fees:write", "payments:read", "payments:write", "payments:reverse", "expenses:read", "expenses:write", "salary:read", "salary:write", "reports:read", "reports:export", "notices:read", "timetable:read"],
   [UserRole.TEACHER]: ["attendance:read", "attendance:write", "homework:read", "homework:write", "marks:read", "marks:write", "students:read", "notices:read", "timetable:read:own"],

@@ -26,10 +26,10 @@ const UserSchema = new Schema<IUser>({
 }, { timestamps: true });
 
 UserSchema.pre("validate", function (next) {
-  if (this.role === UserRole.SUPER_ADMIN) {
+  if (this.role === UserRole.SUPER_ADMIN || this.role === UserRole.SUPPORT_ADMIN) {
     this.schoolId = undefined;
   } else if (!this.schoolId) {
-    this.invalidate("schoolId", "School is required for non-super-admin users");
+    this.invalidate("schoolId", "School is required for school-scoped users");
   }
   next();
 });
