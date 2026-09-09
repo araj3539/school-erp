@@ -3,7 +3,8 @@ import { AuditLog, IAuditLog, User } from "../models/index.js";
 
 export async function createAuditLog(data: {
   schoolId?: string;
-  userId: string;
+  userId?: string;
+  actorType?: "user" | "system";
   action: string;
   entity: string;
   entityId: string;
@@ -13,16 +14,17 @@ export async function createAuditLog(data: {
   userAgent?: string;
   session?: ClientSession;
 }): Promise<void> {
-  const { session, schoolId, ...auditData } = data;
+  const { session, schoolId, actorType = "user", ...auditData } = data;
   try {
+    if (actorType === "user" && !auditData.userId) throw new Error("User audit entries require userId");
     let resolvedSchoolId = schoolId;
-    if (!resolvedSchoolId) {
-      const userQuery = User.findById(data.userId).select("schoolId role");
+    if (!resolvedSchoolId && auditData.userId) {
+      const userQuery = User.findById(auditData.userId).select("schoolId role");
       if (session) userQuery.session(session);
       const user = await userQuery.lean();
       if (user?.schoolId) resolvedSchoolId = user.schoolId.toString();
     }
-    const record = { ...auditData, ...(resolvedSchoolId ? { schoolId: resolvedSchoolId } : {}) };
+    const record = { ...auditData, actorType, ...(resolvedSchoolId ? { schoolId: resolvedSchoolId } : {}) };
     if (session) await AuditLog.create([record], { session });
     else await AuditLog.create(record);
   } catch (error) {
