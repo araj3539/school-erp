@@ -1,24 +1,22 @@
 import mongoose from "mongoose";
-import { Subscription } from "../models/Subscription.js";
+import { ISubscription, Subscription } from "../models/Subscription.js";
 import { AppError } from "../utils/errors.js";
 import { createAuditLog } from "./auditLog.js";
 import { getNextSubscriptionStatus, transitionSubscription } from "./billing.js";
 
 export type SubscriptionAccess = "full" | "grace" | "none";
+type LifecycleInput = Pick<ISubscription, "status" | "trialEndsAt" | "currentPeriodEnd" | "cancelAt">;
 
 export type SubscriptionLifecycleSnapshot = {
-  status: Subscription["status"];
+  status: ISubscription["status"];
   access: SubscriptionAccess;
   mutationsAllowed: boolean;
   cancellationScheduled: boolean;
-  effectiveStatus: Subscription["status"];
+  effectiveStatus: ISubscription["status"];
 };
 
 /** Pure policy evaluation. It never trusts client state and never mutates data. */
-export function evaluateSubscriptionLifecycle(
-  subscription: Pick<Subscription, "status" | "trialEndsAt" | "currentPeriodEnd" | "cancelAt">,
-  now = new Date(),
-): SubscriptionLifecycleSnapshot {
+export function evaluateSubscriptionLifecycle(subscription: LifecycleInput, now = new Date()): SubscriptionLifecycleSnapshot {
   let effectiveStatus = subscription.status;
   if (subscription.status === "trialing" && subscription.trialEndsAt && subscription.trialEndsAt <= now) effectiveStatus = "expired";
   if (subscription.status === "active" && subscription.cancelAt && subscription.cancelAt <= now) effectiveStatus = "cancelled";
@@ -43,7 +41,7 @@ export async function reconcileSubscriptionLifecycle(schoolId: string, actorUser
   const event = policy.effectiveStatus === "expired" ? "expire" : policy.effectiveStatus === "cancelled" ? "cancel" : "suspend";
   getNextSubscriptionStatus(subscription.status, event);
   const updated = await transitionSubscription(schoolId, event, actorUserId);
-  return { subscription: updated, policy: evaluateSubscriptionLifecycle(updated as Subscription, now) };
+  return { subscription: updated, policy: evaluateSubscriptionLifecycle(updated as ISubscription, now) };
 }
 
 export async function scheduleSubscriptionCancellation(schoolId: string, actorUserId: string, cancelAt?: Date, ip?: string, userAgent?: string) {
@@ -62,9 +60,7 @@ export async function scheduleSubscriptionCancellation(schoolId: string, actorUs
       result = subscription.toObject() as unknown as Record<string, unknown>;
     });
     return result!;
-  } finally {
-    await session.endSession();
-  }
+  } finally { await session.endSession(); }
 }
 
 export async function undoSubscriptionCancellation(schoolId: string, actorUserId: string, ip?: string, userAgent?: string) {
@@ -83,7 +79,5 @@ export async function undoSubscriptionCancellation(schoolId: string, actorUserId
       result = subscription.toObject() as unknown as Record<string, unknown>;
     });
     return result!;
-  } finally {
-    await session.endSession();
-  }
+  } finally { await session.endSession(); }
 }
