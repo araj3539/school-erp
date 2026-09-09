@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { UserRole } from "@school-erp/shared";
 
-const isModuleEnabled = vi.fn();
+const { isModuleEnabled } = vi.hoisted(() => ({ isModuleEnabled: vi.fn() }));
 vi.mock("../services/moduleEntitlement.js", () => ({ isModuleEnabled }));
 
 import { requireModule } from "./moduleEntitlement.js";
