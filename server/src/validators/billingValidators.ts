@@ -36,6 +36,7 @@ export const TransitionSubscriptionSchema = z.object({
   event: z.enum(["activate", "mark_past_due", "suspend", "cancel", "expire", "recover"]),
 });
 
+export const ScheduleCancellationSchema = z.object({ cancelAt: z.coerce.date().optional() });
 export const ChangeSubscriptionPlanSchema = z.object({ planId: ObjectIdSchema });
 export const SchoolIdParamSchema = z.object({ schoolId: ObjectIdSchema });
 
