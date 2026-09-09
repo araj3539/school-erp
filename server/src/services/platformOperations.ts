@@ -1,6 +1,6 @@
 import { AuditLog, School, Subscription, TenantUsage } from "../models/index.js";
 
-const HIGH_RISK_ACTION_PATTERN = /^(TENANT_LIFECYCLE_CHANGE|MODULE_ENTITLEMENT_UPDATE|SUBSCRIPTION_|SAAS_INVOICE_|TENANT_USAGE_LIMIT_CHANGE|SUPPORT_)/;
+const HIGH_RISK_ACTION_PATTERN = /^(TENANT_LIFECYCLE_CHANGE|MODULE_ENTITLEMENT_UPDATE|SUBSCRIPTION_|INVOICE_|TENANT_USAGE_LIMIT_CHANGE|SUPPORT_)/;
 
 export async function getPlatformOperationsOverview() {
   const [tenantStatus, subscriptionStatus, usage, recentAudit] = await Promise.all([
