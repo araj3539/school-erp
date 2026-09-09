@@ -38,6 +38,16 @@ describe("authentication tenant context", () => {
     expect(req.user).toMatchObject({ role: UserRole.PRINCIPAL, schoolId: "66c000000000000000000001" });
   });
 
+  it("reuses an existing authenticated context without revalidating it", async () => {
+    const req = createRequest();
+    req.user = { userId: "user-1", email: "principal@school.com", role: UserRole.PRINCIPAL, schoolId: "66c000000000000000000001" };
+    const res = createResponse(); await authenticate(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+    expect(schoolExists).not.toHaveBeenCalled();
+    expect(schoolFindById).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
   it("denies school authority for suspended and archived schools", async () => {
     for (const status of ["suspended", "archived"] as const) {
       mockTenant(status);
