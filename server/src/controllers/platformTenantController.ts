@@ -4,14 +4,12 @@ import { School } from "../models/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { assertTenantTransition, nextTenantTimestamps } from "../services/tenantLifecycle.js";
 
+const ACTIVE_STATUS_QUERY = { $or: [{ tenantStatus: "active" }, { tenantStatus: { $exists: false } }] };
+
 export async function listPlatformTenants(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
-    const query = status
-      ? status === "active"
-        ? { $or: [{ tenantStatus: "active" }, { tenantStatus: { $exists: false } }] }
-        : { tenantStatus: status }
-      : {};
+    const query = status === "active" ? ACTIVE_STATUS_QUERY : status ? { tenantStatus: status } : {};
     const tenants = await School.find(query)
       .select("code name email phone session tenantStatus suspendedAt archivedAt createdAt updatedAt")
       .sort({ createdAt: -1 })
@@ -28,7 +26,7 @@ export async function updatePlatformTenantLifecycle(req: Request, res: Response,
     let response: unknown;
     await session.withTransaction(async () => {
       const school = await School.findById(tenantId).session(session);
-      if (!school) { throw new mongoose.Error.DocumentNotFoundError(null); }
+      if (!school) throw new Error("TENANT_NOT_FOUND");
       const currentStatus = school.tenantStatus ?? "active";
       const before = { tenantStatus: currentStatus, suspendedAt: school.suspendedAt, archivedAt: school.archivedAt };
       assertTenantTransition(currentStatus, status);
@@ -57,7 +55,7 @@ export async function updatePlatformTenantLifecycle(req: Request, res: Response,
     });
     res.json(response);
   } catch (error) {
-    if (error instanceof mongoose.Error.DocumentNotFoundError) {
+    if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
       res.status(404).json({ error: "Tenant not found" });
       return;
     }
