@@ -62,13 +62,15 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
     return;
   }
 
-  console.error("Unhandled error:", {
+  console.error(JSON.stringify({
+    event: "unhandled_error",
+    requestId: req.requestId,
     method: req.method,
     path: req.path,
     name: err.name,
     message: err.message,
-    stack: err.stack
-  });
+    stack: err.stack,
+  }));
 
   res.status(500).json({
     error: isDevelopment ? err.message : "Internal server error",
