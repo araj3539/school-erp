@@ -65,8 +65,10 @@ describe("aiProviderService", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     const request = fetchMock.mock.calls[0][1];
     expect(request?.headers).toMatchObject({ authorization: "Bearer test-key" });
-    expect(String(request?.body)).toContain('"activeStudents":100');
-    expect(String(request?.body)).not.toMatch(/firstName|lastName|phone|admissionNo/i);
+    const payload = JSON.parse(String(request?.body));
+    expect(payload.model).toBe("test-model");
+    expect(payload.messages[1].content).toContain('"activeStudents":100');
+    expect(payload.messages[1].content).not.toMatch(/firstName|lastName|phone|admissionNo/i);
   });
 
   it("falls back when the provider fails", async () => {
