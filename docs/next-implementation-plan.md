@@ -1,95 +1,88 @@
 # School ERP — Next Implementation Plan
 
-Updated: 2026-09-05
-Production baseline: `main` at Phase 7 release plus final acceptance harness commit `cccd49094514b75f4e560e1d50c2eea4c21901de`.
-Active implementation branch: `araj870988/alo-6-phase-8-mobile-app-foundation` for the first Phase 8 slice.
+Updated: 2026-09-11
+Production baseline: `main` at Phase 14 release commit `bbb3195a8fff361520a19aa42dffc4b0ae2da70b`.
+Current documentation branch: `araj870988/docs/synchronize-phase-status-2026-09`.
 
 ## Current state
 
-Phase 7 — Parent/Student/Teacher Portals is **COMPLETED**. The portal implementation is released to production, the final authenticated responsive browser matrix is passing, ownership/tenant boundaries are verified against the dedicated E2E fixture, and Phase 1–6 regression gates remain green.
+The implementation roadmap is substantially complete through Phase 14. Linear currently has no Todo items and records Phases 8, 9, 10, 12, 13 and 14 as Done. Phase 11 engineering is complete; the remaining work is real-world merchant activation and provider-side verification, tracked in Linear ALO-42.
 
-## Phase 7 completion evidence
+## Verified phase baseline
 
-1. Teacher core daily academic workflows — **PASS**.
-2. Student self-only academic/fee visibility — **PASS**.
-3. Parent linked-child-only access and child switching — **PASS**.
-4. Cross-tenant isolation — **PASS**.
-5. Phase 1–6 regression gates — **PASS**.
-6. Critical API/E2E and authenticated Chromium coverage — **PASS**.
-7. Desktop/tablet/mobile behavior — **PASS** at 1440×900, 768×900 and 390×844.
-8. Keyboard/focus acceptance — **PASS**.
-9. Consistent portal visual/design-system direction — **PASS**.
-10. Production build/deployment/smoke verification — **PASS**.
+- Phase 7 — Parent/Student/Teacher portals: **COMPLETED**.
+- Phase 8 — Mobile App: **COMPLETED**.
+- Phase 9 — Notifications: **COMPLETED**.
+- Phase 10 — Library, Transport, Inventory and Staff: **COMPLETED**.
+- Phase 11 — Online Payments: **ENGINEERING COMPLETE / READY FOR OPERATIONAL VERIFICATION**.
+- Phase 12 — SaaS Platform: **COMPLETED**.
+- Phase 13 — Reliability and Scale: **COMPLETED**.
+- Phase 14 — AI and Advanced Analytics: **COMPLETED**.
 
-## Verification artifacts
+## Phase 14 release evidence
 
-- Final acceptance PR #12 merged as `cccd49094514b75f4e560e1d50c2eea4c21901de`.
-- `server/e2e/phase7-final-verification.spec.ts`: local 5/5 PASS.
-- `server/e2e/phase7-production-responsive.spec.ts`: production 3/3 PASS.
-- `docs/phase7-verification-2026-09-04.md`: final evidence and completion decision.
-- Deterministic E2E fixtures remain isolated through explicit `E2E_MONGODB_URI`.
+PR #76 merged the Phase 14 implementation to `main` as `bbb3195a8fff361520a19aa42dffc4b0ae2da70b`.
 
-## Security baseline
+The implementation provides tenant-safe aggregate analytics, responsive admin analytics UI, optional AI-assisted non-authoritative insights, deterministic fallback behavior, bounded provider calls, sanitized output and a kill switch. AI input is aggregate-only and cannot mutate authoritative ERP records.
+
+Final local engineering verification:
+
+```text
+Server tests:             43 files / 166 tests PASS
+Client tests:             2 files / 16 tests PASS
+Server build:             PASS
+Client build:             PASS
+Server lint:              0 errors / 23 existing warnings
+Client lint:              0 errors / 4 existing warnings
+Semgrep:                  PASS
+```
+
+Release verification:
+
+- Vercel production deployment for `bbb3195a...`: **READY**.
+- Render deployment for `bbb3195a...`: **LIVE**.
+- Render `/ready`: **200** in the reviewed production window.
+- MongoDB Atlas `Cluster0`: **IDLE/healthy**, free tier, AWS AP_SOUTH_1, MongoDB 8.0.32.
+
+Authenticated browser acceptance was attempted against the local fixture-backed environment. The login flow did not establish an authenticated session, so no `/analytics/*` authenticated browser pass is claimed. The verification harness and production deployments remain intact; this is an environment-dependent acceptance limitation, not a reason to weaken authentication or tenancy controls.
+
+## Phase 11 remaining operational gate
+
+Engineering implementation is complete and the provider is intentionally disabled by default. The only remaining project-owned work is operational activation:
+
+1. Complete merchant onboarding/KYC and obtain approved production credentials.
+2. Configure production payment secrets server-side only.
+3. Configure and verify the production webhook endpoint and signing secret.
+4. Run provider sandbox/test-mode order, payment, webhook, refund and reconciliation verification.
+5. Confirm monitoring, audit evidence and rollback readiness.
+6. Enable the provider only after the checks pass.
+7. Perform a controlled production payment and verify authoritative ledger/receipt state.
+
+This gate must not be simulated with production data or bypassed in code.
+
+## Security and data boundaries
 
 - Backend authorization remains the security boundary.
 - Tenant isolation remains enforced server-side.
-- Student access is self-only.
-- Parent access is limited to linked children.
-- Teacher access is limited to assigned/authorized academic scope.
-- CSRF protection remains enabled.
-- Production authentication rate limiting remains enabled.
-- Tests must not weaken or bypass production security controls.
+- Financial records remain server-authoritative and auditable.
+- AI receives aggregate operational signals only.
+- AI assistance is disabled by default and is kill-switchable.
+- No production secrets belong in source control or documentation.
+- E2E fixtures must remain isolated from production data.
 
 ## Current implementation order
 
-1. **Phase 7 — Parent/Student/Teacher portals: COMPLETED**
-2. **Phase 8 — Mobile App: IN PROGRESS**
-3. **Phase 9 — Notifications**
-4. **Phase 10 — Library, Transport, Inventory and Staff**
-5. **Phase 11 — Online Payments**
-6. **Phase 12 — SaaS administration/billing**
-7. **Phase 13 — Reliability and scale**
-8. **Phase 14 — AI and advanced analytics**
+1. **Finish Phase 11 operational payment activation and verification.**
+2. **Maintain the production regression baseline:** Phase 1/2 security, Phase 7 portal acceptance, mobile security/E2E, payment invariants, Phase 13 readiness/observability and Phase 14 tenant-safe analytics.
+3. **Select subsequent product work only from measured usage, school feedback and approved requirements.**
 
-`phases.md` is the authoritative phase roadmap. The previous version of this document incorrectly listed Notifications before Mobile; that mismatch is corrected here.
-
-## Phase 8 — Mobile App
-
-Recommended direction: React Native + TypeScript, isolated from the existing React/Vite web workspace while reusing shared API contracts and schemas where practical.
-
-### Initial foundation slice
-
-- dedicated `mobile/` Expo/React Native application;
-- TypeScript configuration and reproducible mobile dependency lockfile;
-- native stack navigation with typed role routes for Teacher, Student and Parent;
-- server-authorized API integration as the security boundary;
-- explicit mobile authentication/session design before implementing credential persistence;
-- native loading/error/empty/accessibility patterns;
-- API, unit and E2E coverage before expanding the mobile surface.
-
-### Current verification
-
-- Expo Doctor: **20/20 checks PASS**.
-- TypeScript: **PASS**.
-- Android bundle export: **PASS**.
-- Expo SDK dependency versions were corrected after local validation exposed an initial React Native/SDK mismatch.
-
-### Next Phase 8 work
-
-1. Decide and document the secure mobile session model compatible with the existing JWT + HTTP-only-cookie web model.
-2. Add a minimal authenticated mobile API client without weakening server authorization or tenant isolation.
-3. Reuse shared Zod/API contracts where practical.
-4. Implement the first authenticated read-only portal workflow for each supported role.
-5. Add mobile-specific API/unit/E2E coverage and device/browser acceptance where applicable.
-6. Apply the existing design system direction rather than creating a second visual system.
-
-Do not begin push/SMS/email notification providers until the notification domain is explicitly scheduled after Mobile App according to `phases.md`.
+Avoid speculative microservices, Kubernetes, broad caching, additional queues/workers or authoritative AI decisioning without a measured need and a completed engineering gate.
 
 ## Development rules
 
 - Use GitHub directly for source and documentation changes.
-- Use Desktop Commander only for local commands, ignored-file/environment inspection and browser/test verification.
+- Use Desktop Commander for local commands, ignored-file/environment inspection and browser/test verification.
+- Use MongoDB Atlas for tenant-safe schema/query/performance verification; do not mutate production fixtures for acceptance convenience.
 - Keep `main` as the production baseline and use feature branches/PRs for material changes.
-- Update living documentation as development progresses.
-- Keep Phase 1/2 security gates and the permanent Phase 7 portal acceptance harness as regression gates.
-- Do not persist test secrets in the repository.
+- Update living documentation as phases and release gates change.
+- Record limitations honestly; do not convert an unavailable verification environment into a claimed PASS.

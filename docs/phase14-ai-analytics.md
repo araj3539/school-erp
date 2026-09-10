@@ -60,6 +60,26 @@ Focused tests cover:
 - deterministic fallback generation;
 - bounded/sanitized insight output.
 
+### Release verification — 2026-09-10/11
+
+The Phase 14 implementation was merged to `main` in PR #76 as commit `bbb3195a8fff361520a19aa42dffc4b0ae2da70b`.
+
+```text
+Server tests:             43 files / 166 tests PASS
+Client tests:             2 files / 16 tests PASS
+Server build:             PASS
+Client build:             PASS
+Server lint:              0 errors / 23 existing warnings
+Client lint:              0 errors / 4 existing warnings
+Semgrep:                  PASS
+Vercel production:        READY
+Render production:        LIVE
+```
+
+MongoDB Atlas production cluster review confirmed the existing `Cluster0` is healthy/IDLE on the free tier in AWS AP_SOUTH_1 using MongoDB 8.0.32. No new collection, queue, worker or streaming infrastructure was introduced for Phase 14.
+
+An authenticated browser acceptance attempt was made against the local fixture-backed environment. The login flow did not establish an authenticated session, so no authenticated `/analytics/*` browser PASS is claimed. The failure was not converted into a code bypass or a weakening of production authentication. This remains an environment-dependent verification limitation for the current release evidence.
+
 ### Operational disposition
 
 No new queue, worker, cache, or database collection was introduced. The workload is read-only and aggregation-based and should remain within the existing modular-monolith architecture until measured usage justifies another execution model.
