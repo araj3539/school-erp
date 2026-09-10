@@ -8,7 +8,10 @@ export function Spinner({ className, label = "Loading" }: SpinnerProps) {
 
 interface PageLoaderProps { label?: string; fullScreen?: boolean; className?: string; }
 export function PageLoader({ label = "Loading...", fullScreen = false, className }: PageLoaderProps) {
-  return <div role="status" aria-live="polite" className={cn("flex w-full items-center justify-center", fullScreen ? "min-h-screen bg-gray-50" : "min-h-[50vh]", className)}>
-    <div className="flex flex-col items-center gap-3 text-gray-500"><Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" /><span className="text-sm">{label}</span></div>
+  return <div role="status" aria-live="polite" className={cn("flex w-full items-center justify-center px-5", fullScreen ? "min-h-[100dvh] bg-slate-50" : "min-h-[50vh]", className)}>
+    <div className="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600"><Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /></div>
+      <span className="mt-3 block text-sm font-medium text-slate-600">{label}</span>
+    </div>
   </div>;
 }

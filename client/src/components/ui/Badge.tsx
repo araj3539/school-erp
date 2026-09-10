@@ -8,16 +8,12 @@ interface BadgeProps {
 
 export function Badge({ children, variant = "default", className }: BadgeProps) {
   const variants = {
-    default: "bg-gray-100 text-gray-800",
-    secondary: "bg-gray-100 text-gray-800",
-    success: "bg-green-100 text-green-800",
-    warning: "bg-yellow-100 text-yellow-800",
-    danger: "bg-red-100 text-red-800",
-    info: "bg-blue-100 text-blue-800"
+    default: "border-slate-200 bg-slate-100 text-slate-700",
+    secondary: "border-slate-200 bg-slate-50 text-slate-600",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    warning: "border-amber-200 bg-amber-50 text-amber-700",
+    danger: "border-red-200 bg-red-50 text-red-700",
+    info: "border-sky-200 bg-sky-50 text-sky-700"
   };
-  return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", variants[variant], className)}>
-      {children}
-    </span>
-  );
+  return <span className={cn("badge", variants[variant], className)}>{children}</span>;
 }
