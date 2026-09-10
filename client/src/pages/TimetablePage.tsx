@@ -1,292 +1,51 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Pencil, Plus, Save, Trash2 } from "lucide-react";
+import { CalendarClock, Pencil, Plus, Save, Trash2, Users, MapPin } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Badge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import api from "../lib/api";
 import { useAuth } from "../hooks";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-type TimetableForm = {
-  academicYearId: string;
-  classId: string;
-  sectionId: string;
-  subjectId: string;
-  teacherId: string;
-  dayOfWeek: string;
-  startTime: string;
-  endTime: string;
-  roomNumber: string;
-  periodLabel: string;
-};
-
-const EMPTY_FORM: TimetableForm = {
-  academicYearId: "",
-  classId: "",
-  sectionId: "",
-  subjectId: "",
-  teacherId: "",
-  dayOfWeek: "1",
-  startTime: "09:00",
-  endTime: "09:45",
-  roomNumber: "",
-  periodLabel: "Period 1",
-};
+type TimetableForm = { academicYearId: string; classId: string; sectionId: string; subjectId: string; teacherId: string; dayOfWeek: string; startTime: string; endTime: string; roomNumber: string; periodLabel: string; };
+const EMPTY_FORM: TimetableForm = { academicYearId: "", classId: "", sectionId: "", subjectId: "", teacherId: "", dayOfWeek: "1", startTime: "09:00", endTime: "09:45", roomNumber: "", periodLabel: "Period 1" };
 
 export default function TimetablePage() {
   const queryClient = useQueryClient();
   const { user, hasPermission } = useAuth();
   const canWrite = hasPermission("timetable:write");
-  const [academicYearId, setAcademicYearId] = useState("");
-  const [classId, setClassId] = useState("");
-  const [sectionId, setSectionId] = useState("");
-  const [teacherId, setTeacherId] = useState("");
-  const [dayOfWeek, setDayOfWeek] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<TimetableForm>(EMPTY_FORM);
-
-  const { data: years } = useQuery({
-    queryKey: ["academicYears", "timetable"],
-    queryFn: async () => (await api.get("/academic-years")).data,
-  });
-  const { data: classes } = useQuery({
-    queryKey: ["classes", "timetable"],
-    enabled: canWrite,
-    queryFn: async () => (await api.get("/academics/classes?limit=100")).data,
-  });
-  const { data: filterSections } = useQuery({
-    queryKey: ["sections", "timetable-filter", classId],
-    enabled: canWrite && !!classId,
-    queryFn: async () => (await api.get(`/academics/sections?classId=${classId}`)).data,
-  });
-  const { data: formSections } = useQuery({
-    queryKey: ["sections", "timetable-form", form.classId],
-    enabled: canWrite && !!form.classId,
-    queryFn: async () => (await api.get(`/academics/sections?classId=${form.classId}`)).data,
-  });
-  const { data: subjects } = useQuery({
-    queryKey: ["subjects", "timetable", form.classId],
-    enabled: canWrite && !!form.classId,
-    queryFn: async () => (await api.get(`/academics/subjects?classId=${form.classId}`)).data,
-  });
-  const { data: teachers } = useQuery({
-    queryKey: ["teachers", "timetable"],
-    enabled: canWrite,
-    queryFn: async () => (await api.get("/teachers?limit=100&status=active")).data,
-  });
-  const { data: timetableData } = useQuery({
-    queryKey: ["timetable", academicYearId, classId, sectionId, teacherId, dayOfWeek],
-    queryFn: async () => {
-      const params = new URLSearchParams({ limit: "100" });
-      if (academicYearId) params.set("academicYearId", academicYearId);
-      if (classId) params.set("classId", classId);
-      if (sectionId) params.set("sectionId", sectionId);
-      if (teacherId) params.set("teacherId", teacherId);
-      if (dayOfWeek) params.set("dayOfWeek", dayOfWeek);
-      return (await api.get(`/timetable?${params}`)).data;
-    },
-  });
-
+  const [academicYearId, setAcademicYearId] = useState(""); const [classId, setClassId] = useState(""); const [sectionId, setSectionId] = useState(""); const [teacherId, setTeacherId] = useState(""); const [dayOfWeek, setDayOfWeek] = useState("");
+  const [modalOpen, setModalOpen] = useState(false); const [editingId, setEditingId] = useState<string | null>(null); const [form, setForm] = useState<TimetableForm>(EMPTY_FORM);
+  const { data: years } = useQuery({ queryKey: ["academicYears", "timetable"], queryFn: async () => (await api.get("/academic-years")).data });
+  const { data: classes } = useQuery({ queryKey: ["classes", "timetable"], enabled: canWrite, queryFn: async () => (await api.get("/academics/classes?limit=100")).data });
+  const { data: filterSections } = useQuery({ queryKey: ["sections", "timetable-filter", classId], enabled: canWrite && !!classId, queryFn: async () => (await api.get(`/academics/sections?classId=${classId}`)).data });
+  const { data: formSections } = useQuery({ queryKey: ["sections", "timetable-form", form.classId], enabled: canWrite && !!form.classId, queryFn: async () => (await api.get(`/academics/sections?classId=${form.classId}`)).data });
+  const { data: subjects } = useQuery({ queryKey: ["subjects", "timetable", form.classId], enabled: canWrite && !!form.classId, queryFn: async () => (await api.get(`/academics/subjects?classId=${form.classId}`)).data });
+  const { data: teachers } = useQuery({ queryKey: ["teachers", "timetable"], enabled: canWrite, queryFn: async () => (await api.get("/teachers?limit=100&status=active")).data });
+  const { data: timetableData, isLoading } = useQuery({ queryKey: ["timetable", academicYearId, classId, sectionId, teacherId, dayOfWeek], queryFn: async () => { const params = new URLSearchParams({ limit: "100" }); if (academicYearId) params.set("academicYearId", academicYearId); if (classId) params.set("classId", classId); if (sectionId) params.set("sectionId", sectionId); if (teacherId) params.set("teacherId", teacherId); if (dayOfWeek) params.set("dayOfWeek", dayOfWeek); return (await api.get(`/timetable?${params}`)).data; } });
   const entries = timetableData?.data || [];
-  const grouped = useMemo(
-    () => DAYS.map((name, index) => ({ name, entries: entries.filter((item: any) => item.dayOfWeek === index + 1) })),
-    [entries],
-  );
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-  };
-
-  const createMutation = useMutation({
-    mutationFn: (payload: TimetableForm) => api.post("/timetable", {
-      ...payload,
-      sectionId: payload.sectionId || undefined,
-      roomNumber: payload.roomNumber || undefined,
-      periodLabel: payload.periodLabel || undefined,
-      dayOfWeek: Number(payload.dayOfWeek),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["timetable"] });
-      closeModal();
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: TimetableForm }) => api.patch(`/timetable/${id}`, {
-      ...payload,
-      sectionId: payload.sectionId || undefined,
-      roomNumber: payload.roomNumber || undefined,
-      periodLabel: payload.periodLabel || undefined,
-      dayOfWeek: Number(payload.dayOfWeek),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["timetable"] });
-      closeModal();
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/timetable/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timetable"] }),
-  });
-
-  const openCreate = () => {
-    setEditingId(null);
-    setForm({
-      ...EMPTY_FORM,
-      academicYearId: academicYearId || years?.data?.find((year: any) => year.isCurrent)?._id || "",
-      classId: classId || "",
-      dayOfWeek: dayOfWeek || "1",
-    });
-    setModalOpen(true);
-  };
-
-  const openEdit = (item: any) => {
-    setEditingId(item._id);
-    setForm({
-      academicYearId: item.academicYearId?._id || item.academicYearId || "",
-      classId: item.classId?._id || item.classId || "",
-      sectionId: item.sectionId?._id || item.sectionId || "",
-      subjectId: item.subjectId?._id || item.subjectId || "",
-      teacherId: item.teacherId?._id || item.teacherId || "",
-      dayOfWeek: String(item.dayOfWeek),
-      startTime: item.startTime,
-      endTime: item.endTime,
-      roomNumber: item.roomNumber || "",
-      periodLabel: item.periodLabel || "",
-    });
-    setModalOpen(true);
-  };
-
-  const saveEntry = () => {
-    if (!form.academicYearId || !form.classId || !form.subjectId || !form.teacherId || !form.startTime || !form.endTime) return;
-    if (editingId) updateMutation.mutate({ id: editingId, payload: form });
-    else createMutation.mutate(form);
-  };
-
-  const title = user?.role === "student" ? "My Timetable" : user?.role === "teacher" ? "My Teaching Timetable" : "Timetable";
+  const grouped = useMemo(() => DAYS.map((name, index) => ({ name, day: index + 1, entries: entries.filter((item: any) => item.dayOfWeek === index + 1) })), [entries]);
+  const closeModal = () => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); };
+  const createMutation = useMutation({ mutationFn: (payload: TimetableForm) => api.post("/timetable", { ...payload, sectionId: payload.sectionId || undefined, roomNumber: payload.roomNumber || undefined, periodLabel: payload.periodLabel || undefined, dayOfWeek: Number(payload.dayOfWeek) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["timetable"] }); closeModal(); } });
+  const updateMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: TimetableForm }) => api.patch(`/timetable/${id}`, { ...payload, sectionId: payload.sectionId || undefined, roomNumber: payload.roomNumber || undefined, periodLabel: payload.periodLabel || undefined, dayOfWeek: Number(payload.dayOfWeek) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["timetable"] }); closeModal(); } });
+  const deleteMutation = useMutation({ mutationFn: (id: string) => api.delete(`/timetable/${id}`), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timetable"] }) });
+  const openCreate = () => { setEditingId(null); setForm({ ...EMPTY_FORM, academicYearId: academicYearId || years?.data?.find((year: any) => year.isCurrent)?._id || "", classId: classId || "", dayOfWeek: dayOfWeek || "1" }); setModalOpen(true); };
+  const openEdit = (item: any) => { setEditingId(item._id); setForm({ academicYearId: item.academicYearId?._id || item.academicYearId || "", classId: item.classId?._id || item.classId || "", sectionId: item.sectionId?._id || item.sectionId || "", subjectId: item.subjectId?._id || item.subjectId || "", teacherId: item.teacherId?._id || item.teacherId || "", dayOfWeek: String(item.dayOfWeek), startTime: item.startTime, endTime: item.endTime, roomNumber: item.roomNumber || "", periodLabel: item.periodLabel || "" }); setModalOpen(true); };
+  const saveEntry = () => { if (!form.academicYearId || !form.classId || !form.subjectId || !form.teacherId || !form.startTime || !form.endTime) return; if (editingId) updateMutation.mutate({ id: editingId, payload: form }); else createMutation.mutate(form); };
+  const title = user?.role === "student" ? "My timetable" : user?.role === "teacher" ? "My teaching timetable" : "Timetable";
   const saving = createMutation.isPending || updateMutation.isPending;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-6 w-6 text-primary-600" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">View the weekly schedule with teacher, room, and class assignments.</p>
-        </div>
-        {canWrite && <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Add Period</Button>}
-      </div>
+  return <div className="space-y-6 pb-8">
+    <section className="relative overflow-hidden rounded-[28px] bg-slate-950 px-5 py-6 text-white shadow-[0_20px_60px_-30px_rgba(15,23,42,0.55)] sm:px-7 sm:py-8"><div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-sky-400/15 blur-3xl" /><div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-300"><CalendarClock className="h-3.5 w-3.5 text-sky-300" />Weekly planning</div><h1 className="text-3xl font-black tracking-tight sm:text-4xl">{title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">A clear weekly view of classes, teachers, rooms and periods, with focused controls for timetable management.</p></div>{canWrite && <Button onClick={openCreate} className="shrink-0 bg-white text-slate-950 hover:bg-slate-100 focus-visible:ring-white"><Plus className="mr-2 h-4 w-4" />Add period</Button>}</div></section>
 
-      {canWrite && (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap gap-3">
-              <Select aria-label="Filter by academic year" value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)} className="w-52">
-                <option value="">All Academic Years</option>
-                {years?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}{item.isCurrent ? " (Current)" : ""}</option>)}
-              </Select>
-              <Select aria-label="Filter by class" value={classId} onChange={(e) => { setClassId(e.target.value); setSectionId(""); }} className="w-48">
-                <option value="">All Classes</option>
-                {classes?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.displayName}</option>)}
-              </Select>
-              <Select aria-label="Filter by section" value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!classId} className="w-40">
-                <option value="">All Sections</option>
-                {filterSections?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}
-              </Select>
-              <Select aria-label="Filter by teacher" value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className="w-52">
-                <option value="">All Teachers</option>
-                {teachers?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.firstName} {item.lastName}</option>)}
-              </Select>
-              <Select aria-label="Filter by day" value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)} className="w-40">
-                <option value="">All Days</option>
-                {DAYS.map((day, i) => <option key={day} value={i + 1}>{day}</option>)}
-              </Select>
-            </div>
-          </CardHeader>
-        </Card>
-      )}
+    {canWrite && <Card><CardHeader><div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sky-600">Schedule filters</p><h2 className="mt-1 text-lg font-bold text-slate-950">Find the right timetable</h2></div></CardHeader><CardContent><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5"><Select label="Academic year" value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}><option value="">All years</option>{years?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}{item.isCurrent ? " (Current)" : ""}</option>)}</Select><Select label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setSectionId(""); }}><option value="">All classes</option>{classes?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.displayName}</option>)}</Select><Select label="Section" value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!classId}><option value="">All sections</option>{filterSections?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}</Select><Select label="Teacher" value={teacherId} onChange={(e) => setTeacherId(e.target.value)}><option value="">All teachers</option>{teachers?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.firstName} {item.lastName}</option>)}</Select><Select label="Day" value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)}><option value="">All days</option>{DAYS.map((day, i) => <option key={day} value={i + 1}>{day}</option>)}</Select></div></CardContent></Card>}
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {grouped.filter((day) => !dayOfWeek || Number(dayOfWeek) === DAYS.indexOf(day.name) + 1).map((day) => (
-          <Card key={day.name}>
-            <CardHeader><h2 className="font-semibold text-gray-900">{day.name}</h2></CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {day.entries.length === 0 ? <p className="text-sm text-gray-500 py-2">No periods scheduled.</p> : day.entries.map((item: any) => (
-                  <div key={item._id} className="rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-gray-900">{item.startTime}–{item.endTime}</p>
-                        <p className="text-sm text-primary-700">{item.subjectId?.name || "Subject"}{item.periodLabel ? ` · ${item.periodLabel}` : ""}</p>
-                      </div>
-                      {canWrite && (
-                        <div className="flex items-center gap-1">
-                          <button type="button" aria-label={`Edit ${item.subjectId?.name || "timetable entry"}`} onClick={() => openEdit(item)} className="rounded p-1 text-gray-400 hover:text-primary-600"><Pencil className="w-4 h-4" /></button>
-                          <button type="button" aria-label={`Delete ${item.subjectId?.name || "timetable entry"}`} onClick={() => { if (window.confirm("Delete this timetable period?")) deleteMutation.mutate(item._id); }} className="rounded p-1 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      )}
-                    </div>
-                    <p className="mt-2 text-sm text-gray-600">{item.classId?.displayName || "Class"}{item.sectionId?.name ? ` · Section ${item.sectionId.name}` : ""}</p>
-                    <p className="text-sm text-gray-500">Teacher: {item.teacherId ? `${item.teacherId.firstName} ${item.teacherId.lastName}` : "-"}{item.roomNumber ? ` · Room ${item.roomNumber}` : ""}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+    <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">{grouped.filter((day) => !dayOfWeek || Number(dayOfWeek) === day.day).map((day) => <Card key={day.name} className="overflow-hidden"><CardHeader><div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sky-600">Day {day.day}</p><h2 className="mt-1 text-lg font-bold text-slate-950">{day.name}</h2></div><Badge variant="info">{day.entries.length} {day.entries.length === 1 ? "period" : "periods"}</Badge></div></CardHeader><CardContent><div className="space-y-3">{isLoading ? [1,2,3].map((item) => <div key={item} className="h-28 animate-pulse rounded-2xl bg-slate-100" />) : day.entries.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-5 py-10 text-center"><CalendarClock className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-2 font-semibold text-slate-700">No periods scheduled</p><p className="mt-1 text-sm text-slate-500">This day is currently open.</p></div> : day.entries.map((item: any) => <div key={item._id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-slate-300 hover:bg-white"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-extrabold text-slate-950">{item.startTime}–{item.endTime}</p><p className="mt-1 font-semibold text-sky-700">{item.subjectId?.name || "Subject"}</p></div>{canWrite && <div className="flex items-center gap-1"><button type="button" aria-label={`Edit ${item.subjectId?.name || "timetable entry"}`} onClick={() => openEdit(item)} className="rounded-lg p-2 text-slate-400 transition hover:bg-sky-50 hover:text-sky-700"><Pencil className="h-4 w-4" /></button><button type="button" aria-label={`Delete ${item.subjectId?.name || "timetable entry"}`} onClick={() => { if (window.confirm("Delete this timetable period?")) deleteMutation.mutate(item._id); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div>}</div><div className="mt-3 space-y-1.5 text-sm text-slate-500"><p className="inline-flex items-center gap-2"><Users className="h-4 w-4 text-slate-400" />{item.classId?.displayName || "Class"}{item.sectionId?.name ? ` · Section ${item.sectionId.name}` : ""}</p><p>{item.teacherId ? `${item.teacherId.firstName} ${item.teacherId.lastName}` : "Teacher not assigned"}{item.roomNumber ? <span className="ml-2 inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />Room {item.roomNumber}</span> : null}</p>{item.periodLabel ? <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{item.periodLabel}</p> : null}</div></div>)}</div></CardContent></Card>)}</div>
 
-      <Modal isOpen={modalOpen} onClose={closeModal} title={editingId ? "Edit Timetable Period" : "Add Timetable Period"} size="lg">
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Select label="Academic Year" value={form.academicYearId} onChange={(e) => setForm({ ...form, academicYearId: e.target.value })}>
-              <option value="">Select academic year</option>
-              {years?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}
-            </Select>
-            <Select label="Day" value={form.dayOfWeek} onChange={(e) => setForm({ ...form, dayOfWeek: e.target.value })}>
-              {DAYS.map((day, i) => <option key={day} value={i + 1}>{day}</option>)}
-            </Select>
-            <Select label="Class" value={form.classId} onChange={(e) => setForm({ ...form, classId: e.target.value, sectionId: "", subjectId: "" })}>
-              <option value="">Select class</option>
-              {classes?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.displayName}</option>)}
-            </Select>
-            <Select label="Section (optional)" value={form.sectionId} onChange={(e) => setForm({ ...form, sectionId: e.target.value })} disabled={!form.classId}>
-              <option value="">All sections</option>
-              {formSections?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}
-            </Select>
-            <Select label="Subject" value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} disabled={!form.classId}>
-              <option value="">Select subject</option>
-              {subjects?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}
-            </Select>
-            <Select label="Teacher" value={form.teacherId} onChange={(e) => setForm({ ...form, teacherId: e.target.value })}>
-              <option value="">Select teacher</option>
-              {teachers?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.firstName} {item.lastName}</option>)}
-            </Select>
-            <Input label="Start time" type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-            <Input label="End time" type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
-            <Input label="Period label (optional)" value={form.periodLabel} onChange={(e) => setForm({ ...form, periodLabel: e.target.value })} placeholder="Period 1" />
-            <Input label="Room (optional)" value={form.roomNumber} onChange={(e) => setForm({ ...form, roomNumber: e.target.value })} placeholder="Room 101" />
-          </div>
-          <div className="rounded-md bg-gray-50 p-3 text-sm text-gray-600">The server checks class, teacher, and room overlaps before saving.</div>
-          {(createMutation.isError || updateMutation.isError) && <p className="text-sm text-red-600" role="alert">Unable to save this period. Check the selected assignments and time range, then try again.</p>}
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button onClick={saveEntry} disabled={saving}>
-              <Save className="w-4 h-4 mr-2" />{saving ? "Saving..." : editingId ? "Update Period" : "Save Period"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </div>
-  );
+    <Modal isOpen={modalOpen} onClose={closeModal} title={editingId ? "Edit timetable period" : "Add timetable period"} size="lg"><div className="space-y-5"><div className="grid gap-4 md:grid-cols-2"><Select label="Academic year" value={form.academicYearId} onChange={(e) => setForm({ ...form, academicYearId: e.target.value })}><option value="">Select academic year</option>{years?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}</Select><Select label="Day" value={form.dayOfWeek} onChange={(e) => setForm({ ...form, dayOfWeek: e.target.value })}>{DAYS.map((day, i) => <option key={day} value={i + 1}>{day}</option>)}</Select><Select label="Class" value={form.classId} onChange={(e) => setForm({ ...form, classId: e.target.value, sectionId: "", subjectId: "" })}><option value="">Select class</option>{classes?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.displayName}</option>)}</Select><Select label="Section (optional)" value={form.sectionId} onChange={(e) => setForm({ ...form, sectionId: e.target.value })} disabled={!form.classId}><option value="">All sections</option>{formSections?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}</Select><Select label="Subject" value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} disabled={!form.classId}><option value="">Select subject</option>{subjects?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.name}</option>)}</Select><Select label="Teacher" value={form.teacherId} onChange={(e) => setForm({ ...form, teacherId: e.target.value })}><option value="">Select teacher</option>{teachers?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.firstName} {item.lastName}</option>)}</Select><Input label="Start time" type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} /><Input label="End time" type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} /><Input label="Period label (optional)" value={form.periodLabel} onChange={(e) => setForm({ ...form, periodLabel: e.target.value })} placeholder="Period 1" /><Input label="Room (optional)" value={form.roomNumber} onChange={(e) => setForm({ ...form, roomNumber: e.target.value })} placeholder="Room 101" /></div><div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">The server checks class, teacher and room overlaps before saving.</div>{(createMutation.isError || updateMutation.isError) && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700" role="alert">Unable to save this period. Check the selected assignments and time range, then try again.</p>}<div className="flex justify-end gap-2 border-t border-slate-200 pt-4"><Button variant="secondary" onClick={closeModal}>Cancel</Button><Button onClick={saveEntry} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Saving..." : editingId ? "Update period" : "Save period"}</Button></div></div></Modal>
+  </div>;
 }
