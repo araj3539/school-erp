@@ -49,7 +49,7 @@ export default function LoginPage() {
 
       <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <Input label="School Code" type="text" {...register("schoolCode")} error={errors.schoolCode?.message} hint="Required for school accounts. Platform Super Admin can leave this empty." placeholder="SCH-1234ABCD" autoComplete="organization" autoCapitalize="characters" />
-        <Input label="Email" type="email" {...register("email")} error={errors.email?.message} placeholder="admin@school.com" autoComplete="email" autoFocus />
+        <Input label="Email" type="email" {...register("email")} error={errors.email?.message} placeholder="admin@school.com" autoComplete="email" />
         <Input label="Password" type="password" {...register("password")} error={errors.password?.message} placeholder="Enter your password" autoComplete="current-password" />
         <Button type="submit" className="w-full" loading={isLoading}>{isLoading ? "Signing in..." : "Sign in"}</Button>
       </div>
