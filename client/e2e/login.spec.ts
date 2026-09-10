@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const email = process.env.E2E_ADMIN_EMAIL || "admin@school.com";
-const password = process.env.DEMO_ADMIN_PASSWORD;
+const password = process.env.DEMO_ADMIN_PASSWORD?.replace(/^([\"'])(.*)\1$/, "$2");
 
 test.describe("authentication", () => {
   test("platform admin can sign in from the local login page", async ({ page }) => {
