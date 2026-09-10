@@ -13,9 +13,9 @@ export function AdminLayout() {
         Skip to main content
       </a>
       <Sidebar />
-      <div className="flex min-h-screen flex-col transition-all duration-200 lg:pl-64">
+      <div className="flex min-h-screen flex-col transition-[padding] duration-200 lg:pl-64">
         <Header />
-        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1680px] flex-1 p-4 focus:outline-none sm:p-6 lg:p-8">
+        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1680px] flex-1 p-4 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-500 sm:p-6 lg:p-8">
           <Suspense fallback={<PageLoader />}>
             <Outlet />
           </Suspense>
