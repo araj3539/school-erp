@@ -189,64 +189,169 @@ Phase 7 is now a completed mandatory regression baseline for future phases.
 
 # Phase 8 — Mobile App
 
-Recommended direction: React Native using shared API contracts and schemas.
+### Status
+`COMPLETED`
+
+### Verified completion — 2026-09-08
+
+Phase 8 mobile foundation and production path are complete. The release established secure mobile session architecture, typed API/data boundaries, role-aware Teacher/Student/Parent shells, representative portal/workflow slices, accessibility/resilience handling, and the mobile security/release gate.
+
+- Expo Doctor: **20/20 PASS**.
+- TypeScript validation: **PASS**.
+- Android JS bundle/export: **PASS**.
+- Native Android acceptance on a connected Android 15 emulator: **PASS** for Teacher login, workspace loading, assignment-scoped class/section controls, attendance status selection/save/refresh, and read-only existing-record behavior.
+- Signed production Android artifact generation and rollback/disable documentation: **PASS**.
+- Mobile security/E2E gate and permanent Phase 1/2/7 regression requirements: **PASS**.
 
 ---
 
 # Phase 9 — Notifications
 
-```text
-Business event -> NotificationService -> Push / SMS / Email
-```
+### Status
+`COMPLETED`
 
-Provider failures must not break core ERP workflows.
+### Verified completion — 2026-09-07
+
+The notification platform is provider-agnostic, tenant-scoped and asynchronous. Core transactions do not depend on provider availability. In-app notifications, outbox/idempotency boundaries, delivery attempts/dead-letter observability, preferences and fail-closed provider adapters were implemented and regression-tested.
+
+- Authenticated Phase 9 E2E and tenant/RBAC verification: **PASS**.
+- Provider abstraction merged without requiring paid/external delivery credentials.
+- External provider-specific delivery remains explicitly approval/configuration gated and is not falsely represented as complete.
 
 ---
 
 # Phase 10 — Library, Transport, Inventory and Staff
 
-Add only after core ERP workflows are stable and requirements are defined.
+### Status
+`COMPLETED`
+
+### Verified completion — 2026-09-07
+
+Staff/HR, Library, Transport and Inventory foundations and their integration/UX are complete with tenant isolation, RBAC, lifecycle and concurrency protections.
+
+- Full build: **PASS**.
+- Full tests: **PASS**.
+- Full lint: **PASS** with existing warnings only.
+- Targeted Semgrep: **PASS** with 0 findings / 0 blocking.
+- Production API health: **PASS**.
+- Production Inventory unauthenticated access: correctly rejected with **401**.
+
+External notification delivery remains provider-agnostic/fail-closed until approved credentials/configuration are supplied.
 
 ---
 
 # Phase 11 — Online Payments
 
-Order creation, webhook verification, idempotency, reconciliation, refunds and receipts.
+### Status
+`READY_FOR_VERIFICATION`
 
-Never trust client-side payment success state.
+### Engineering completion — 2026-09-08
+
+The online-payment engineering implementation is complete and merged. The provider is intentionally disabled by default. The remaining gate is real-world merchant activation and provider-side verification, tracked separately in Linear ALO-42.
+
+Completed engineering scope includes:
+- server-authoritative payment-order creation from outstanding fees;
+- provider-neutral state machine and idempotency;
+- Razorpay adapter boundary and server-side checkout signature verification;
+- raw-body signed webhook verification and replay/duplicate protection;
+- atomic payment/fee ledger application;
+- refunds/reversals and reconciliation;
+- adversarial authorization, tenant isolation and concurrency coverage;
+- retry-safe failed webhook processing and stable refund idempotency-key handling.
+
+### Verified engineering result
+
+```text
+Server tests:             24 files / 96 tests PASS
+Repository build:         PASS
+Repository lint:          PASS with existing warnings only
+Semgrep:                  PASS
+Provider default state:   DISABLED
+```
+
+### Remaining operational gate
+
+Merchant onboarding/KYC, production provider secrets, webhook configuration, provider sandbox verification, monitoring/rollback review, a controlled production payment, and final enablement must be completed by the project owner before this phase can be treated as fully operational.
 
 ---
 
 # Phase 12 — SaaS Platform
 
-Tenant lifecycle, subscriptions, billing, module entitlements, usage and audited support operations.
+### Status
+`COMPLETED`
+
+### Verified completion — 2026-09-10
+
+Tenant lifecycle, subscriptions, billing, module entitlements, usage accounting and audited support operations are implemented and regression-gated. The SaaS layer uses server-side authorization and tenant boundaries rather than client-side entitlement decisions.
 
 ---
 
 # Phase 13 — Reliability and Scale
 
-Backups, restore tests, monitoring, error tracking, structured logs, queues, workers, alerting and database performance work.
+### Status
+`COMPLETED`
+
+### Verified completion — 2026-09-10
+
+The reliability pass added request IDs, readiness checks, structured diagnostic context, bounded smoke/load coverage and measurement-driven database/performance review. MongoDB Atlas advisor review produced no suggested indexes, drop-index recommendations, slow-query recommendations or schema recommendations for the reviewed production workload.
+
+- Release merged to `main` and deployed successfully.
+- Render `/ready`: **200**.
+- Post-release request logs: no observed 5xx in the reviewed production window.
+- Backup/restore remained explicitly provider-gated on the free Atlas tier and was not falsely claimed as configured.
 
 ---
 
 # Phase 14 — AI and Advanced Analytics
 
-Only after core data quality is strong. AI must never make authoritative financial or academic decisions without human approval.
+### Status
+`COMPLETED`
+
+### Verified implementation and release — 2026-09-10
+
+Phase 14 adds tenant-safe aggregate analytics and optional, human-controlled AI assistance without changing authoritative academic or financial state.
+
+Completed scope includes:
+- tenant-scoped 7/30/90-day analytics overview datasets;
+- aggregate attendance, collection and fee-exposure metrics;
+- data-quality signals for missing class/section assignments and duplicate attendance entries;
+- responsive admin Analytics workspace;
+- optional AI status/insights endpoints gated by `reports:read`;
+- aggregate-only OpenAI-compatible provider adapter with bounded timeout;
+- output sanitization and deterministic fallback when disabled, unavailable or unconfigured;
+- `AI_ASSISTANCE_ENABLED=false` kill switch;
+- privacy regression coverage proving no student-level identifying fields are sent to the provider;
+- tenant-isolation and provider-failure regression coverage.
+
+### Verified release evidence
+
+```text
+Server tests:             43 files / 166 tests PASS
+Client tests:             2 files / 16 tests PASS
+Server build:             PASS
+Client build:             PASS
+Server lint:              0 errors / 23 existing warnings
+Client lint:              0 errors / 4 existing warnings
+Semgrep:                  PASS
+Vercel production:        READY
+Render production:        LIVE
+```
+
+Authenticated browser acceptance was attempted with the local fixture environment but did not complete login; the test did not produce an authenticated `/analytics/*` request at Render. This is retained as an environment-dependent verification limitation rather than a claimed pass.
+
+AI remains disabled by default and cannot mutate students, attendance, marks, fees, payments or other authoritative records. Human staff remain authoritative for academic and financial decisions.
 
 ---
 
 ## Current Implementation Order
 
 ```text
-1. Phase 7 — Parent/Student/Teacher portals [COMPLETED]
-2. Notifications
-3. Mobile
-4. SaaS administration/billing
-5. Reliability/scale
-6. AI/advanced analytics
+1. Phase 11 — Online Payments: engineering complete; merchant activation is the remaining operational gate
+2. Post-v1 reliability, maintenance and regression hardening
+3. Approved product improvements driven by measured usage and school feedback
 ```
 
-Do not prioritize microservices, Kubernetes, GPS/WhatsApp automation, speculative AI decisioning or broad caching before the core ERP is correct and regression-gated.
+Completed phases remain mandatory regression baselines. Do not prioritize microservices, Kubernetes, broad caching, speculative AI decisioning or additional asynchronous infrastructure without a measured requirement and an approved engineering gate.
 
 ---
 
