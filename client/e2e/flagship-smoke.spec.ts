@@ -5,6 +5,7 @@ const password = process.env.DEMO_ADMIN_PASSWORD?.replace(/^(\"|')(.*)\1$/, "$2"
 
 const adminRoutes = [
   "/dashboard",
+  "/analytics",
   "/students",
   "/attendance",
   "/timetable",
