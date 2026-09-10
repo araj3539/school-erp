@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { AcademicYear, Attendance, Class, Fee, Payment, Student, Teacher } from "../models/index.js";
 
 export type AnalyticsRange = 7 | 30 | 90;
+export type TenantId = Types.ObjectId | string;
 
 export interface AnalyticsDataset {
   rangeDays: AnalyticsRange;
@@ -33,13 +34,8 @@ function startOfUtcDay(daysAgo: number): Date {
   return date;
 }
 
-function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function roundPercent(value: number): number {
-  return Math.round(value * 10) / 10;
-}
+function dateKey(date: Date): string { return date.toISOString().slice(0, 10); }
+function roundPercent(value: number): number { return Math.round(value * 10) / 10; }
 
 function emptyTrend(rangeDays: AnalyticsRange): Array<{ date: string; attendanceRate: number; collection: number }> {
   return Array.from({ length: rangeDays }, (_, index) => {
@@ -48,11 +44,9 @@ function emptyTrend(rangeDays: AnalyticsRange): Array<{ date: string; attendance
   });
 }
 
-export async function getAnalyticsDataset(schoolId: Types.ObjectId, rangeDays: AnalyticsRange): Promise<AnalyticsDataset> {
+export async function getAnalyticsDataset(schoolId: TenantId, rangeDays: AnalyticsRange): Promise<AnalyticsDataset> {
   const currentYear = await AcademicYear.findOne({ schoolId, isCurrent: true }).select("_id name").lean();
-  if (!currentYear) {
-    throw new Error("No current academic year set");
-  }
+  if (!currentYear) throw new Error("No current academic year set");
 
   const start = startOfUtcDay(rangeDays - 1);
   const end = new Date();
@@ -89,12 +83,7 @@ export async function getAnalyticsDataset(schoolId: Types.ObjectId, rangeDays: A
     ]),
     Fee.aggregate([
       { $match: { schoolId, academicYear: currentYear._id } },
-      { $group: {
-        _id: null,
-        totalDue: { $sum: "$totalDue" },
-        paidAmount: { $sum: "$paidAmount" },
-        balance: { $sum: "$balance" },
-      } },
+      { $group: { _id: null, totalDue: { $sum: "$totalDue" }, paidAmount: { $sum: "$paidAmount" }, balance: { $sum: "$balance" } } },
     ]),
     Fee.aggregate([
       { $match: { schoolId, academicYear: currentYear._id } },
