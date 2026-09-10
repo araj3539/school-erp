@@ -32,6 +32,7 @@ describe("aiProviderService", () => {
     delete process.env.AI_BASE_URL;
     delete process.env.AI_API_KEY;
     delete process.env.AI_MODEL;
+    delete process.env.AI_TIMEOUT_MS;
     vi.restoreAllMocks();
   });
 
@@ -46,5 +47,38 @@ describe("aiProviderService", () => {
     expect(result.insights.length).toBeGreaterThan(0);
     expect(result.insights[0].sources).toContain("snapshot.attendanceRate");
     expect(result.insights[0].actions.join(" ")).toMatch(/existing attendance workflows/i);
+  });
+
+  it("accepts a bounded provider response and sanitizes its output", async () => {
+    process.env.AI_ASSISTANCE_ENABLED = "true";
+    process.env.AI_BASE_URL = "https://ai.example.test/v1";
+    process.env.AI_API_KEY = "test-key";
+    process.env.AI_MODEL = "test-model";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ insights: [{ title: " Attendance signal ", summary: " Review the selected aggregate window.", actions: ["Check attendance trends."], confidence: "medium", sources: ["snapshot.attendanceRate"] }] }) } }],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+
+    const result = await getAnalyticsInsights(dataset);
+    expect(result.mode).toBe("provider");
+    expect(result.enabled).toBe(true);
+    expect(result.insights[0].title).toBe("Attendance signal");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const request = fetchMock.mock.calls[0][1];
+    expect(request?.headers).toMatchObject({ authorization: "Bearer test-key" });
+    expect(String(request?.body)).toContain('"activeStudents":100');
+    expect(String(request?.body)).not.toMatch(/firstName|lastName|phone|admissionNo/i);
+  });
+
+  it("falls back when the provider fails", async () => {
+    process.env.AI_ASSISTANCE_ENABLED = "true";
+    process.env.AI_BASE_URL = "https://ai.example.test/v1";
+    process.env.AI_API_KEY = "test-key";
+    process.env.AI_MODEL = "test-model";
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("provider unavailable"));
+
+    const result = await getAnalyticsInsights(dataset);
+    expect(result.mode).toBe("fallback");
+    expect(result.enabled).toBe(true);
+    expect(result.insights.length).toBeGreaterThan(0);
   });
 });
