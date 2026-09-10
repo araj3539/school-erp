@@ -3,8 +3,9 @@ import multer from "multer";
 import { ZodError } from "zod";
 import { AppError } from "../utils/errors.js";
 import { isDevelopment } from "../config/index.js";
+import { getRequestId } from "./requestContext.js";
 
-export function errorHandler(err: Error, req: Request, res: Response, next: NextFunction): void {
+export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError || (typeof err === "object" && err !== null && "statusCode" in err && "code" in err)) {
     const appError = err as Error & { statusCode: number; code: string };
     res.status(appError.statusCode).json({
@@ -64,7 +65,7 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
 
   console.error(JSON.stringify({
     event: "unhandled_error",
-    requestId: req.requestId,
+    requestId: getRequestId(req),
     method: req.method,
     path: req.path,
     name: err.name,
