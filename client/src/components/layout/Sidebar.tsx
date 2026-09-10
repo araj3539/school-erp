@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useUIStore } from "../../store/uiStore";
 import { cn } from "../../utils";
-import { LayoutDashboard, Users, UserCheck, Building2, Calendar, CalendarClock, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore, FileSpreadsheet, BookOpen, ClipboardList, Megaphone, Package, BriefcaseBusiness, X } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Building2, Calendar, CalendarClock, DollarSign, BarChart3, Settings, LogOut, ArchiveRestore, FileSpreadsheet, BookOpen, ClipboardList, Megaphone, Package, BriefcaseBusiness, X, Activity } from "lucide-react";
 import { useAuth } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
 import api from "../../lib/api";
@@ -10,6 +10,7 @@ import api from "../../lib/api";
 interface NavItem { label: string; path: string; icon: React.ReactNode; permissions?: string[]; }
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" aria-hidden="true" /> },
+  { label: "Analytics", path: "/analytics", icon: <Activity className="h-[18px] w-[18px]" aria-hidden="true" />, permissions: ["reports:read"] },
   { label: "Students", path: "/students", icon: <Users className="h-[18px] w-[18px]" aria-hidden="true" />, permissions: ["students:read"] },
   { label: "Student Import & Export", path: "/students/bulk", icon: <FileSpreadsheet className="h-[18px] w-[18px]" aria-hidden="true" />, permissions: ["students:read"] },
   { label: "Document Recovery", path: "/document-recovery", icon: <ArchiveRestore className="h-[18px] w-[18px]" aria-hidden="true" />, permissions: ["students:read"] },
