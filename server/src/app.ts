@@ -10,6 +10,12 @@ import { logRequestCompletion, requestContext } from "./middleware/requestContex
 import routes from "./routes/index.js";
 import { startNotificationWorker } from "./services/notificationService.js";
 import { handleRazorpayWebhook } from "./controllers/paymentWebhookController.js";
+import { disconnectDB } from "./config/index.js";
+import type { Server } from "node:http";
+
+type ServerLifecycle = {
+  close: () => Promise<void>;
+};
 
 const app = express();
 
@@ -77,11 +83,26 @@ app.use("/api/v1/auth", authRateLimiter);
 app.use("/api/v1", routes);
 app.use(errorHandler);
 
-export async function startServer() {
+export async function startServer(): Promise<ServerLifecycle> {
   await connectDB();
+  const workerTimer = await startNotificationWorker();
   const port = env.PORT;
-  app.listen(port, () => console.log(`Server running on port ${port} in ${env.NODE_ENV} mode`));
-  await startNotificationWorker();
+  const server = await new Promise<Server>((resolve) => {
+    const httpServer = app.listen(port, () => {
+      console.log(JSON.stringify({ event: "server_started", port, environment: env.NODE_ENV }));
+      resolve(httpServer);
+    });
+  });
+
+  return {
+    close: async () => {
+      clearInterval(workerTimer);
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => error ? reject(error) : resolve());
+      });
+      await disconnectDB();
+    },
+  };
 }
 
 export default app;
