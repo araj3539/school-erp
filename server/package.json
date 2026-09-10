@@ -8,6 +8,8 @@
     "build": "node fix-imports.cjs && tsc",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
+    "reliability:smoke": "node scripts/reliability-smoke.mjs",
+    "reliability:load": "node scripts/reliability-load.mjs",
     "seed:demo": "tsx src/scripts/seedDemo.ts",
     "seed:e2e": "node scripts/seed-e2e-fixtures.mjs",
     "migrate:tenant-lifecycle": "tsx src/scripts/migrateTenantLifecycle.ts",
