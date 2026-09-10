@@ -20,6 +20,7 @@ import noticeRoutes from "./noticeRoutes.js";
 import timetableRoutes from "./timetableRoutes.js";
 import portalRoutes from "./portalRoutes.js";
 import notificationRoutes from "./notificationRoutes.js";
+import reportRoutes from "./reportRoutes.js";
 import platformTenantRoutes from "./platformTenantRoutes.js";
 import platformOperationsRoutes from "./platformOperationsRoutes.js";
 import moduleEntitlementRoutes from "./moduleEntitlementRoutes.js";
@@ -46,6 +47,7 @@ router.use("/dashboard", authenticate, requireModule("dashboard"), dashboardRout
 router.use("/parents", authenticate, requireModule("parents"), parentRoutes);
 router.use("/school", authenticate, requireModule("school"), schoolRoutes);
 router.use("/academic-years", authenticate, requireModule("academicYears"), academicYearRoutes);
+router.use("/reports", reportRoutes);
 router.use("/audit-logs", auditLogRoutes);
 router.use("/exams", authenticate, requireModule("exams"), examRoutes);
 router.use("/homework", authenticate, requireModule("homework"), homeworkRoutes);
