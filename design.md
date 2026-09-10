@@ -366,6 +366,20 @@ Generate receipt
 
 The final amount must come from the server.
 
+### Fees & Payments — CURRENT ALO-57
+
+The admin Fees workspace now follows the flagship visual system with:
+- a focused financial-operations header
+- visible due/paid/outstanding/overdue context
+- separate Student Fees, Fee Structures and Payments tabs
+- explicit loading, refresh, empty and error states
+- typed collection/structure records and semantic status presentation
+- visible server-authoritative payment guidance
+- explicit confirmation before fee-structure deletion
+- receipt actions that retain the existing receipt endpoint
+
+The redesign is intentionally UI-only: existing fee, payment, report and receipt API contracts remain the source of financial truth.
+
 ---
 
 ## 14. Attendance UX
@@ -548,10 +562,10 @@ This design document is a **living UI/UX source of truth**. It must evolve with 
 
 ### Status Metadata
 
-- **Document version:** 1.2.0
+- **Document version:** 1.3.0
 - **Lifecycle status:** Living / actively maintained
 - **Baseline verified:** 10 September 2026
-- **Current implementation state:** Flagship visual-system rollout started; shared shell/primitives and dashboard have been upgraded on ALO-57, with remaining screens continuing the same system.
+- **Current implementation state:** ALO-57 flagship visual-system rollout is implemented through Students, Student Detail, Attendance, Timetable and Fees/Payments; remaining major screens continue the same system.
 - **Next mandatory review:** After major screen/module additions, navigation changes, design-system changes, or responsive/accessibility changes
 
 ### Current vs Target Design
@@ -579,13 +593,12 @@ The ALO-57 rollout establishes these shared patterns:
 ### Flagship Visual System — TARGET
 
 Continue the system through the rest of the application in descending frequency/value:
-1. Students and student detail
-2. Attendance and timetable
-3. Fees and payment/receipt workflows
-4. Teachers, classes and exams/results
-5. Operations, reports, notices and settings
-6. Role-specific portal surfaces
-7. Cross-screen accessibility and responsive polish pass
+1. Teachers, classes and exams/results
+2. Operations, reports, notices and settings
+3. Role-specific portal surfaces
+4. Cross-screen accessibility and responsive polish pass
+
+Students, Student Detail, Attendance, Timetable, and Fees/Payments are now CURRENT for this ALO-57 rollout.
 
 The target is not visual novelty for its own sake. The product should feel coherent enough that a principal, accountant or teacher can move between modules without relearning the interface.
 
@@ -617,6 +630,7 @@ AI agents must reuse the established component and interaction patterns before i
 
 | Version | Date | Change | Verified By |
 |---|---|---|---|
+| 1.3.0 | 2026-09-10 | Marked Fees/Payments as CURRENT, documented the implemented financial workspace patterns, and advanced the ALO-57 target sequence to Teachers/Classes/Exams. | AI-assisted repository review + local build/client/server tests |
 | 1.2.0 | 2026-09-10 | Documented the ALO-57 flagship visual system rollout and current/target screen priorities. | AI-assisted repository review + local client build/tests |
 | 1.1.0 | 2026-08-11 | Added living design lifecycle, CURRENT/TARGET states, verification, and versioning. | AI-assisted repository review |
 | 1.0.0 | 2026-08-11 | Initial design-system documentation. | AI-assisted repository review |
