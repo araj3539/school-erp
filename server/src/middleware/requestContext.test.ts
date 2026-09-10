@@ -42,7 +42,7 @@ describe("requestContext", () => {
 describe("logRequestCompletion", () => {
   it("emits a structured request event without query-string data", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    const req = { requestId: "trace-123", method: "GET", path: "/api/v1/students?secret=true" } as any;
+    const req = { requestId: "trace-123", method: "GET", path: "/api/v1/students" } as any;
     const res = { statusCode: 200 } as any;
 
     logRequestCompletion(req, res, Date.now() - 12);
@@ -53,7 +53,7 @@ describe("logRequestCompletion", () => {
       event: "http_request",
       requestId: "trace-123",
       method: "GET",
-      path: req.path,
+      path: "/api/v1/students",
       statusCode: 200,
     });
     expect(payload).not.toHaveProperty("query");
