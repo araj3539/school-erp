@@ -9,7 +9,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const baseStyles =
-  "inline-flex min-h-10 items-center justify-center rounded-xl font-semibold tracking-[-0.01em] transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:translate-y-px disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex min-h-10 items-center justify-center rounded-xl font-semibold tracking-[-0.01em] transition-[background-color,border-color,box-shadow,color,opacity,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50";
 
 const variants = {
   primary: "bg-primary-600 text-white shadow-sm shadow-primary-600/20 hover:bg-primary-700 hover:shadow-md hover:shadow-primary-600/20",
