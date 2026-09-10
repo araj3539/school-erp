@@ -88,7 +88,7 @@ export function Sidebar() {
             <div className="space-y-1">
               {filteredItems.map(item => {
                 const active = isItemActive(item.path);
-                return <NavLink key={item.path} to={item.path} aria-current={active ? "page" : undefined} className={cn("group flex min-h-10 items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500", active ? "bg-primary-50 text-primary-700 shadow-sm shadow-primary-100/70" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950")}>{item.icon}<span className="truncate">{item.label}</span>{active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary-600" aria-hidden="true" />}</NavLink>;
+                return <NavLink key={item.path} to={item.path} aria-current={active ? "page" : undefined} className={cn("group flex min-h-10 items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500", active ? "bg-primary-50 text-primary-700 shadow-sm shadow-primary-100/70" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950")}>{item.icon}<span className="truncate">{item.label}</span>{active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary-600" aria-hidden="true" />}</NavLink>;
               })}
             </div>
           </nav>
@@ -104,7 +104,7 @@ export function Sidebar() {
           </div>
         </div>
       </aside>
-      {sidebarOpen && <div className="fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-[2px] lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
+      {sidebarOpen && <button type="button" className="fixed inset-0 z-30 cursor-default bg-slate-950/35 backdrop-blur-[2px] lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close navigation menu" />}
     </>
   );
 }
