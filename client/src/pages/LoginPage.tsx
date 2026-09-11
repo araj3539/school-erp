@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate, useLocation } from "react-router-dom";
-import api from "../lib/api";
+import api, { getApiErrorMessage } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -60,10 +60,11 @@ export default function LoginPage() {
 
       addToast("Signed in successfully", "success");
       navigate(from, { replace: true });
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message ||
-        "Invalid credentials. Please verify your school code, email, and password.";
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(
+        error,
+        "Invalid credentials. Please verify your school code, email, and password."
+      );
       addToast(message, "error");
     } finally {
       setIsLoading(false);
