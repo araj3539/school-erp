@@ -3,10 +3,10 @@ import { Command, Search, Plus, LayoutDashboard, Users, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const shortcuts = [
-  { keys: "G then D", label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { keys: "G then S", label: "Students", path: "/students", icon: Users },
-  { keys: "/", label: "Focus search", path: "", icon: Search },
-  { keys: "N", label: "New admission", path: "/students", icon: Plus },
+  { keys: "G then D", label: "Dashboard", icon: LayoutDashboard },
+  { keys: "G then S", label: "Students", icon: Users },
+  { keys: "/", label: "Focus search", icon: Search },
+  { keys: "N", label: "New admission", icon: Plus },
 ];
 
 export function KeyboardShortcutHud({ onFocusSearch }: { onFocusSearch?: () => void }) {
@@ -21,7 +21,13 @@ export function KeyboardShortcutHud({ onFocusSearch }: { onFocusSearch?: () => v
       if (event.key === "?" && !typing) { event.preventDefault(); setOpen((current) => !current); return; }
       if (event.key === "Escape") { setOpen(false); setSequence(""); return; }
       if (typing && event.key !== "/") return;
-      if (event.key === "/") { event.preventDefault(); onFocusSearch?.(); return; }
+      if (event.key === "/") {
+        event.preventDefault();
+        const search = document.querySelector<HTMLInputElement>("input[aria-label*='search' i], input[placeholder*='search' i]");
+        search?.focus();
+        onFocusSearch?.();
+        return;
+      }
       if (event.key.toLowerCase() === "g") { setSequence("g"); return; }
       if (sequence === "g" && event.key.toLowerCase() === "d") { navigate("/dashboard"); setSequence(""); return; }
       if (sequence === "g" && event.key.toLowerCase() === "s") { navigate("/students"); setSequence(""); return; }
