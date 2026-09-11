@@ -1,0 +1,11 @@
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { CheckSquare, Phone, Printer, Receipt, RotateCcw, X } from "lucide-react";
+
+export function SelectionDock({ count, onClear, onCall, onPrint, onFees, onTransfer }: { count: number; onClear: () => void; onCall?: () => void; onPrint?: () => void; onFees?: () => void; onTransfer?: () => void }) {
+  const reduced = useReducedMotion();
+  return <AnimatePresence>
+    {count > 0 && <motion.div initial={reduced ? { opacity: 0 } : { y: 24, scale: 0.96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={reduced ? { opacity: 0 } : { y: 24, scale: 0.96, opacity: 0 }} transition={{ type: "spring", stiffness: 420, damping: 32 }} className="fixed bottom-4 left-1/2 z-[65] -translate-x-1/2 rounded-2xl border border-slate-200 bg-slate-950/95 px-2 py-2 text-white shadow-[0_20px_60px_rgba(15,23,42,0.3)] backdrop-blur-xl">
+      <div className="flex items-center gap-1.5"><div className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold"><CheckSquare className="h-4 w-4 text-sky-300" />{count} selected</div>{onCall && <button type="button" onClick={onCall} className="tactile rounded-xl p-2.5 text-slate-300 hover:bg-white/10 hover:text-white" aria-label="Call selected guardians"><Phone className="h-4 w-4" /></button>}{onFees && <button type="button" onClick={onFees} className="tactile rounded-xl p-2.5 text-slate-300 hover:bg-white/10 hover:text-white" aria-label="View fee history"><Receipt className="h-4 w-4" /></button>}{onPrint && <button type="button" onClick={onPrint} className="tactile rounded-xl p-2.5 text-slate-300 hover:bg-white/10 hover:text-white" aria-label="Print selected IDs"><Printer className="h-4 w-4" /></button>}{onTransfer && <button type="button" onClick={onTransfer} className="tactile rounded-xl p-2.5 text-slate-300 hover:bg-white/10 hover:text-white" aria-label="Open transfer workflow"><RotateCcw className="h-4 w-4" /></button>}<button type="button" onClick={onClear} className="tactile rounded-xl p-2.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Clear selection"><X className="h-4 w-4" /></button></div>
+    </motion.div>}
+  </AnimatePresence>;
+}

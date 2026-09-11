@@ -1,27 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { animate, useReducedMotion } from "motion/react";
 import { cn } from "../../utils";
 
-export function SpringNumber({ value, formatter = (next: number) => Math.round(next).toLocaleString("en-IN"), className }: { value: number; formatter?: (value: number) => string; className?: string }) {
+const defaultFormatter = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
+
+export function SpringNumber({ value, formatter, className }: { value: number; formatter?: (value: number) => string; className?: string }) {
   const [display, setDisplay] = useState(value);
   const current = useRef(value);
-
+  const reduced = useReducedMotion();
   useEffect(() => {
     const from = current.current;
-    const delta = value - from;
-    if (!delta) return;
-    const started = performance.now();
-    let frame = 0;
-    const tick = (now: number) => {
-      const progress = Math.min((now - started) / 420, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const next = from + delta * eased;
-      current.current = next;
-      setDisplay(next);
-      if (progress < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
-
-  return <span className={cn("tabular-nums", className)}>{formatter(display)}</span>;
+    if (reduced || from === value) { current.current = value; setDisplay(value); return; }
+    const controls = animate(from, value, { type: "spring", stiffness: 170, damping: 22, mass: 0.65, onUpdate: (latest) => { current.current = latest; setDisplay(latest); } });
+    return () => controls.stop();
+  }, [value, reduced]);
+  return <span className={cn("tabular-nums", className)} aria-live="polite">{formatter ? formatter(display) : defaultFormatter.format(display)}</span>;
 }
