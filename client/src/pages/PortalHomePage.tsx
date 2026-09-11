@@ -1,132 +1,156 @@
-import { ArrowRight, Calendar, CalendarClock, ClipboardList, DollarSign, Megaphone, Users, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Calendar, CalendarClock, ClipboardList, CreditCard, Megaphone, Users, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../hooks";
-import { SpotlightCard } from "../components/motion/SpotlightCard";
 
-const CONTENT = {
+const ROLE_CONFIG = {
   teacher: {
-    eyebrow: "Teacher Workspace",
-    title: "Your school day, in one place.",
-    intro: "Review today's schedule, take attendance, and manage homework across all assigned classes.",
-    cards: [
-      { label: "Timetable", text: "See your scheduled classes and periods.", path: "/timetable", icon: CalendarClock, permission: "timetable:read:own", accent: "bg-sky-50 text-sky-700" },
-      { label: "Attendance", text: "Record or review attendance rosters.", path: "/attendance", icon: Calendar, permission: "attendance:read", accent: "bg-emerald-50 text-emerald-700" },
-      { label: "Homework", text: "Assign, grade, and track student submissions.", path: "/homework", icon: ClipboardList, permission: "homework:read", accent: "bg-indigo-50 text-indigo-700" },
-      { label: "Students", text: "Browse authorized student profiles.", path: "/students", icon: Users, permission: "students:read", accent: "bg-violet-50 text-violet-700" },
-      { label: "Exams and Results", text: "Publish scores and examine performance.", path: "/exams", icon: ClipboardList, permission: "marks:read", accent: "bg-amber-50 text-amber-700" },
-      { label: "Announcements", text: "Read published notices and circulars.", path: "/notices", icon: Megaphone, permission: "notices:read", accent: "bg-rose-50 text-rose-700" },
+    portalName: "Faculty Workspace",
+    headline: "Classroom and student operations",
+    primaryAction: { label: "Mark Attendance", path: "/attendance" },
+    modules: [
+      { label: "Class Timetable", desc: "View scheduled periods and room allocations", path: "/timetable", icon: CalendarClock },
+      { label: "Attendance Rosters", desc: "Record and review student attendance", path: "/attendance", icon: Calendar },
+      { label: "Homework and Assignments", desc: "Create, distribute, and grade assignments", path: "/homework", icon: ClipboardList },
+      { label: "Student Records", desc: "Access student profiles and contact information", path: "/students", icon: Users },
+      { label: "Exams and Results", desc: "Record marks and submit evaluation reports", path: "/exams", icon: BookOpen },
+      { label: "School Notices", desc: "Read and publish institutional announcements", path: "/notices", icon: Megaphone },
     ],
   },
   student: {
-    eyebrow: "Student Workspace",
-    title: "Keep track of your academic journey.",
-    intro: "Check your timetable, monitor attendance streaks, review homework assignments, and view published marks.",
-    cards: [
-      { label: "Timetable", text: "Check your daily timetable and classrooms.", path: "/timetable", icon: CalendarClock, permission: "timetable:read:own", accent: "bg-sky-50 text-sky-700" },
-      { label: "Attendance", text: "See your overall attendance percentage.", path: "/attendance", icon: Calendar, permission: "attendance:read:own", accent: "bg-emerald-50 text-emerald-700" },
-      { label: "Homework", text: "Review assigned homework and due dates.", path: "/homework", icon: ClipboardList, permission: "homework:read:own", accent: "bg-indigo-50 text-indigo-700" },
-      { label: "Exams and Results", text: "View report cards and exam schedules.", path: "/exams", icon: ClipboardList, permission: "results:read:own", accent: "bg-amber-50 text-amber-700" },
-      { label: "Fee Details", text: "View paid invoices and pending dues.", path: "/fees", icon: DollarSign, permission: "fees:read:own", accent: "bg-teal-50 text-teal-700" },
-      { label: "Announcements", text: "Stay updated with school events.", path: "/notices", icon: Megaphone, permission: "notices:read", accent: "bg-rose-50 text-rose-700" },
+    portalName: "Student Portal",
+    headline: "Your daily academic schedule and progress",
+    primaryAction: { label: "View Timetable", path: "/timetable" },
+    modules: [
+      { label: "Daily Schedule", desc: "Check class periods, subjects, and teachers", path: "/timetable", icon: CalendarClock },
+      { label: "Attendance Summary", desc: "Monitor your monthly attendance status", path: "/attendance", icon: Calendar },
+      { label: "Active Homework", desc: "Review upcoming assignments and due dates", path: "/homework", icon: ClipboardList },
+      { label: "Exam Results", desc: "Inspect published report cards and test grades", path: "/exams", icon: BookOpen },
+      { label: "Fee Statements", desc: "Check payment history and pending receipts", path: "/fees", icon: CreditCard },
+      { label: "Announcements", desc: "Stay informed on school circulars and events", path: "/notices", icon: Megaphone },
     ],
   },
   parent: {
-    eyebrow: "Parent Workspace",
-    title: "Stay connected with your child's education.",
-    intro: "Monitor attendance, review academic progress, verify homework submissions, and manage fee dues securely.",
-    cards: [
-      { label: "Children Overview", text: "Switch between linked children profiles.", path: "/students", icon: Users, permission: "students:read:child", accent: "bg-violet-50 text-violet-700" },
-      { label: "Class Timetable", text: "Review class schedules and subject teachers.", path: "/timetable", icon: CalendarClock, permission: "timetable:read:child", accent: "bg-sky-50 text-sky-700" },
-      { label: "Attendance Record", text: "Track monthly presence and absences.", path: "/attendance", icon: Calendar, permission: "attendance:read:child", accent: "bg-emerald-50 text-emerald-700" },
-      { label: "Homework", text: "See homework assigned to your children.", path: "/homework", icon: ClipboardList, permission: "homework:read:child", accent: "bg-indigo-50 text-indigo-700" },
-      { label: "Exam Results", text: "Inspect term scores and grade sheets.", path: "/exams", icon: ClipboardList, permission: "results:read:child", accent: "bg-amber-50 text-amber-700" },
-      { label: "Fee Statements", text: "Review fee receipts and due installments.", path: "/fees", icon: DollarSign, permission: "fees:read:child", accent: "bg-teal-50 text-teal-700" },
-      { label: "School Notices", text: "Read administrative updates and circulars.", path: "/notices", icon: Megaphone, permission: "notices:read", accent: "bg-rose-50 text-rose-700" },
+    portalName: "Family Portal",
+    headline: "Academic progress and school communications",
+    primaryAction: { label: "Review Attendance", path: "/attendance" },
+    modules: [
+      { label: "Children Overview", desc: "View records for each registered child", path: "/students", icon: Users },
+      { label: "Class Schedule", desc: "View daily timetable and subject teachers", path: "/timetable", icon: CalendarClock },
+      { label: "Attendance Logs", desc: "Review verified attendance reports", path: "/attendance", icon: Calendar },
+      { label: "Homework Tracking", desc: "Check daily assignments and completion", path: "/homework", icon: ClipboardList },
+      { label: "Report Cards", desc: "Access term examination and assessment results", path: "/exams", icon: BookOpen },
+      { label: "Fee Payments", desc: "View due balances and download payment receipts", path: "/fees", icon: CreditCard },
     ],
   },
 } as const;
 
 export default function PortalHomePage() {
-  const { user, hasPermission } = useAuth();
-  const content = CONTENT[user?.role as keyof typeof CONTENT] ?? CONTENT.student;
-  const visibleCards = content.cards.filter((card) => hasPermission(card.permission));
+  const { user } = useAuth();
+  const config = ROLE_CONFIG[user?.role as keyof typeof ROLE_CONFIG] ?? ROLE_CONFIG.student;
   const today = new Date();
 
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-sky-100/70 blur-3xl" aria-hidden="true" />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-sky-500" aria-hidden="true" />
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-600">{content.eyebrow}</p>
-            </div>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-              {content.title}
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-              {content.intro}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-xs font-semibold text-slate-700">
-              <Clock className="h-4 w-4 text-sky-600" aria-hidden="true" />
-              <span>{today.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span>
-            </div>
-            <div className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              <span>Session Active</span>
-            </div>
-          </div>
+      {/* Top Workspace Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-200/80">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            {config.portalName}
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950 mt-1 sm:text-3xl">
+            {config.headline}
+          </h1>
         </div>
-      </section>
+        <div className="text-xs text-slate-500 font-medium">
+          {today.toLocaleDateString("en-IN", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
+        </div>
+      </div>
 
-      <section aria-labelledby="quick-access-heading">
-        <div className="mb-5 flex items-end justify-between">
+      {/* Bento Grid Layout */}
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        {/* Dominant Quick-Start Tile (Spans 2 columns on desktop) */}
+        <div className="lg:col-span-2 rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 flex flex-col justify-between shadow-sm">
           <div>
-            <h2 id="quick-access-heading" className="text-xl font-bold tracking-tight text-slate-950">
-              Workspace Modules
+            <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 bg-sky-50 px-2.5 py-1 rounded-md">
+              Current Session
+            </span>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 mt-4">
+              Welcome, {user?.email}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Direct access to your everyday tasks and records.
+            <p className="text-sm text-slate-600 mt-2 leading-relaxed max-w-xl">
+              All your daily tasks, rosters, and updates are synchronized. Select a module below or use the quick action to begin.
             </p>
+          </div>
+
+          <div className="mt-8 flex items-center gap-3">
+            <Link
+              to={config.primaryAction.path}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors active:scale-[0.98]"
+            >
+              <span>{config.primaryAction.label}</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+            <Link
+              to="/notices"
+              className="inline-flex items-center px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors active:scale-[0.98]"
+            >
+              View Notices
+            </Link>
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <SpotlightCard key={card.path} className="group">
-                <Link
-                  to={card.path}
-                  className="flex h-full flex-col justify-between p-6 transition-transform duration-200 group-hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm ${card.accent}`}>
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                    </div>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors group-hover:bg-sky-50 group-hover:text-sky-600">
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <h3 className="text-base font-bold text-slate-950 group-hover:text-sky-700 transition-colors">
-                      {card.label}
-                    </h3>
-                    <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                      {card.text}
-                    </p>
-                  </div>
-                </Link>
-              </SpotlightCard>
-            );
-          })}
+        {/* Notices Summary Card */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 flex flex-col justify-between shadow-sm">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Noticeboard
+              </span>
+              <Megaphone className="h-4 w-4 text-slate-400" aria-hidden="true" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mt-3">
+              Announcements
+            </h3>
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              Official school notices, holiday circulars, and administrative updates for this term.
+            </p>
+          </div>
+          <Link
+            to="/notices"
+            className="mt-6 text-xs font-semibold text-sky-600 hover:text-sky-700 inline-flex items-center gap-1"
+          >
+            <span>Open noticeboard</span>
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </Link>
         </div>
-      </section>
+
+        {/* Module Cards */}
+        {config.modules.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.path + item.label}
+              to={item.path}
+              className="group rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition-all hover:border-slate-300 hover:shadow-md flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 group-hover:bg-sky-50 group-hover:text-sky-700 transition-colors">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 mt-4 group-hover:text-sky-700 transition-colors">
+                  {item.label}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
