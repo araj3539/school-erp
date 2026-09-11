@@ -1,4 +1,3 @@
-import { PropsWithChildren } from "react";
 import { cn } from "../../utils";
 
 export function SegmentedTabs({ items, value, onChange, className }: { items: Array<{ value: string; label: string }>; value: string; onChange: (value: string) => void; className?: string }) {
