@@ -60,6 +60,8 @@ export { PaymentReversal } from "./PaymentReversal.js";
 export type { IPaymentReversal, PaymentReversalType } from "./PaymentReversal.js";
 export { PaymentAllocation } from "./PaymentAllocation.js";
 export type { IPaymentAllocation, PaymentAllocationType } from "./PaymentAllocation.js";
+export { BankTransaction } from "./BankTransaction.js";
+export type { IBankTransaction, BankTransactionStatus } from "./BankTransaction.js";
 export { PaymentWebhookEvent } from "./PaymentWebhookEvent.js";
 export type { IPaymentWebhookEvent } from "./PaymentWebhookEvent.js";
 export { AuditLog } from "./AuditLog.js";
