@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { FeeItem, Payment, PaymentAllocation } from "../models/index.js";
+import { FeeItem, Payment } from "../models/index.js";
 
 const DAY_MS = 86_400_000;
 
