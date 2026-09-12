@@ -11,7 +11,7 @@ export type { IModuleEntitlement } from "./ModuleEntitlement.js";
 export { SaaSProduct } from "./SaaSProduct.js";
 export type { ISaaSProduct, SaaSProductStatus } from "./SaaSProduct.js";
 export { SaaSPlan } from "./SaaSPlan.js";
-export type { ISaaSPlan, SaaSProductStatus, BillingInterval } from "./SaaSPlan.js";
+export type { ISaaSPlan, SaaSPlanStatus, BillingInterval } from "./SaaSPlan.js";
 export { Subscription } from "./Subscription.js";
 export type { ISubscription, SubscriptionStatus } from "./Subscription.js";
 export { SaaSInvoice } from "./SaaSInvoice.js";
