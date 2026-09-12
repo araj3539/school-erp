@@ -12,3 +12,5 @@ export * from "./upiPaymentService.js";
 export * from "./studentFamilyService.js";
 export * from "./feeItemService.js";
 export * from "./feeAdjustmentService.js";
+export * from "./paymentAllocationService.js";
+export * from "./bankReconciliationService.js";
