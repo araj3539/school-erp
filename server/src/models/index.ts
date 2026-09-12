@@ -4,6 +4,8 @@ export { School } from "./School.js";
 export type { ISchool, TenantStatus } from "./School.js";
 export { AcademicYear } from "./AcademicYear.js";
 export type { IAcademicYear } from "./AcademicYear.js";
+export { AcademicCalendarEvent } from "./AcademicCalendarEvent.js";
+export type { IAcademicCalendarEvent, AcademicCalendarEventType } from "./AcademicCalendarEvent.js";
 export { TenantProvisioning } from "./TenantProvisioning.js";
 export type { ITenantProvisioning, TenantProvisioningStatus } from "./TenantProvisioning.js";
 export { ModuleEntitlement } from "./ModuleEntitlement.js";
