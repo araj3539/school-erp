@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { FeeItem, Fee } from "../models/index.js";
+import { FeeItem, Fee, FeeHead } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { createAuditLog } from "./auditLog.js";
 
@@ -10,8 +10,12 @@ export async function listStudentFeeItems(schoolId: string, studentId: string, a
 }
 
 export async function createFeeItem(schoolId: string, data: { studentId: string; feeId: string; feeHeadId: string; label: string; amount: number; dueDate?: string }, actorId: string) {
-  const fee = await Fee.findOne({ _id: data.feeId, schoolId, studentId: data.studentId }).lean();
+  const [fee, head] = await Promise.all([
+    Fee.findOne({ _id: data.feeId, schoolId, studentId: data.studentId }).lean(),
+    FeeHead.findOne({ _id: data.feeHeadId, schoolId, isActive: true }).lean()
+  ]);
   if (!fee) throw AppError.badRequest("Fee must belong to the selected student and school");
+  if (!head) throw AppError.badRequest("Fee head must belong to the same school and be active");
   const item = await FeeItem.create({
     schoolId,
     studentId: data.studentId,
