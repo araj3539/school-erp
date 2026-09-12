@@ -4,6 +4,7 @@ import { requireStudentFeeOwnership } from "../middleware/feeOwnership.js";
 import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, getDailyCollectionReport, getMonthlyCollectionReport } from "../controllers/feeController.js";
 import { setFeeStructureLifecycle } from "../controllers/feeStructureLifecycleController.js";
 import { getFeeHeads, createFeeHead, updateFeeHead, getStudentFeeItems, createStudentFeeItem, adjustStudentFeeItem, adjustStudentFeeRecord } from "../controllers/feeItemController.js";
+import { getFamilyFeeSummary } from "../controllers/familyFeeController.js";
 import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
 import { createPaymentOrder } from "../controllers/paymentOrderController.js";
 import { getUpiPayment, submitUpiPaymentForOrder, verifyUpiPaymentForOrder, importBankTransactions } from "../controllers/upiPaymentController.js";
@@ -26,6 +27,7 @@ router.put("/structures/:id", requirePermission("fees:write"), validate(IdParamS
 router.patch("/structures/:id/lifecycle", requirePermission("fees:write"), validate(FeeStructureIdParamSchema, "params"), validate(FeeStructureLifecycleSchema), setFeeStructureLifecycle);
 router.delete("/structures/:id", requirePermission("fees:delete"), validate(IdParamSchema, "params"), deleteFeeStructure);
 router.get("/", requirePermission("fees:read"), validate(PaginationSchema, "query"), getFees);
+router.get("/student/:id/family", requirePermission("fees:read"), validate(IdParamSchema, "params"), validate(StudentFeeQuerySchema, "query"), getFamilyFeeSummary);
 router.get("/student/:id", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), validate(StudentFeeQuerySchema, "query"), requireStudentFeeOwnership, getStudentFees);
 router.get("/student/:id/items", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), validate(StudentFeeQuerySchema, "query"), requireStudentFeeOwnership, getStudentFeeItems);
 router.post("/items", requirePermission("fees:write"), validate(CreateFeeItemSchema), createStudentFeeItem);
