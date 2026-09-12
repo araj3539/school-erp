@@ -18,7 +18,38 @@ const ExamSchema = new Schema<IExam>({
   publishedAt: Date,
   publishedBy: { type: Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true });
+
 ExamSchema.index({ schoolId: 1, academicYearId: 1, classId: 1, name: 1 }, { unique: true });
 ExamSchema.index({ schoolId: 1, status: 1, startDate: -1 });
-ExamSchema.pre("validate", function(next) { if (this.startDate > this.endDate) return next(new mongoose.Error.ValidatorError({ path: "endDate", message: "End date must be on or after start date" })); for (const s of this.subjects) if (s.passMarks > s.maxMarks) return next(new mongoose.Error.ValidatorError({ path: "subjects", message: "Pass marks cannot exceed max marks" })); const rules = [...this.gradeRules].sort((a,b)=>a.minPercentage-b.minPercentage); for(let i=1;i<rules.length;i++) if(rules[i].minPercentage <= rules[i-1].maxPercentage) return next(new mongoose.Error.ValidatorError({ path: "gradeRules", message: "Grade ranges must not overlap" })); next(); });
+
+ExamSchema.pre("validate", function(next) {
+  if (this.startDate > this.endDate) return next(new mongoose.Error.ValidatorError({ path: "endDate", message: "End date must be on or after start date" }));
+
+  const subjectIds = this.subjects.map((subject) => subject.subjectId.toString());
+  if (new Set(subjectIds).size !== subjectIds.length) {
+    return next(new mongoose.Error.ValidatorError({ path: "subjects", message: "An exam cannot contain the same subject more than once" }));
+  }
+
+  for (const subject of this.subjects) {
+    if (subject.passMarks > subject.maxMarks) return next(new mongoose.Error.ValidatorError({ path: "subjects", message: "Pass marks cannot exceed max marks" }));
+  }
+
+  const rules = [...this.gradeRules].sort((a, b) => a.minPercentage - b.minPercentage);
+  if (rules.length > 0) {
+    if (rules[0].minPercentage !== 0 || rules[rules.length - 1].maxPercentage !== 100) {
+      return next(new mongoose.Error.ValidatorError({ path: "gradeRules", message: "Grade ranges must cover the complete 0-100 percentage scale" }));
+    }
+    for (let i = 1; i < rules.length; i++) {
+      if (rules[i].minPercentage <= rules[i - 1].maxPercentage) {
+        return next(new mongoose.Error.ValidatorError({ path: "gradeRules", message: "Grade ranges must not overlap" }));
+      }
+      if (rules[i].minPercentage > Number((rules[i - 1].maxPercentage + 0.01).toFixed(2))) {
+        return next(new mongoose.Error.ValidatorError({ path: "gradeRules", message: "Grade ranges must not contain gaps" }));
+      }
+    }
+  }
+
+  next();
+});
+
 export const Exam = mongoose.model<IExam>("Exam", ExamSchema);
