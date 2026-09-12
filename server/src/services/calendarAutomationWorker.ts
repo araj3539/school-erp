@@ -7,7 +7,7 @@ export async function startCalendarAutomationWorker() {
     if (running) return;
     running = true;
     try {
-      const schools = await School.find({ status: { $ne: "suspended" } }).select("_id").lean();
+      const schools = await School.find({ tenantStatus: "active" }).select("_id").lean();
       for (const school of schools) await runCalendarAutomation(school._id);
     } finally { running = false; }
   };
