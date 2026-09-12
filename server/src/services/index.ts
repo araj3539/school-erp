@@ -4,3 +4,7 @@ export * from "./excel.js";
 export * from "./auth.js";
 export * from "./auditLog.js";
 export * from "./notificationProviders.js";
+export * from "./feeStructureService.js";
+export * from "./domainRules.js";
+export * from "./scheduledJobService.js";
+export * from "./calendarAutomationService.js";
