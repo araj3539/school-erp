@@ -1,22 +1,6 @@
 import { z } from "zod";
 import { ObjectIdSchema, DateOnlySchema } from "@school-erp/shared";
-
-export const CalendarEventSchema = z.object({
-  academicYearId: ObjectIdSchema,
-  title: z.string().trim().min(2).max(120),
-  type: z.enum(["holiday", "working_day", "exam", "event", "closure"]),
-  startDate: DateOnlySchema,
-  endDate: DateOnlySchema,
-  allDay: z.boolean().default(true),
-  description: z.string().trim().max(1000).optional(),
-  appliesTo: z.enum(["school", "class", "section"]).default("school"),
-  classId: ObjectIdSchema.optional(),
-  sectionId: ObjectIdSchema.optional(),
-}).superRefine((v, ctx) => {
-  if (v.endDate < v.startDate) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date must be on or after start date" });
-  if (v.appliesTo === "school" && (v.classId || v.sectionId)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["appliesTo"], message: "School events cannot target a class or section" });
-  if (v.appliesTo === "class" && !v.classId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["classId"], message: "Class is required" });
-  if (v.appliesTo === "section" && (!v.classId || !v.sectionId)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sectionId"], message: "Class and section are required" });
-});
-
+const fields = { academicYearId: ObjectIdSchema, title: z.string().trim().min(2).max(120), type: z.enum(["holiday", "working_day", "exam", "event", "closure"]), startDate: DateOnlySchema, endDate: DateOnlySchema, allDay: z.boolean(), description: z.string().trim().max(1000).optional(), appliesTo: z.enum(["school", "class", "section"]), classId: ObjectIdSchema.optional(), sectionId: ObjectIdSchema.optional() };
+export const CalendarEventSchema = z.object(fields).superRefine((v, ctx) => { if (v.endDate < v.startDate) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date must be on or after start date" }); if (v.appliesTo === "school" && (v.classId || v.sectionId)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["appliesTo"], message: "School events cannot target a class or section" }); if (v.appliesTo === "class" && !v.classId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["classId"], message: "Class is required" }); if (v.appliesTo === "section" && (!v.classId || !v.sectionId)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sectionId"], message: "Class and section are required" }); });
+export const UpdateCalendarEventSchema = z.object(fields).partial();
 export const CalendarQuerySchema = z.object({ academicYearId: ObjectIdSchema.optional(), type: z.enum(["holiday", "working_day", "exam", "event", "closure"]).optional(), startDate: DateOnlySchema.optional(), endDate: DateOnlySchema.optional() });
