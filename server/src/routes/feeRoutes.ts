@@ -5,12 +5,12 @@ import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStru
 import { setFeeStructureLifecycle } from "../controllers/feeStructureLifecycleController.js";
 import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
 import { createPaymentOrder } from "../controllers/paymentOrderController.js";
-import { initializeProviderOrder, verifyProviderPayment, requestProviderRefund } from "../controllers/paymentProviderController.js";
+import { getUpiPayment, submitUpiPaymentForOrder, verifyUpiPaymentForOrder, importBankTransactions } from "../controllers/upiPaymentController.js";
 import { getFinancialReconciliation } from "../controllers/reconciliationController.js";
 import { CreateFeeStructureSchema, CreatePaymentSchema, PaymentReversalSchema, PaginationSchema, DateRangeSchema, IdParamSchema, FeeStructureQuerySchema, StudentFeeQuerySchema, GenerateFeesSchema, DailyCollectionReportQuerySchema, MonthlyCollectionReportQuerySchema } from "../validators/index.js";
 import { FeeStructureLifecycleSchema, FeeStructureIdParamSchema } from "../validators/feeStructureLifecycle.js";
 import { CreatePaymentOrderSchema } from "../validators/paymentOrderValidators.js";
-import { ProviderPaymentVerificationSchema, ProviderRefundSchema } from "../validators/paymentProviderValidators.js";
+import { BankTransactionImportSchema, VerifyUpiPaymentSchema } from "../validators/upiPaymentValidators.js";
 
 const router = Router();
 router.use(authenticate);
@@ -23,9 +23,10 @@ router.get("/", requirePermission("fees:read"), validate(PaginationSchema, "quer
 router.get("/student/:id", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), validate(StudentFeeQuerySchema, "query"), requireStudentFeeOwnership, getStudentFees);
 router.post("/generate", requirePermission("fees:write"), validate(GenerateFeesSchema), generateFees);
 router.post("/payments/orders", requireAnyPermission("payments:write", "payments:online:create"), validate(CreatePaymentOrderSchema), createPaymentOrder);
-router.post("/payments/orders/:id/provider", requireAnyPermission("payments:write", "payments:online:create"), validate(IdParamSchema, "params"), initializeProviderOrder);
-router.post("/payments/orders/:id/verify", requireAnyPermission("payments:write", "payments:online:create"), validate(IdParamSchema, "params"), validate(ProviderPaymentVerificationSchema), verifyProviderPayment);
-router.post("/payments/orders/:id/refund", requirePermission("payments:reverse"), validate(IdParamSchema, "params"), validate(ProviderRefundSchema), requestProviderRefund);
+router.get("/payments/orders/:id/upi", requireAnyPermission("payments:write", "payments:online:create", "payments:read:own", "payments:read:child"), validate(IdParamSchema, "params"), getUpiPayment);
+router.post("/payments/orders/:id/submit", requireAnyPermission("payments:write", "payments:online:create", "payments:read:own", "payments:read:child"), validate(IdParamSchema, "params"), submitUpiPaymentForOrder);
+router.post("/payments/orders/:id/verify", requirePermission("payments:write"), validate(IdParamSchema, "params"), validate(VerifyUpiPaymentSchema), verifyUpiPaymentForOrder);
+router.post("/payments/reconciliation/import", requirePermission("payments:write"), validate(BankTransactionImportSchema), importBankTransactions);
 router.post("/payments", requirePermission("payments:write"), validate(CreatePaymentSchema), collectPayment);
 router.get("/payments", requireAnyPermission("payments:read", "payments:read:own", "payments:read:child"), enforcePaymentListOwnership, validate(PaginationSchema, "query"), getPayments);
 router.post("/payments/:id/reverse", requirePermission("payments:reverse"), validate(IdParamSchema, "params"), validate(PaymentReversalSchema), reversePayment);
