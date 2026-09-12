@@ -1,9 +1,13 @@
 import { Router } from "express";
+import { z } from "zod";
 import { authenticate, requirePermission, requireAnyPermission, validate } from "../middleware/index.js";
 import { upload } from "../middleware/upload.js";
 import { getAttendance, markAttendance, bulkMarkAttendance, getStudentAttendance, getMonthlyAttendanceReport, importAttendanceSpreadsheet, exportAttendanceSpreadsheet } from "../controllers/attendanceController.js";
+import { lockAttendance, requestAttendanceCorrection, applyAttendanceCorrection } from "../controllers/attendanceLifecycleController.js";
 import { MarkAttendanceSchema, BulkAttendanceSchema, AttendanceQuerySchema, AttendanceDateRangeSchema, IdParamSchema, MonthlyAttendanceReportQuerySchema } from "../validators/index.js";
 
+const AttendanceCorrectionRequestSchema = z.object({ reason: z.string().trim().min(3).max(500) });
+const AttendanceCorrectionApplySchema = z.object({ records: MarkAttendanceSchema.shape.records, reason: z.string().trim().min(3).max(500) });
 const router = Router();
 router.use(authenticate);
 router.get("/", requirePermission("attendance:read"), validate(AttendanceQuerySchema, "query"), getAttendance);
@@ -13,4 +17,7 @@ router.post("/import", requirePermission("attendance:write"), upload.single("fil
 router.get("/export", requirePermission("attendance:read"), validate(AttendanceQuerySchema, "query"), exportAttendanceSpreadsheet);
 router.get("/student/:id", requireAnyPermission("attendance:read", "attendance:read:own", "attendance:read:child"), validate(IdParamSchema, "params"), validate(AttendanceDateRangeSchema, "query"), getStudentAttendance);
 router.get("/report/monthly", requirePermission("attendance:read"), validate(MonthlyAttendanceReportQuerySchema, "query"), getMonthlyAttendanceReport);
+router.post("/:id/lock", requirePermission("attendance:write"), validate(IdParamSchema, "params"), lockAttendance);
+router.post("/:id/correction-request", requirePermission("attendance:write"), validate(IdParamSchema, "params"), validate(AttendanceCorrectionRequestSchema), requestAttendanceCorrection);
+router.post("/:id/correct", requirePermission("attendance:write"), validate(IdParamSchema, "params"), validate(AttendanceCorrectionApplySchema), applyAttendanceCorrection);
 export default router;
