@@ -9,12 +9,15 @@ try { loadEnvFile(resolve(__dirname, "../../../.env")); } catch { /* optional */
 const { connectDB, disconnectDB } = await import("../config/index.js");
 const { Student, Fee, AcademicYear } = await import("../models/index.js");
 
-async function assertNoDuplicates(model: any, groupId: Record<string, string>, label: string) {
-  const duplicates = await model.aggregate([
+async function assertNoDuplicates(model: any, groupId: Record<string, string>, label: string, match?: Record<string, unknown>) {
+  const pipeline: any[] = [];
+  if (match) pipeline.push({ $match: match });
+  pipeline.push(
     { $group: { _id: groupId, count: { $sum: 1 } } },
     { $match: { count: { $gt: 1 } } },
     { $limit: 1 },
-  ]);
+  );
+  const duplicates = await model.aggregate(pipeline);
   if (duplicates.length) throw new Error(`${label} contains duplicate records; migration aborted`);
 }
 
@@ -23,7 +26,7 @@ async function main(): Promise<void> {
   try {
     await assertNoDuplicates(Student, { schoolId: "$schoolId", admissionNo: "$admissionNo" }, "Student admission numbers");
     await assertNoDuplicates(Fee, { schoolId: "$schoolId", studentId: "$studentId", feeStructureId: "$feeStructureId", academicYear: "$academicYear" }, "Fee records");
-    await assertNoDuplicates(AcademicYear, { schoolId: "$schoolId", isCurrent: "$isCurrent" }, "Academic years");
+    await assertNoDuplicates(AcademicYear, { schoolId: "$schoolId" }, "Current academic years", { isCurrent: true });
 
     await Student.collection.dropIndex("admissionNo_1").catch((error: any) => {
       if (error?.codeName !== "IndexNotFound" && error?.code !== 27) throw error;
