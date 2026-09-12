@@ -1,0 +1,11 @@
+import { Router } from "express";
+import { createCalendarEvent, deleteCalendarEvent, listCalendarEvents, updateCalendarEvent } from "../controllers/academicCalendarController.js";
+import { requirePermission, validate } from "../middleware/index.js";
+import { CalendarEventSchema, CalendarQuerySchema, UpdateCalendarEventSchema } from "../validators/academicCalendar.js";
+import { IdParamSchema } from "../validators/index.js";
+const router = Router();
+router.get("/", requirePermission("school:read"), validate(CalendarQuerySchema, "query"), listCalendarEvents);
+router.post("/", requirePermission("school:update"), validate(CalendarEventSchema), createCalendarEvent);
+router.patch("/:id", requirePermission("school:update"), validate(IdParamSchema, "params"), validate(UpdateCalendarEventSchema), updateCalendarEvent);
+router.delete("/:id", requirePermission("school:update"), validate(IdParamSchema, "params"), deleteCalendarEvent);
+export default router;
