@@ -8,7 +8,8 @@ import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, rest
 import { getParentStudents, getParentStudentById, getParentStudentDocumentUrl } from "../controllers/parentStudentAccessController.js";
 import { transitionStudentLifecycle, getStudentLifecycleHistory } from "../controllers/studentLifecycleController.js";
 import { UserRole } from "@school-erp/shared";
-import { CreateStudentSchema, PaginationSchema, StudentQuerySchema, IdParamSchema, StudentDocumentParamSchema, StudentDocumentRecoveryParamSchema, DocumentRecoveryHistoryQuerySchema, StudentLifecycleTransitionSchema, StudentLifecycleQuerySchema, UpdateStudentLifecycleSafeSchema } from "../validators/index.js";
+import { CreateStudentSchema, PaginationSchema, StudentQuerySchema, IdParamSchema, StudentDocumentParamSchema, StudentDocumentRecoveryParamSchema, DocumentRecoveryHistoryQuerySchema } from "../validators/index.js";
+import { StudentLifecycleTransitionSchema, StudentLifecycleQuerySchema, UpdateStudentLifecycleSafeSchema } from "../validators/studentLifecycle.js";
 const router = Router();
 router.use(authenticate);
 const parentOnly = (req: any, _res: any, next: any) => req.user?.role === UserRole.PARENT ? next() : next("route");
