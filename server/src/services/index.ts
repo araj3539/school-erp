@@ -8,3 +8,4 @@ export * from "./feeStructureService.js";
 export * from "./domainRules.js";
 export * from "./scheduledJobService.js";
 export * from "./calendarAutomationService.js";
+export * from "./upiPaymentService.js";
