@@ -18,6 +18,8 @@ export interface ITimetable extends Document {
   updatedAt: Date;
 }
 
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
 const TimetableSchema = new Schema<ITimetable>({
   schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
   academicYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", required: true },
@@ -26,13 +28,19 @@ const TimetableSchema = new Schema<ITimetable>({
   subjectId: { type: Schema.Types.ObjectId, ref: "Subject", required: true },
   teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", required: true },
   dayOfWeek: { type: Number, required: true, min: 1, max: 7 },
-  startTime: { type: String, required: true },
-  endTime: { type: String, required: true },
+  startTime: { type: String, required: true, match: TIME_PATTERN },
+  endTime: { type: String, required: true, match: TIME_PATTERN },
   roomNumber: { type: String, trim: true, maxlength: 50 },
   periodLabel: { type: String, trim: true, maxlength: 50 },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true });
+
+TimetableSchema.pre("validate", function () {
+  if (this.startTime && this.endTime && this.startTime >= this.endTime) {
+    throw new mongoose.Error.ValidatorError({ path: "endTime", message: "Timetable end time must be after start time" });
+  }
+});
 
 TimetableSchema.index({ schoolId: 1, academicYearId: 1, dayOfWeek: 1, startTime: 1 });
 TimetableSchema.index({ schoolId: 1, teacherId: 1, academicYearId: 1, dayOfWeek: 1 });
