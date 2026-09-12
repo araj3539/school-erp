@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Request, Response, NextFunction } from "express";
 import { Fee, FeeStructure, Payment, Student } from "../models/index.js";
-import { CreateFeeStructureSchema, PaymentQuerySchema } from "../validators/index.js";
+import { PaymentQuerySchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { archiveFeeStructure, calculateConcession } from "../services/feeStructureService.js";
 import { AppError } from "../utils/errors.js";
@@ -24,7 +24,7 @@ export async function getFeeStructures(req: Request, res: Response, next: NextFu
 export async function createFeeStructure(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = tenantId(req);
-    const data = CreateFeeStructureSchema.parse(req.body);
+    const data = req.validatedBody as Record<string, any>;
     const existing = await FeeStructure.findOne({ schoolId, classId: data.classId, feeType: data.feeType, academicYear: data.academicYear });
     if (existing) throw AppError.conflict("Fee structure already exists for this class/type/year");
     const structure = await FeeStructure.create({ ...data, schoolId });
@@ -37,9 +37,11 @@ export async function updateFeeStructure(req: Request, res: Response, next: Next
   try {
     const { id } = req.validatedParams as { id: string };
     const data = req.validatedBody as Record<string, unknown>;
+    const before = await FeeStructure.findOne({ _id: id, schoolId: tenantId(req) }).lean();
+    if (!before) throw AppError.notFound("Fee structure not found");
     const structure = await FeeStructure.findOneAndUpdate({ _id: id, schoolId: tenantId(req) }, data, { new: true, runValidators: true });
     if (!structure) throw AppError.notFound("Fee structure not found");
-    await createAuditLog({ userId: req.user!.userId, action: "UPDATE", entity: "FeeStructure", entityId: structure._id.toString(), after: data });
+    await createAuditLog({ userId: req.user!.userId, action: "UPDATE", entity: "FeeStructure", entityId: structure._id.toString(), before, after: structure.toObject() });
     res.json({ feeStructure: structure });
   } catch (error) { next(error); }
 }
@@ -114,21 +116,7 @@ export async function generateFees(req: Request, res: Response, next: NextFuncti
       return {
         updateOne: {
           filter: { schoolId, studentId: student._id, feeStructureId: structure._id, academicYear },
-          update: {
-            $setOnInsert: {
-              schoolId,
-              studentId: student._id,
-              feeStructureId: structure._id,
-              amount: structure.amount,
-              discount,
-              fine: 0,
-              totalDue,
-              paidAmount: 0,
-              balance: totalDue,
-              status: FeeStatus.PENDING,
-              academicYear
-            }
-          },
+          update: { $setOnInsert: { schoolId, studentId: student._id, feeStructureId: structure._id, amount: structure.amount, discount, fine: 0, totalDue, paidAmount: 0, balance: totalDue, status: FeeStatus.PENDING, academicYear } },
           upsert: true
         }
       };
