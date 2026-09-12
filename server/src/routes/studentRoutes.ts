@@ -7,8 +7,9 @@ import { getStudentParents, assignStudentParents } from "../controllers/studentP
 import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery, runManualStorageBackup } from "../controllers/documentRecoveryController.js";
 import { getParentStudents, getParentStudentById, getParentStudentDocumentUrl } from "../controllers/parentStudentAccessController.js";
 import { transitionStudentLifecycle, getStudentLifecycleHistory } from "../controllers/studentLifecycleController.js";
+import { getStudentSiblings, createStudentSibling, deleteStudentSibling } from "../controllers/studentFamilyController.js";
 import { UserRole } from "@school-erp/shared";
-import { CreateStudentSchema, PaginationSchema, StudentQuerySchema, IdParamSchema, StudentDocumentParamSchema, StudentDocumentRecoveryParamSchema, DocumentRecoveryHistoryQuerySchema } from "../validators/index.js";
+import { CreateStudentSchema, PaginationSchema, StudentQuerySchema, IdParamSchema, StudentDocumentParamSchema, StudentDocumentRecoveryParamSchema, DocumentRecoveryHistoryQuerySchema, CreateStudentSiblingSchema, StudentSiblingParamSchema } from "../validators/index.js";
 import { StudentLifecycleTransitionSchema, StudentLifecycleQuerySchema, UpdateStudentLifecycleSafeSchema } from "../validators/studentLifecycle.js";
 const router = Router();
 router.use(authenticate);
@@ -20,12 +21,15 @@ router.get("/export", requirePermission("students:read"), validate(StudentQueryS
 router.post("/document-recoveries/backup", requirePermission("settings:write"), runManualStorageBackup);
 router.get("/:id/parents", requirePermission("students:read"), validate(IdParamSchema, "params"), getStudentParents);
 router.put("/:id/parents", requirePermission("students:write"), validate(IdParamSchema, "params"), assignStudentParents);
+router.get("/:id/siblings", parentOnly, requirePermission("students:read:child"), validate(IdParamSchema, "params"), getStudentSiblings);
+router.get("/:id/siblings", requireAnyPermission("students:read", "students:read:own"), validate(IdParamSchema, "params"), getStudentSiblings);
+router.post("/:id/siblings", requirePermission("students:write"), validate(IdParamSchema, "params"), validate(CreateStudentSiblingSchema), createStudentSibling);
+router.delete("/:id/siblings/:siblingId", requirePermission("students:write"), validate(StudentSiblingParamSchema, "params"), deleteStudentSibling);
 router.get("/:id/lifecycle", requireAnyPermission("students:read", "students:read:own"), validate(IdParamSchema, "params"), validate(StudentLifecycleQuerySchema, "query"), getStudentLifecycleHistory);
 router.post("/:id/lifecycle", requirePermission("students:write"), validate(IdParamSchema, "params"), validate(StudentLifecycleTransitionSchema), transitionStudentLifecycle);
 
 router.get("/:id/documents/:documentId/url", parentOnly, requirePermission("students:read:child"), validate(StudentDocumentParamSchema, "params"), getParentStudentDocumentUrl);
 router.get("/:id/documents/:documentId/url", requireAnyPermission("students:read", "students:read:own"), validate(StudentDocumentParamSchema, "params"), getStudentDocumentUrl);
-
 router.get("/:id/document-recoveries", parentOnly, requirePermission("students:read:child"), validate(IdParamSchema, "params"), validate(DocumentRecoveryHistoryQuerySchema, "query"), getStudentDocumentRecoveryHistory);
 router.get("/:id/document-recoveries", requireAnyPermission("students:read", "students:read:own"), validate(IdParamSchema, "params"), validate(DocumentRecoveryHistoryQuerySchema, "query"), getStudentDocumentRecoveryHistory);
 router.get("/:id/document-recoveries/:recoveryId/preview", parentOnly, requirePermission("students:read:child"), validate(StudentDocumentRecoveryParamSchema, "params"), previewStudentDocumentRecovery);
