@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { Attendance, Fee, Student } from "../models/index.js";
 import { getTenantId } from "../utils/tenant.js";
 import { escapeRegex } from "../utils/strings.js";
+import { getFeeDefaulters, getFeeLedgerSummary, getPaymentReconciliationExceptions } from "../services/feeOperationsReportService.js";
 
 function pagination(query: any) {
   const page = Number(query.page ?? 1);
@@ -72,5 +73,29 @@ export async function getFeeReport(req: Request, res: Response, next: NextFuncti
       Fee.countDocuments(dbQuery),
     ]);
     res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  } catch (error) { next(error); }
+}
+
+export async function getFeeDefaulterReport(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = req.validatedQuery as any;
+    const result = await getFeeDefaulters({ schoolId: getTenantId(req), ...query });
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function getFeeLedgerReport(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = req.validatedQuery as any;
+    const result = await getFeeLedgerSummary({ schoolId: getTenantId(req), ...query });
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function getReconciliationExceptionReport(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = req.validatedQuery as any;
+    const result = await getPaymentReconciliationExceptions({ schoolId: getTenantId(req), ...query });
+    res.json(result);
   } catch (error) { next(error); }
 }
