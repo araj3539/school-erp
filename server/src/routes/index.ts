@@ -21,6 +21,7 @@ import settingsRoutes from "./settingsRoutes.js";
 import auditLogRoutes from "./auditLogRoutes.js";
 import academicYearRoutes from "./academicYearRoutes.js";
 import academicYearTransitionRoutes from "./academicYearTransitionRoutes.js";
+import academicCalendarRoutes from "./academicCalendarRoutes.js";
 import examRoutes from "./examRoutes.js";
 import homeworkRoutes from "./homeworkRoutes.js";
 import noticeRoutes from "./noticeRoutes.js";
@@ -45,6 +46,7 @@ router.use("/library", authenticate, requireModule("library"), libraryRoutes); r
 router.use("/academics", authenticate, requireModule("academics"), classRoutes); router.use("/attendance", authenticate, requireModule("attendance"), attendanceRoutes); router.use("/fees", authenticate, requireModule("fees"), feeRoutes);
 router.use("/dashboard", authenticate, requireModule("dashboard"), dashboardRoutes); router.use("/analytics", analyticsRoutes); router.use("/parents", authenticate, requireModule("parents"), parentRoutes);
 router.use("/school", authenticate, requireModule("school"), schoolRoutes); router.use("/settings", settingsRoutes); router.use("/academic-years", authenticate, requireModule("academicYears"), academicYearRoutes); router.use("/academic-years/transition", authenticate, requireModule("academicYears"), academicYearTransitionRoutes);
+router.use("/calendar", authenticate, requireModule("school"), academicCalendarRoutes);
 router.use("/reports", reportRoutes); router.use("/audit-logs", auditLogRoutes); router.use("/exams", authenticate, requireModule("exams"), examRoutes); router.use("/homework", authenticate, requireModule("homework"), homeworkRoutes); router.use("/notices", authenticate, requireModule("notices"), noticeRoutes); router.use("/timetable", authenticate, requireModule("timetable"), timetableRoutes); router.use("/portal", authenticate, requireModule("portal"), portalRoutes); router.use("/notifications", authenticate, requireModule("notifications"), notificationRoutes);
 router.use("/platform", platformTenantRoutes); router.use("/platform", platformOperationsRoutes); router.use("/platform/billing", billingRoutes); router.use("/platform/usage", tenantUsageRoutes); router.use("/billing", saasInvoiceRoutes); router.use("/support", supportAccessRoutes);
 router.get("/health", (req,res)=>res.json({status:"ok",timestamp:new Date().toISOString()})); export default router;
