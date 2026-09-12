@@ -24,6 +24,8 @@ export { SaaSInvoice } from "./SaaSInvoice.js";
 export type { ISaaSInvoice, SaaSInvoiceStatus, ISaaSInvoiceLineItem } from "./SaaSInvoice.js";
 export { TenantUsage } from "./TenantUsage.js";
 export type { ITenantUsage, UsageDimension } from "./TenantUsage.js";
+export { TenantLimit } from "./TenantLimit.js";
+export type { ITenantLimit } from "./TenantLimit.js";
 export { Student } from "./Student.js";
 export type { IStudent, IStudentDocument } from "./Student.js";
 export { StudentFamily } from "./StudentFamily.js";
