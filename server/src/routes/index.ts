@@ -1,6 +1,7 @@
 import { Router } from "express";
 import authRoutes from "./authRoutes.js";
 import studentRoutes from "./studentRoutes.js";
+import studentPromotionRoutes from "./studentPromotionRoutes.js";
 import teacherRoutes from "./teacherRoutes.js";
 import staffRoutes from "./staffRoutes.js";
 import libraryRoutes from "./libraryRoutes.js";
@@ -36,6 +37,7 @@ import { requireModule } from "../middleware/moduleEntitlement.js";
 const router = Router();
 router.use("/auth", authRoutes);
 router.use("/modules", moduleEntitlementRoutes);
+router.use("/students/promotions", authenticate, requireModule("students"), studentPromotionRoutes);
 router.use("/students", authenticate, requireModule("students"), studentRoutes);
 router.use("/teachers", authenticate, requireModule("teachers"), teacherRoutes);
 router.use("/staff", authenticate, requireModule("staff"), staffRoutes);
