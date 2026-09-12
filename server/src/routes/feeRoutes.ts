@@ -3,7 +3,7 @@ import { authenticate, enforcePaymentListOwnership, enforcePaymentOwnership, req
 import { requireStudentFeeOwnership } from "../middleware/feeOwnership.js";
 import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, getDailyCollectionReport, getMonthlyCollectionReport } from "../controllers/feeController.js";
 import { setFeeStructureLifecycle } from "../controllers/feeStructureLifecycleController.js";
-import { getFeeHeads, createFeeHead, updateFeeHead, getStudentFeeItems, createStudentFeeItem, adjustStudentFeeItem } from "../controllers/feeItemController.js";
+import { getFeeHeads, createFeeHead, updateFeeHead, getStudentFeeItems, createStudentFeeItem, adjustStudentFeeItem, adjustStudentFeeRecord } from "../controllers/feeItemController.js";
 import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
 import { createPaymentOrder } from "../controllers/paymentOrderController.js";
 import { getUpiPayment, submitUpiPaymentForOrder, verifyUpiPaymentForOrder, importBankTransactions } from "../controllers/upiPaymentController.js";
@@ -30,6 +30,7 @@ router.get("/student/:id", requireAnyPermission("fees:read", "fees:read:own", "f
 router.get("/student/:id/items", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), validate(StudentFeeQuerySchema, "query"), requireStudentFeeOwnership, getStudentFeeItems);
 router.post("/items", requirePermission("fees:write"), validate(CreateFeeItemSchema), createStudentFeeItem);
 router.patch("/items/:id/adjust", requirePermission("fees:write"), validate(FeeItemParamSchema, "params"), validate(FeeItemAdjustmentSchema), adjustStudentFeeItem);
+router.patch("/:id/adjust", requirePermission("fees:write"), validate(IdParamSchema, "params"), validate(FeeItemAdjustmentSchema), adjustStudentFeeRecord);
 router.post("/generate", requirePermission("fees:write"), validate(GenerateFeesSchema), generateFees);
 router.post("/payments/orders", requireAnyPermission("payments:write", "payments:online:create"), validate(CreatePaymentOrderSchema), createPaymentOrder);
 router.get("/payments/orders/:id/upi", requireAnyPermission("payments:write", "payments:online:create", "payments:read:own", "payments:read:child"), validate(IdParamSchema, "params"), getUpiPayment);
