@@ -5,7 +5,7 @@ import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStru
 import { setFeeStructureLifecycle } from "../controllers/feeStructureLifecycleController.js";
 import { getFeeHeads, createFeeHead, updateFeeHead, getStudentFeeItems, createStudentFeeItem, adjustStudentFeeItem, adjustStudentFeeRecord } from "../controllers/feeItemController.js";
 import { getFamilyFeeSummary } from "../controllers/familyFeeController.js";
-import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
+import { collectPayment, reversePayment, getPayments, getReceiptPDF, allocateExistingPayment, getPaymentAllocations } from "../controllers/paymentController.js";
 import { createPaymentOrder } from "../controllers/paymentOrderController.js";
 import { getUpiPayment, submitUpiPaymentForOrder, verifyUpiPaymentForOrder, importBankTransactions } from "../controllers/upiPaymentController.js";
 import { getFinancialReconciliation } from "../controllers/reconciliationController.js";
@@ -15,7 +15,6 @@ import { FeeStructureLifecycleSchema, FeeStructureIdParamSchema } from "../valid
 import { CreatePaymentOrderSchema } from "../validators/paymentOrderValidators.js";
 import { BankTransactionImportSchema, VerifyUpiPaymentSchema } from "../validators/upiPaymentValidators.js";
 import { CreateFeeHeadSchema, UpdateFeeHeadSchema, FeeHeadParamSchema, CreateFeeItemSchema, FeeItemAdjustmentSchema, FeeItemParamSchema } from "../validators/feeHead.js";
-
 const router = Router();
 router.use(authenticate);
 router.get("/heads", requirePermission("fees:read"), getFeeHeads);
@@ -41,6 +40,8 @@ router.post("/payments/orders/:id/verify", requirePermission("payments:write"), 
 router.post("/payments/reconciliation/import", requirePermission("payments:write"), validate(BankTransactionImportSchema), importBankTransactions);
 router.post("/payments", requirePermission("payments:write"), validate(CreatePaymentSchema), collectPayment);
 router.get("/payments", requireAnyPermission("payments:read", "payments:read:own", "payments:read:child"), enforcePaymentListOwnership, validate(PaginationSchema, "query"), getPayments);
+router.post("/payments/:id/allocate", requirePermission("payments:write"), validate(IdParamSchema, "params"), allocateExistingPayment);
+router.get("/payments/:id/allocations", requireAnyPermission("payments:read", "payments:read:own", "payments:read:child"), validate(IdParamSchema, "params"), getPaymentAllocations);
 router.post("/payments/:id/reverse", requirePermission("payments:reverse"), validate(IdParamSchema, "params"), validate(PaymentReversalSchema), reversePayment);
 router.get("/reports/daily", requirePermission("reports:read"), validate(DailyCollectionReportQuerySchema, "query"), getDailyCollectionReport);
 router.get("/reports/monthly", requirePermission("reports:read"), validate(MonthlyCollectionReportQuerySchema, "query"), getMonthlyCollectionReport);
