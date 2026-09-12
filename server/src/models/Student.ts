@@ -50,7 +50,7 @@ const StudentDocumentSchema = new Schema<IStudentDocument>({
 });
 
 const StudentSchema = new Schema<IStudent>({
-  admissionNo: { type: String, required: true, unique: true, maxlength: 20 },
+  admissionNo: { type: String, required: true, maxlength: 20, trim: true },
   userId: { type: Schema.Types.ObjectId, ref: "User" },
   parentIds: { type: [{ type: Schema.Types.ObjectId, ref: "User" }], default: [], validate: { validator: (ids: Types.ObjectId[]) => new Set(ids.map((id) => id.toString())).size === ids.length, message: "Duplicate parent assignments are not allowed" } },
   schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
@@ -75,6 +75,7 @@ const StudentSchema = new Schema<IStudent>({
   admissionDate: { type: Date, required: true }
 }, { timestamps: true });
 
+StudentSchema.index({ schoolId: 1, admissionNo: 1 }, { unique: true, name: "schoolId_1_admissionNo_1" });
 StudentSchema.index({ schoolId: 1, classId: 1, sectionId: 1, status: 1 });
 StudentSchema.index({ schoolId: 1, status: 1 });
 StudentSchema.index({ schoolId: 1, parentIds: 1, status: 1 });
@@ -102,15 +103,24 @@ async function validateStudentRelations(schoolId: unknown, classId?: unknown, se
 }
 
 StudentSchema.pre("validate", async function () {
+  if (this.dob && this.admissionDate && this.dob > this.admissionDate) {
+    throw new mongoose.Error.ValidatorError({ path: "dob", message: "Date of birth cannot be after admission date" });
+  }
   await validateStudentRelations(this.schoolId, this.classId, this.sectionId, this.parentIds);
 });
 
 StudentSchema.pre("findOneAndUpdate", async function () {
   const update: any = this.getUpdate() || {};
   const data = update.$set ? { ...update, ...update.$set } : update;
-  const current: any = await this.model.findOne(this.getQuery()).select("schoolId classId sectionId parentIds").lean();
+  const current: any = await this.model.findOne(this.getQuery()).select("schoolId classId sectionId parentIds dob admissionDate").lean();
   if (!current) return;
-  await validateStudentRelations(data.schoolId ?? current.schoolId, data.classId ?? current.classId, data.sectionId ?? current.sectionId, data.parentIds ?? current.parentIds ?? []);
+  const schoolId = data.schoolId ?? current.schoolId;
+  const dob = data.dob ?? current.dob;
+  const admissionDate = data.admissionDate ?? current.admissionDate;
+  if (dob && admissionDate && new Date(dob) > new Date(admissionDate)) {
+    throw new mongoose.Error.ValidatorError({ path: "dob", message: "Date of birth cannot be after admission date" });
+  }
+  await validateStudentRelations(schoolId, data.classId ?? current.classId, data.sectionId ?? current.sectionId, data.parentIds ?? current.parentIds ?? []);
 });
 
 export const Student = mongoose.model<IStudent>("Student", StudentSchema);

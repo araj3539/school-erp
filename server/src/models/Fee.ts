@@ -40,8 +40,17 @@ FeeSchema.pre("validate", async function () {
   ]);
   if (!student) throw new Error("Fee student must belong to the same school");
   if (!feeStructure) throw new Error("Fee structure must belong to the same school and academic year");
+  const expectedTotalDue = this.amount - this.discount + this.fine;
+  if (expectedTotalDue < 0 || this.totalDue !== expectedTotalDue) {
+    throw new mongoose.Error.ValidatorError({ path: "totalDue", message: "totalDue must equal amount - discount + fine" });
+  }
+  const expectedBalance = this.totalDue - this.paidAmount;
+  if (expectedBalance < 0 || this.balance !== expectedBalance) {
+    throw new mongoose.Error.ValidatorError({ path: "balance", message: "balance must equal totalDue - paidAmount and cannot be negative" });
+  }
 });
 
+FeeSchema.index({ schoolId: 1, studentId: 1, feeStructureId: 1, academicYear: 1 }, { unique: true, name: "schoolId_1_studentId_1_feeStructureId_1_academicYear_1" });
 FeeSchema.index({ schoolId: 1, studentId: 1, academicYear: 1, status: 1 });
 FeeSchema.index({ schoolId: 1, feeStructureId: 1 });
 FeeSchema.index({ schoolId: 1, status: 1, balance: 1 });

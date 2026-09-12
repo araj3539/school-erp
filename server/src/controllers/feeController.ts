@@ -83,12 +83,8 @@ export async function getStudentFees(req: Request, res: Response, next: NextFunc
     const { academicYear } = req.validatedQuery as { academicYear?: string };
     const student = await Student.findOne({ _id: id, schoolId: tenantId(req) }).select("_id userId parentIds").lean();
     if (!student) throw AppError.notFound("Student not found");
-    if (req.user!.role === "student" && student.userId?.toString() !== req.user!.userId) {
-      throw AppError.forbidden("Students can only access their own fees");
-    }
-    if (req.user!.role === "parent" && !student.parentIds.some((parentId) => parentId.toString() === req.user!.userId)) {
-      throw AppError.forbidden("Parents can only access fees for linked children");
-    }
+    if (req.user!.role === "student" && student.userId?.toString() !== req.user!.userId) throw AppError.forbidden("Students can only access their own fees");
+    if (req.user!.role === "parent" && !student.parentIds.some((parentId) => parentId.toString() === req.user!.userId)) throw AppError.forbidden("Parents can only access fees for linked children");
     const dbQuery: Record<string, unknown> = { schoolId: tenantId(req), studentId: id };
     if (academicYear) dbQuery.academicYear = academicYear;
     const fees = await Fee.find(dbQuery).populate("feeStructureId").lean();
@@ -104,22 +100,37 @@ export async function generateFees(req: Request, res: Response, next: NextFuncti
     const { classId, academicYear } = req.validatedBody as { classId: string; academicYear: string };
     if (!classId || !academicYear) throw AppError.badRequest("classId and academicYear required");
     const [students, structures] = await Promise.all([
-      Student.find({ schoolId, classId, status: "active" }).lean(),
-      FeeStructure.find({ schoolId, classId, academicYear }).lean()
+      Student.find({ schoolId, classId, status: "active" }).select("_id").lean(),
+      FeeStructure.find({ schoolId, classId, academicYear }).select("_id amount").lean()
     ]);
     if (students.length === 0 || structures.length === 0) throw AppError.badRequest("No students or fee structures found");
-    const studentIds = students.map((s: { _id: mongoose.Types.ObjectId }) => s._id);
-    const structureIds = structures.map((s: { _id: mongoose.Types.ObjectId }) => s._id);
-    const existingFees = await Fee.find({ schoolId, studentId: { $in: studentIds }, feeStructureId: { $in: structureIds }, academicYear }).lean();
-    const existingSet = new Set(existingFees.map((f) => `${f.studentId}-${f.feeStructureId}-${f.academicYear}`));
-    const feesToCreate = [];
-    for (const student of students) for (const structure of structures) {
-      const key = `${student._id}-${structure._id}-${academicYear}`;
-      if (!existingSet.has(key)) feesToCreate.push({ schoolId, studentId: student._id, feeStructureId: structure._id, amount: structure.amount, discount: 0, fine: 0, totalDue: structure.amount, paidAmount: 0, balance: structure.amount, status: FeeStatus.PENDING, academicYear });
-    }
-    const results = feesToCreate.length ? await Fee.insertMany(feesToCreate) : [];
-    await createAuditLog({ userId: req.user!.userId, action: "GENERATE_FEES", entity: "Fee", entityId: classId, after: { generated: results.length, classId, academicYear } });
-    res.json({ generated: results.length, fees: results });
+
+    const operations = students.flatMap((student) => structures.map((structure) => ({
+      updateOne: {
+        filter: { schoolId, studentId: student._id, feeStructureId: structure._id, academicYear },
+        update: {
+          $setOnInsert: {
+            schoolId,
+            studentId: student._id,
+            feeStructureId: structure._id,
+            amount: structure.amount,
+            discount: 0,
+            fine: 0,
+            totalDue: structure.amount,
+            paidAmount: 0,
+            balance: structure.amount,
+            status: FeeStatus.PENDING,
+            academicYear
+          }
+        },
+        upsert: true
+      }
+    })));
+
+    const result = operations.length ? await Fee.bulkWrite(operations as any, { ordered: false }) : null;
+    const generated = result?.upsertedCount ?? 0;
+    await createAuditLog({ userId: req.user!.userId, action: "GENERATE_FEES", entity: "Fee", entityId: classId, after: { generated, requested: operations.length, classId, academicYear } });
+    res.json({ generated, skippedExisting: operations.length - generated, fees: [] });
   } catch (error) { next(error); }
 }
 
