@@ -1,0 +1,50 @@
+import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
+import { AcademicYear, Student, StudentLifecycleEvent } from "../models/index.js";
+import { StudentStatus, UserRole } from "@school-erp/shared";
+import { getTenantId } from "../utils/tenant.js";
+import { AppError } from "../utils/errors.js";
+import { createAuditLog } from "../services/auditLog.js";
+
+const MANAGEMENT_ROLES = new Set([UserRole.SUPER_ADMIN, UserRole.PRINCIPAL, UserRole.SUPPORT_ADMIN]);
+function assertManagement(req: Request) { if (!MANAGEMENT_ROLES.has(req.user!.role)) throw AppError.forbidden("Only school management can run an academic-year transition"); }
+
+async function resolve(req: Request) {
+  const body = req.validatedBody as any;
+  const schoolId = getTenantId(req);
+  const [from, to] = await Promise.all([
+    AcademicYear.findOne({ _id: body.fromAcademicYearId, schoolId }).lean(),
+    AcademicYear.findOne({ _id: body.toAcademicYearId, schoolId }).lean()
+  ]);
+  if (!from || !to) throw AppError.notFound("Academic year not found");
+  if (from._id.toString() === to._id.toString()) throw AppError.badRequest("Source and target academic years must differ");
+  if (to.startDate <= from.startDate) throw AppError.badRequest("Target academic year must be later than source academic year");
+  const activeStudents = await Student.countDocuments({ schoolId, status: StudentStatus.ACTIVE });
+  return { schoolId, from, to, activeStudents, body };
+}
+
+export async function previewAcademicYearTransition(req: Request, res: Response, next: NextFunction) {
+  try { assertManagement(req); const r = await resolve(req); res.json({ preview: { fromAcademicYear: r.from, toAcademicYear: r.to, activeStudents: r.activeStudents, studentPolicy: r.body.studentPolicy ?? "promote", canExecute: true } }); } catch (e) { next(e); }
+}
+
+export async function executeAcademicYearTransition(req: Request, res: Response, next: NextFunction) {
+  const session = await mongoose.startSession();
+  try {
+    assertManagement(req); const r = await resolve(req); let transitioned = false;
+    await session.withTransaction(async () => {
+      const target = await AcademicYear.findOne({ _id: r.to._id, schoolId: r.schoolId }).session(session);
+      if (!target) throw AppError.notFound("Target academic year not found");
+      await AcademicYear.updateMany({ schoolId: r.schoolId, _id: { $ne: target._id }, isCurrent: true }, { $set: { isCurrent: false } }, { session });
+      target.isCurrent = true; await target.save({ session });
+      if (r.body.studentPolicy === "promote") {
+        const students = await Student.find({ schoolId: r.schoolId, status: StudentStatus.ACTIVE }).select("_id classId sectionId").session(session).lean();
+        for (const student of students) {
+          await StudentLifecycleEvent.create([{ schoolId: r.schoolId, studentId: student._id, fromStatus: StudentStatus.ACTIVE, toStatus: StudentStatus.ACTIVE, reason: r.body.reason, effectiveAt: new Date(), actorId: req.user!.userId, classId: student.classId, sectionId: student.sectionId, metadata: { type: "academic-year-transition", fromAcademicYearId: r.from._id.toString(), toAcademicYearId: r.to._id.toString() } }], { session });
+        }
+      }
+      transitioned = true;
+      await createAuditLog({ schoolId: r.schoolId.toString(), userId: req.user!.userId, action: "ACADEMIC_YEAR_TRANSITION", entity: "AcademicYear", entityId: r.to._id.toString(), before: { currentYear: r.from.name }, after: { currentYear: r.to.name, studentPolicy: r.body.studentPolicy, activeStudents: r.activeStudents }, session });
+    });
+    res.json({ message: transitioned ? "Academic-year transition completed" : "No transition performed", fromAcademicYearId: r.from._id, toAcademicYearId: r.to._id, activeStudents: r.activeStudents });
+  } catch (e) { next(e); } finally { await session.endSession(); }
+}
