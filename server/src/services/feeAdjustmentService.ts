@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Fee } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { createAuditLog } from "./auditLog.js";
+import { FeeStatus } from "@school-erp/shared";
 
 export async function adjustStudentFee(schoolId: string, feeId: string, actorId: string, input: { type: "discount" | "waiver" | "surcharge" | "amount_override"; amount: number; reason: string }) {
   const session = await mongoose.startSession();
@@ -26,9 +27,9 @@ export async function adjustStudentFee(schoolId: string, feeId: string, actorId:
       fee.discount = discount;
       fee.totalDue = totalDue;
       fee.balance = balance;
-      fee.status = balance === 0 ? (totalDue === 0 ? "waived" : "paid") : fee.paidAmount > 0 ? "partial" : "pending";
+      fee.status = balance === 0 ? (totalDue === 0 ? FeeStatus.WAIVED : FeeStatus.PAID) : fee.paidAmount > 0 ? FeeStatus.PARTIAL : FeeStatus.PENDING;
       await fee.save({ session });
-      await createAuditLog({ userId: actorId, action: "FEE_ADJUST", entity: "Fee", entityId: fee._id.toString(), before, after: { ...fee.toObject(), adjustment: input } });
+      await createAuditLog({ userId: actorId, action: "FEE_ADJUST", entity: "Fee", entityId: fee._id.toString(), before: before as any, after: { ...fee.toObject(), adjustment: input } as any });
       result = fee;
     });
     return result;
