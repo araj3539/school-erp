@@ -18,7 +18,6 @@ const ALLOWED_TRANSITIONS: Record<StudentStatus, StudentStatus[]> = {
 function assertManagement(req: Request): void {
   if (!MANAGEMENT_ROLES.has(req.user!.role)) throw AppError.forbidden("Only school management can change student lifecycle status");
 }
-
 function parseStatus(value: unknown): StudentStatus {
   if (!Object.values(StudentStatus).includes(value as StudentStatus)) throw AppError.badRequest("Invalid student lifecycle status");
   return value as StudentStatus;
@@ -38,7 +37,7 @@ export async function transitionStudentLifecycle(req: Request, res: Response, ne
       await session.withTransaction(async () => {
         student = await Student.findOne({ _id: id, schoolId }).session(session);
         if (!student) throw AppError.notFound("Student not found");
-        const fromStatus = student.status;
+        const fromStatus = student.status as StudentStatus;
         if (fromStatus === toStatus) throw AppError.conflict("Student is already in the requested status");
         if (!ALLOWED_TRANSITIONS[fromStatus]?.includes(toStatus)) throw AppError.conflict(`Invalid student lifecycle transition: ${fromStatus} -> ${toStatus}`);
         if (TERMINAL_STATUSES.has(toStatus) && !body.reason.trim()) throw AppError.badRequest("A reason is required for terminal lifecycle changes");
@@ -46,22 +45,9 @@ export async function transitionStudentLifecycle(req: Request, res: Response, ne
         if (Number.isNaN(effectiveAt.getTime())) throw AppError.badRequest("Invalid effectiveAt");
         student.status = toStatus;
         await student.save({ session });
-        [event] = await StudentLifecycleEvent.create([{
-          schoolId,
-          studentId: student._id,
-          fromStatus,
-          toStatus,
-          reason: body.reason.trim(),
-          effectiveAt,
-          actorId: req.user!.userId,
-          classId: student.classId,
-          sectionId: student.sectionId,
-          metadata: body.metadata
-        }], { session });
+        [event] = await StudentLifecycleEvent.create([{ schoolId, studentId: student._id, fromStatus, toStatus, reason: body.reason.trim(), effectiveAt, actorId: req.user!.userId, classId: student.classId, sectionId: student.sectionId, metadata: body.metadata }], { session });
       });
-    } finally {
-      await session.endSession();
-    }
+    } finally { await session.endSession(); }
     await createAuditLog({ userId: req.user!.userId, action: "STUDENT_LIFECYCLE_CHANGE", entity: "Student", entityId: id, before: { status: event.fromStatus }, after: { status: event.toStatus, reason: event.reason, effectiveAt: event.effectiveAt } });
     res.json({ student, event });
   } catch (error) { next(error); }
@@ -72,8 +58,7 @@ export async function getStudentLifecycleHistory(req: Request, res: Response, ne
     const { id } = req.validatedParams as { id: string };
     const query = req.validatedQuery as { page: number; limit: number; fromStatus?: string; toStatus?: string };
     const schoolId = getTenantId(req);
-    const student = await Student.exists({ _id: id, schoolId });
-    if (!student) throw AppError.notFound("Student not found");
+    if (!await Student.exists({ _id: id, schoolId })) throw AppError.notFound("Student not found");
     const filter: any = { schoolId, studentId: id };
     if (query.fromStatus) filter.fromStatus = parseStatus(query.fromStatus);
     if (query.toStatus) filter.toStatus = parseStatus(query.toStatus);
