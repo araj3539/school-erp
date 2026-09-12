@@ -6,6 +6,8 @@ export { AcademicYear } from "./AcademicYear.js";
 export type { IAcademicYear } from "./AcademicYear.js";
 export { AcademicCalendarEvent } from "./AcademicCalendarEvent.js";
 export type { IAcademicCalendarEvent, AcademicCalendarEventType } from "./AcademicCalendarEvent.js";
+export { NotificationTemplate } from "./NotificationTemplate.js";
+export type { INotificationTemplate } from "./NotificationTemplate.js";
 export { TenantProvisioning } from "./TenantProvisioning.js";
 export type { ITenantProvisioning, TenantProvisioningStatus } from "./TenantProvisioning.js";
 export { ModuleEntitlement } from "./ModuleEntitlement.js";
