@@ -127,7 +127,7 @@ export async function generateFees(req: Request, res: Response, next: NextFuncti
       }
     })));
 
-    const result = operations.length ? await Fee.bulkWrite(operations, { ordered: false }) : null;
+    const result = operations.length ? await Fee.bulkWrite(operations as any, { ordered: false }) : null;
     const generated = result?.upsertedCount ?? 0;
     await createAuditLog({ userId: req.user!.userId, action: "GENERATE_FEES", entity: "Fee", entityId: classId, after: { generated, requested: operations.length, classId, academicYear } });
     res.json({ generated, skippedExisting: operations.length - generated, fees: [] });
