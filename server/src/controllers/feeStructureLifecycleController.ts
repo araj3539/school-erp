@@ -9,6 +9,7 @@ const tenantId = (req: Request) => req.user!.schoolId;
 export async function setFeeStructureLifecycle(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = tenantId(req);
+    if (!schoolId) throw AppError.forbidden("A school context is required");
     const { id } = req.validatedParams as { id: string };
     const target = req.body.status as "active" | "archived";
     const before = await FeeStructure.findOne({ _id: id, schoolId }).lean();
