@@ -63,7 +63,7 @@ FeeItemSchema.pre("validate", function () {
   if (balance < 0 || Math.abs(this.balance - balance) > 0.01) throw new mongoose.Error.ValidatorError({ path: "balance", message: "balance must equal totalDue - paidAmount" });
 });
 
-FeeItemSchema.index({ schoolId: 1, studentId: 1, feeHeadId: 1, academicYear: 1 }, { unique: true });
+FeeItemSchema.index({ schoolId: 1, studentId: 1, feeId: 1, feeHeadId: 1 }, { unique: true, name: "school_student_fee_head_allocation_unique" });
 FeeItemSchema.index({ schoolId: 1, feeId: 1 });
 FeeItemSchema.index({ schoolId: 1, studentId: 1, academicYear: 1, status: 1 });
 
