@@ -1,11 +1,23 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError } from "../utils/errors.js";
+import { Student } from "../models/index.js";
 import { getTenantId } from "../utils/tenant.js";
 import { listStudentSiblings, linkStudentSiblings, unlinkStudentSiblings } from "../services/studentFamilyService.js";
+import { AppError } from "../utils/errors.js";
+import { UserRole } from "@school-erp/shared";
+
+async function assertSiblingReadAccess(req: Request, studentId: string) {
+  const schoolId = getTenantId(req);
+  if (req.user!.role !== UserRole.PARENT && req.user!.role !== UserRole.STUDENT) return;
+  const query: any = { _id: studentId, schoolId };
+  if (req.user!.role === UserRole.PARENT) query.parentIds = req.user!.userId;
+  else query.userId = req.user!.userId;
+  if (!(await Student.exists(query))) throw AppError.forbidden("You can only access sibling information for an authorized student");
+}
 
 export async function getStudentSiblings(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
+    await assertSiblingReadAccess(req, id);
     const data = await listStudentSiblings(getTenantId(req), id);
     res.json({ data });
   } catch (error) { next(error); }
