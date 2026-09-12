@@ -26,6 +26,5 @@ const StudentFamilySchema = new Schema<IStudentFamily>({
 }, { timestamps: true });
 
 StudentFamilySchema.index({ schoolId: 1, studentIds: 1 }, { unique: true });
-StudentFamilySchema.index({ schoolId: 1, studentIds: 1 });
 
 export const StudentFamily = mongoose.model<IStudentFamily>("StudentFamily", StudentFamilySchema);
