@@ -1,10 +1,19 @@
 import { useAuth } from "../hooks";
 import StudentDetailPage from "./StudentDetailPage";
 import PortalStudentDetailPage from "./PortalStudentDetailPage";
+import StudentSiblingsPanel from "../components/students/StudentSiblingsPanel";
+import { useParams } from "react-router-dom";
 
 const PORTAL_ROLES = new Set(["teacher", "student", "parent"]);
 
 export default function RoleAwareStudentDetailPage() {
   const { user } = useAuth();
-  return PORTAL_ROLES.has(user?.role ?? "") ? <PortalStudentDetailPage /> : <StudentDetailPage />;
+  const { id } = useParams<{ id: string }>();
+  if (PORTAL_ROLES.has(user?.role ?? "")) return <PortalStudentDetailPage />;
+  return (
+    <div className="space-y-5">
+      <StudentDetailPage />
+      <StudentSiblingsPanel studentId={id} editable />
+    </div>
+  );
 }
