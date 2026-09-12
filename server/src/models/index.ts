@@ -22,6 +22,8 @@ export { TenantLimit } from "./TenantLimit.js";
 export type { ITenantLimit } from "./TenantLimit.js";
 export { Student } from "./Student.js";
 export type { IStudent, IStudentDocument } from "./Student.js";
+export { StudentLifecycleEvent } from "./StudentLifecycleEvent.js";
+export type { IStudentLifecycleEvent } from "./StudentLifecycleEvent.js";
 export { Teacher } from "./Teacher.js";
 export type { ITeacher, ITeacherDocument } from "./Teacher.js";
 export { Staff } from "./Staff.js";
