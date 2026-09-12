@@ -1,8 +1,9 @@
-import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
+import { Request, Response, NextFunction } from "express";
 import { Fee, FeeStructure, Payment, Student } from "../models/index.js";
 import { CreateFeeStructureSchema, PaymentQuerySchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
+import { archiveFeeStructure, calculateConcession } from "../services/feeStructureService.js";
 import { AppError } from "../utils/errors.js";
 import { FeeStatus } from "@school-erp/shared";
 import { generateReceiptPDF } from "../services/pdf.js";
@@ -46,10 +47,13 @@ export async function updateFeeStructure(req: Request, res: Response, next: Next
 export async function deleteFeeStructure(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const structure = await FeeStructure.findOneAndDelete({ _id: id, schoolId: tenantId(req) });
-    if (!structure) throw AppError.notFound("Fee structure not found");
-    await createAuditLog({ userId: req.user!.userId, action: "DELETE", entity: "FeeStructure", entityId: id });
-    res.json({ message: "Fee structure deleted" });
+    const schoolId = tenantId(req);
+    const existing = await FeeStructure.findOne({ _id: id, schoolId }).lean();
+    if (!existing) throw AppError.notFound("Fee structure not found");
+    const archived = await archiveFeeStructure(id, schoolId);
+    if (!archived) throw AppError.notFound("Fee structure not found");
+    await createAuditLog({ userId: req.user!.userId, action: "ARCHIVE", entity: "FeeStructure", entityId: id, before: existing, after: archived });
+    res.json({ message: "Fee structure archived", feeStructure: archived });
   } catch (error) { next(error); }
 }
 
@@ -101,31 +105,34 @@ export async function generateFees(req: Request, res: Response, next: NextFuncti
     if (!classId || !academicYear) throw AppError.badRequest("classId and academicYear required");
     const [students, structures] = await Promise.all([
       Student.find({ schoolId, classId, status: "active" }).select("_id").lean(),
-      FeeStructure.find({ schoolId, classId, academicYear }).select("_id amount").lean()
+      FeeStructure.find({ schoolId, classId, academicYear, status: "active" }).select("_id amount concessionPercent concessionAmount").lean()
     ]);
-    if (students.length === 0 || structures.length === 0) throw AppError.badRequest("No students or fee structures found");
+    if (students.length === 0 || structures.length === 0) throw AppError.badRequest("No active students or active fee structures found");
 
-    const operations = students.flatMap((student) => structures.map((structure) => ({
-      updateOne: {
-        filter: { schoolId, studentId: student._id, feeStructureId: structure._id, academicYear },
-        update: {
-          $setOnInsert: {
-            schoolId,
-            studentId: student._id,
-            feeStructureId: structure._id,
-            amount: structure.amount,
-            discount: 0,
-            fine: 0,
-            totalDue: structure.amount,
-            paidAmount: 0,
-            balance: structure.amount,
-            status: FeeStatus.PENDING,
-            academicYear
-          }
-        },
-        upsert: true
-      }
-    })));
+    const operations = students.flatMap((student) => structures.map((structure) => {
+      const { discount, totalDue } = calculateConcession(structure.amount, structure);
+      return {
+        updateOne: {
+          filter: { schoolId, studentId: student._id, feeStructureId: structure._id, academicYear },
+          update: {
+            $setOnInsert: {
+              schoolId,
+              studentId: student._id,
+              feeStructureId: structure._id,
+              amount: structure.amount,
+              discount,
+              fine: 0,
+              totalDue,
+              paidAmount: 0,
+              balance: totalDue,
+              status: FeeStatus.PENDING,
+              academicYear
+            }
+          },
+          upsert: true
+        }
+      };
+    }));
 
     const result = operations.length ? await Fee.bulkWrite(operations as any, { ordered: false }) : null;
     const generated = result?.upsertedCount ?? 0;
