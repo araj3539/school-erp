@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from "express";
+import { UserRole } from "@school-erp/shared";
+import { PaymentOrder, Student } from "../models/index.js";
 import { BankTransactionImportSchema, SubmitUpiPaymentSchema, VerifyUpiPaymentSchema } from "../validators/upiPaymentValidators.js";
 import { getUpiPaymentDetails, reconcileBankTransactions, settleUpiPaymentOrder, submitUpiPayment } from "../services/upiPaymentService.js";
 import { AppError } from "../utils/errors.js";
@@ -8,12 +10,24 @@ function schoolId(req: Request): string {
   return req.user.schoolId;
 }
 
+async function assertOrderOwnership(req: Request, orderId: string): Promise<void> {
+  const user = req.user!;
+  if (user.role !== UserRole.STUDENT && user.role !== UserRole.PARENT) return;
+  const order = await PaymentOrder.findOne({ _id: orderId, schoolId: schoolId(req) }).select("studentId").lean();
+  if (!order) throw AppError.notFound("Payment order not found");
+  const student = await Student.findOne({ _id: order.studentId, schoolId: schoolId(req) }).select("userId parentIds").lean();
+  if (!student) throw AppError.notFound("Student not found");
+  if (user.role === UserRole.STUDENT && student.userId?.toString() !== user.userId) throw AppError.forbidden("Students can only access their own payment orders");
+  if (user.role === UserRole.PARENT && !student.parentIds.some((id) => id.toString() === user.userId)) throw AppError.forbidden("Parents can only access payment orders for linked children");
+}
+
 export async function getUpiPayment(req: Request, res: Response, next: NextFunction) {
-  try { res.json(await getUpiPaymentDetails(schoolId(req), req.params.id)); } catch (error) { next(error); }
+  try { await assertOrderOwnership(req, req.params.id); res.json(await getUpiPaymentDetails(schoolId(req), req.params.id)); } catch (error) { next(error); }
 }
 
 export async function submitUpiPaymentForOrder(req: Request, res: Response, next: NextFunction) {
   try {
+    await assertOrderOwnership(req, req.params.id);
     const data = SubmitUpiPaymentSchema.parse(req.body);
     const order = await submitUpiPayment(schoolId(req), req.params.id, data.utr, data.payerUpiId);
     res.status(202).json({ order, message: "UPI payment submitted for verification" });
