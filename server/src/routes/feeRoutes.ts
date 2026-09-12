@@ -3,6 +3,7 @@ import { authenticate, enforcePaymentListOwnership, enforcePaymentOwnership, req
 import { requireStudentFeeOwnership } from "../middleware/feeOwnership.js";
 import { getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure, getFees, getStudentFees, generateFees, getDailyCollectionReport, getMonthlyCollectionReport } from "../controllers/feeController.js";
 import { setFeeStructureLifecycle } from "../controllers/feeStructureLifecycleController.js";
+import { getFeeHeads, createFeeHead, updateFeeHead, getStudentFeeItems, createStudentFeeItem, adjustStudentFeeItem } from "../controllers/feeItemController.js";
 import { collectPayment, reversePayment, getPayments, getReceiptPDF } from "../controllers/paymentController.js";
 import { createPaymentOrder } from "../controllers/paymentOrderController.js";
 import { getUpiPayment, submitUpiPaymentForOrder, verifyUpiPaymentForOrder, importBankTransactions } from "../controllers/upiPaymentController.js";
@@ -11,9 +12,13 @@ import { CreateFeeStructureSchema, CreatePaymentSchema, PaymentReversalSchema, P
 import { FeeStructureLifecycleSchema, FeeStructureIdParamSchema } from "../validators/feeStructureLifecycle.js";
 import { CreatePaymentOrderSchema } from "../validators/paymentOrderValidators.js";
 import { BankTransactionImportSchema, VerifyUpiPaymentSchema } from "../validators/upiPaymentValidators.js";
+import { CreateFeeHeadSchema, UpdateFeeHeadSchema, FeeHeadParamSchema, CreateFeeItemSchema, FeeItemAdjustmentSchema, FeeItemParamSchema } from "../validators/feeHead.js";
 
 const router = Router();
 router.use(authenticate);
+router.get("/heads", requirePermission("fees:read"), getFeeHeads);
+router.post("/heads", requirePermission("fees:write"), validate(CreateFeeHeadSchema), createFeeHead);
+router.patch("/heads/:id", requirePermission("fees:write"), validate(FeeHeadParamSchema, "params"), validate(UpdateFeeHeadSchema), updateFeeHead);
 router.get("/structures", requirePermission("fees:read"), validate(FeeStructureQuerySchema, "query"), getFeeStructures);
 router.post("/structures", requirePermission("fees:write"), validate(CreateFeeStructureSchema), createFeeStructure);
 router.put("/structures/:id", requirePermission("fees:write"), validate(IdParamSchema, "params"), validate(CreateFeeStructureSchema), updateFeeStructure);
@@ -21,6 +26,9 @@ router.patch("/structures/:id/lifecycle", requirePermission("fees:write"), valid
 router.delete("/structures/:id", requirePermission("fees:delete"), validate(IdParamSchema, "params"), deleteFeeStructure);
 router.get("/", requirePermission("fees:read"), validate(PaginationSchema, "query"), getFees);
 router.get("/student/:id", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), validate(StudentFeeQuerySchema, "query"), requireStudentFeeOwnership, getStudentFees);
+router.get("/student/:id/items", requireAnyPermission("fees:read", "fees:read:own", "fees:read:child"), validate(IdParamSchema, "params"), validate(StudentFeeQuerySchema, "query"), requireStudentFeeOwnership, getStudentFeeItems);
+router.post("/items", requirePermission("fees:write"), validate(CreateFeeItemSchema), createStudentFeeItem);
+router.patch("/items/:id/adjust", requirePermission("fees:write"), validate(FeeItemParamSchema, "params"), validate(FeeItemAdjustmentSchema), adjustStudentFeeItem);
 router.post("/generate", requirePermission("fees:write"), validate(GenerateFeesSchema), generateFees);
 router.post("/payments/orders", requireAnyPermission("payments:write", "payments:online:create"), validate(CreatePaymentOrderSchema), createPaymentOrder);
 router.get("/payments/orders/:id/upi", requireAnyPermission("payments:write", "payments:online:create", "payments:read:own", "payments:read:child"), validate(IdParamSchema, "params"), getUpiPayment);
