@@ -16,23 +16,8 @@ export async function createFeeItem(schoolId: string, data: { studentId: string;
   ]);
   if (!fee) throw AppError.badRequest("Fee must belong to the selected student and school");
   if (!head) throw AppError.badRequest("Fee head must belong to the same school and be active");
-  const item = await FeeItem.create({
-    schoolId,
-    studentId: data.studentId,
-    feeId: data.feeId,
-    feeHeadId: data.feeHeadId,
-    academicYear: fee.academicYear,
-    label: data.label,
-    amount: data.amount,
-    discount: 0,
-    fine: 0,
-    totalDue: data.amount,
-    paidAmount: 0,
-    balance: data.amount,
-    status: data.amount === 0 ? "waived" : "pending",
-    dueDate: data.dueDate ? new Date(data.dueDate) : undefined
-  });
-  await createAuditLog({ userId: actorId, action: "CREATE", entity: "FeeItem", entityId: item._id.toString(), after: item.toObject() });
+  const item = await FeeItem.create({ schoolId, studentId: data.studentId, feeId: data.feeId, feeHeadId: data.feeHeadId, academicYear: fee.academicYear, label: data.label, amount: data.amount, discount: 0, fine: 0, totalDue: data.amount, paidAmount: 0, balance: data.amount, status: data.amount === 0 ? "waived" : "pending", dueDate: data.dueDate ? new Date(data.dueDate) : undefined });
+  await createAuditLog({ userId: actorId, action: "CREATE", entity: "FeeItem", entityId: item._id.toString(), after: item.toObject() as any });
   return item;
 }
 
@@ -61,7 +46,7 @@ export async function adjustFeeItem(schoolId: string, itemId: string, actorId: s
       item.status = item.balance === 0 ? (totalDue === 0 ? "waived" : "paid") : item.paidAmount > 0 ? "partial" : "pending";
       item.adjustments.push({ type: input.type, amount: input.amount, reason: input.reason, actorId: new mongoose.Types.ObjectId(actorId), createdAt: new Date() });
       await item.save({ session });
-      await createAuditLog({ userId: actorId, action: "FEE_ITEM_ADJUST", entity: "FeeItem", entityId: item._id.toString(), before, after: item.toObject() });
+      await createAuditLog({ userId: actorId, action: "FEE_ITEM_ADJUST", entity: "FeeItem", entityId: item._id.toString(), before: before as any, after: item.toObject() as any });
       result = item;
     });
     return result;
