@@ -20,7 +20,11 @@ export const CreateFeeItemSchema = z.object({
 });
 export const FeeItemAdjustmentSchema = z.object({
   type: z.enum(["discount", "waiver", "surcharge", "amount_override"]),
-  amount: z.number().min(0),
+  amount: z.number().min(0).optional(),
+  percent: z.number().min(0).max(100).optional(),
   reason: z.string().trim().min(3).max(500)
+}).superRefine((value, ctx) => {
+  if (value.amount === undefined && value.percent === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["amount"], message: "Provide an amount or percentage" });
+  if (value.amount !== undefined && value.percent !== undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["percent"], message: "Use either amount or percentage" });
 });
 export const FeeItemParamSchema = z.object({ id: ObjectIdSchema });

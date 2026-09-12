@@ -21,7 +21,7 @@ export async function createFeeItem(schoolId: string, data: { studentId: string;
   return item;
 }
 
-export async function adjustFeeItem(schoolId: string, itemId: string, actorId: string, input: { type: "discount" | "waiver" | "surcharge" | "amount_override"; amount: number; reason: string }) {
+export async function adjustFeeItem(schoolId: string, itemId: string, actorId: string, input: { type: "discount" | "waiver" | "surcharge" | "amount_override"; amount?: number; percent?: number; reason: string }) {
   const session = await mongoose.startSession();
   try {
     let result: any;
@@ -30,11 +30,13 @@ export async function adjustFeeItem(schoolId: string, itemId: string, actorId: s
       if (!item) throw AppError.notFound("Fee item not found");
       const before = item.toObject();
       if (item.paidAmount > 0 && input.type !== "surcharge") throw AppError.conflict("Paid or partially paid fee items require a controlled credit/refund workflow");
+      const value = input.percent !== undefined ? item.amount * (input.percent / 100) : input.amount ?? 0;
+      if (!Number.isFinite(value) || value < 0) throw AppError.badRequest("Adjustment amount must be a valid non-negative number");
       let discount = item.discount;
       let amount = item.amount;
-      if (input.type === "discount" || input.type === "waiver") discount += input.amount;
-      if (input.type === "amount_override") amount = input.amount;
-      if (input.type === "surcharge") amount += input.amount;
+      if (input.type === "discount" || input.type === "waiver") discount += value;
+      if (input.type === "amount_override") amount = value;
+      if (input.type === "surcharge") amount += value;
       if (discount > amount) throw AppError.badRequest("Discount cannot exceed the fee item amount");
       const totalDue = amount - discount + item.fine;
       if (totalDue < 0) throw AppError.badRequest("Fee item total cannot be negative");
@@ -44,7 +46,7 @@ export async function adjustFeeItem(schoolId: string, itemId: string, actorId: s
       item.balance = totalDue - item.paidAmount;
       if (item.balance < 0) throw AppError.conflict("Adjustment would invalidate collected payment history");
       item.status = item.balance === 0 ? (totalDue === 0 ? "waived" : "paid") : item.paidAmount > 0 ? "partial" : "pending";
-      item.adjustments.push({ type: input.type, amount: input.amount, reason: input.reason, actorId: new mongoose.Types.ObjectId(actorId), createdAt: new Date() });
+      item.adjustments.push({ type: input.type, amount: value, reason: input.reason, actorId: new mongoose.Types.ObjectId(actorId), createdAt: new Date() });
       await item.save({ session });
       await createAuditLog({ userId: actorId, action: "FEE_ITEM_ADJUST", entity: "FeeItem", entityId: item._id.toString(), before: before as any, after: item.toObject() as any });
       result = item;
