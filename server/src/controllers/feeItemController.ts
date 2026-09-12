@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { FeeHead } from "../models/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { createFeeItem, adjustFeeItem, listStudentFeeItems } from "../services/feeItemService.js";
+import { adjustStudentFee } from "../services/feeAdjustmentService.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
 
@@ -41,4 +42,8 @@ export async function createStudentFeeItem(req: Request, res: Response, next: Ne
 
 export async function adjustStudentFeeItem(req: Request, res: Response, next: NextFunction) {
   try { const { id } = req.validatedParams as { id: string }; const item = await adjustFeeItem(getTenantId(req), id, req.user!.userId, req.validatedBody as any); res.json({ feeItem: item }); } catch (error) { next(error); }
+}
+
+export async function adjustStudentFeeRecord(req: Request, res: Response, next: NextFunction) {
+  try { const { id } = req.validatedParams as { id: string }; const fee = await adjustStudentFee(getTenantId(req), id, req.user!.userId, req.validatedBody as any); res.json({ fee }); } catch (error) { next(error); }
 }
