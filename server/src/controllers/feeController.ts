@@ -47,7 +47,7 @@ export async function updateFeeStructure(req: Request, res: Response, next: Next
 export async function deleteFeeStructure(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const schoolId = tenantId(req);
+    const schoolId = tenantId(req)!;
     const existing = await FeeStructure.findOne({ _id: id, schoolId }).lean();
     if (!existing) throw AppError.notFound("Fee structure not found");
     const archived = await archiveFeeStructure(id, schoolId);
