@@ -8,6 +8,8 @@ export { AcademicCalendarEvent } from "./AcademicCalendarEvent.js";
 export type { IAcademicCalendarEvent, AcademicCalendarEventType } from "./AcademicCalendarEvent.js";
 export { NotificationTemplate } from "./NotificationTemplate.js";
 export type { INotificationTemplate } from "./NotificationTemplate.js";
+export { ScheduledJob } from "./ScheduledJob.js";
+export type { IScheduledJob, ScheduledJobStatus } from "./ScheduledJob.js";
 export { TenantProvisioning } from "./TenantProvisioning.js";
 export type { ITenantProvisioning, TenantProvisioningStatus } from "./TenantProvisioning.js";
 export { ModuleEntitlement } from "./ModuleEntitlement.js";
