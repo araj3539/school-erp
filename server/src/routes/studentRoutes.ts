@@ -28,7 +28,7 @@ router.get("/:id/documents/:documentId/url", requireAnyPermission("students:read
 router.get("/:id/document-recoveries", parentOnly, requirePermission("students:read:child"), validate(IdParamSchema, "params"), validate(DocumentRecoveryHistoryQuerySchema, "query"), getStudentDocumentRecoveryHistory);
 router.get("/:id/document-recoveries", requireAnyPermission("students:read", "students:read:own"), validate(IdParamSchema, "params"), validate(DocumentRecoveryHistoryQuerySchema, "query"), getStudentDocumentRecoveryHistory);
 router.get("/:id/document-recoveries/:recoveryId/preview", parentOnly, requirePermission("students:read:child"), validate(StudentDocumentRecoveryParamSchema, "params"), previewStudentDocumentRecovery);
-router.get("/:id/document-recoveries/:recoveryId/preview", requireAnyPermission("students:read", "students:read:own"), validate(StudentDocumentRecoveryParamSchema, "params"), validate(StudentDocumentRecoveryParamSchema, "params"), previewStudentDocumentRecovery);
+router.get("/:id/document-recoveries/:recoveryId/preview", requireAnyPermission("students:read", "students:read:own"), validate(StudentDocumentRecoveryParamSchema, "params"), previewStudentDocumentRecovery);
 router.post("/:id/document-recoveries/:recoveryId/restore", requirePermission("students:write"), validate(StudentDocumentRecoveryParamSchema, "params"), restoreStudentDocumentRecovery);
 
 router.get("/:id", parentOnly, requirePermission("students:read:child"), validate(IdParamSchema, "params"), getParentStudentById);
