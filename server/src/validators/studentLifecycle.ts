@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ObjectIdSchema } from "@school-erp/shared";
+import { ObjectIdSchema, UpdateStudentSchema } from "@school-erp/shared";
 
 export const StudentLifecycleTransitionSchema = z.object({
   toStatus: z.string().min(1),
@@ -16,3 +16,4 @@ export const StudentLifecycleQuerySchema = z.object({
 });
 
 export const StudentLifecycleParamSchema = z.object({ id: ObjectIdSchema });
+export const UpdateStudentLifecycleSafeSchema = UpdateStudentSchema.omit({ status: true }).strict();
