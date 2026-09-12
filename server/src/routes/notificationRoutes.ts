@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { authenticate, requireAnyPermission, requirePermission, validate } from "../middleware/index.js";
-import { getNotifications, markAllNotificationsRead, markNotificationRead, getNotificationPreferences, upsertNotificationPreference, getNotificationDeliveryAttempts } from "../controllers/notificationController.js";
+import { getNotifications, markAllNotificationsRead, markNotificationRead, getNotificationPreferences, upsertNotificationPreference, getNotificationDeliveryAttempts, sendFeeReminders } from "../controllers/notificationController.js";
 import { listNotificationTemplates, upsertNotificationTemplate, archiveNotificationTemplate } from "../controllers/notificationTemplateController.js";
-import { IdParamSchema } from "../validators/index.js";
+import { FeeReminderSchema, IdParamSchema } from "../validators/index.js";
 import { NotificationPreferenceSchema, NotificationQuerySchema } from "@school-erp/shared";
 import { NotificationTemplateSchema } from "../validators/notificationTemplate.js";
 
@@ -15,6 +15,7 @@ router.post("/read-all", requireAnyPermission(...notificationPermissions), markA
 router.get("/preferences", requireAnyPermission(...notificationPermissions), getNotificationPreferences);
 router.put("/preferences", requireAnyPermission(...notificationPermissions), validate(NotificationPreferenceSchema), upsertNotificationPreference);
 router.get("/delivery-attempts", requireAnyPermission("audit:read"), getNotificationDeliveryAttempts);
+router.post("/fee-reminders", requirePermission("fees:write"), validate(FeeReminderSchema), sendFeeReminders);
 router.get("/templates", requirePermission("notices:read"), listNotificationTemplates);
 router.put("/templates", requirePermission("notices:write"), validate(NotificationTemplateSchema), upsertNotificationTemplate);
 router.delete("/templates/:id", requirePermission("notices:write"), validate(IdParamSchema, "params"), archiveNotificationTemplate);
