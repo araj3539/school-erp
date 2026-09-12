@@ -5,6 +5,7 @@ export const CreateFeeHeadSchema = z.object({
   name: z.string().trim().min(2).max(100),
   code: z.string().trim().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/),
   kind: z.enum(["one_time", "recurring", "optional"]).default("recurring"),
+  category: z.enum(["tuition", "admission", "exam", "transport", "uniform", "books", "activity", "other"]).default("other"),
   description: z.string().trim().max(500).optional()
 });
 export const UpdateFeeHeadSchema = CreateFeeHeadSchema.partial().extend({ isActive: z.boolean().optional() });
