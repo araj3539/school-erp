@@ -2,6 +2,7 @@ import { useAuth } from "../hooks";
 import StudentDetailPage from "./StudentDetailPage";
 import PortalStudentDetailPage from "./PortalStudentDetailPage";
 import StudentSiblingsPanel from "../components/students/StudentSiblingsPanel";
+import StudentFeeManagementPanel from "../components/fees/StudentFeeManagementPanel";
 import { useParams } from "react-router-dom";
 
 const PORTAL_ROLES = new Set(["teacher", "student", "parent"]);
@@ -14,6 +15,7 @@ export default function RoleAwareStudentDetailPage() {
     <div className="space-y-5">
       <StudentDetailPage />
       <StudentSiblingsPanel studentId={id} editable />
+      <StudentFeeManagementPanel studentId={id} editable />
     </div>
   );
 }
