@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck2, CheckCircle2, Clock3, Users } from "lucide-react";
+import { Bell, BookOpen, CalendarCheck2, CheckCircle2, Clock3, ExternalLink, Users } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -14,12 +14,24 @@ type Status = typeof statuses[number][0];
 type Student = { _id: string; admissionNo: string; firstName: string; lastName: string; classId: string | { _id: string; displayName: string }; sectionId?: string | { _id: string; name: string } };
 type Section = { _id: string; name: string; classId: string };
 type AttendanceRecord = { studentId: string; status: Status; remark?: string };
-type WorkspaceData = { teacher: { _id: string; firstName: string; lastName: string }; date: string; assignedClasses: { _id: string; displayName: string; sectionIds: string[] }[]; assignedSections: Section[]; assignedStudents: Student[]; todayTimetable: any[]; attendance: { _id: string; classId: any; sectionId: any; records: AttendanceRecord[] }[] };
+type WorkspaceData = {
+  teacher: { _id: string; firstName: string; lastName: string };
+  date: string;
+  assignedClasses: { _id: string; displayName: string; sectionIds: string[] }[];
+  assignedSections: Section[];
+  assignedStudents: Student[];
+  todayTimetable: any[];
+  attendance: { _id: string; classId: any; sectionId: any; records: AttendanceRecord[] }[];
+  homework: any[];
+  notifications: any[];
+  unreadNotifications: number;
+};
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function id(value: unknown) { return typeof value === "string" ? value : (value as { _id?: string })?._id ?? ""; }
 function label(value: unknown, fallback: string) { return typeof value === "object" && value !== null ? (value as { displayName?: string; name?: string }).displayName ?? (value as { name?: string }).name ?? fallback : fallback; }
 function errorMessage(error: unknown) { const response = (error as any)?.response?.data; return response?.message || response?.error || (error instanceof Error ? error.message : "Unable to save attendance."); }
+function formatDate(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
 
 export default function TeacherWorkspacePage() {
   const queryClient = useQueryClient();
@@ -30,13 +42,15 @@ export default function TeacherWorkspacePage() {
 
   const { data, isLoading, isError, refetch } = useQuery<WorkspaceData>({
     queryKey: ["teacher", "workspace", date],
-    queryFn: async () => (await api.get(`/portal/teacher/workspace?date=${date}`)).data,
+    queryFn: async () => (await api.get(`/portal/teacher/workspace?date=${encodeURIComponent(date)}`)).data,
   });
 
   const sections = useMemo(() => (data?.assignedSections ?? []).filter((section) => id(section.classId) === selectedClass), [data, selectedClass]);
   const students = useMemo(() => (data?.assignedStudents ?? []).filter((student) => id(student.classId) === selectedClass && id(student.sectionId) === selectedSection), [data, selectedClass, selectedSection]);
   const existingAttendance = useMemo(() => (data?.attendance ?? []).find((item) => id(item.classId) === selectedClass && id(item.sectionId) === selectedSection) ?? null, [data, selectedClass, selectedSection]);
   const hasExistingAttendance = Boolean(existingAttendance);
+  const currentPeriod = useMemo(() => data?.todayTimetable?.find((item) => item.workspaceState === "current"), [data]);
+  const nextPeriod = useMemo(() => data?.todayTimetable?.find((item) => item.workspaceState === "upcoming"), [data]);
 
   useEffect(() => {
     if (!selectedClass && data?.assignedClasses?.length) setSelectedClass(data.assignedClasses[0]._id);
@@ -61,19 +75,31 @@ export default function TeacherWorkspacePage() {
   return <div className="space-y-6">
     <section className="overflow-hidden rounded-2xl bg-slate-950 px-5 py-6 text-white sm:px-7">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-300">Teacher workspace</p><h1 className="mt-2 text-2xl font-bold tracking-tight">Good day, {data.teacher.firstName}</h1><p className="mt-1 max-w-2xl text-sm text-slate-300">See your assigned classes, today’s periods and attendance tasks in one place.</p></div>
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-300">Teacher workspace</p><h1 className="mt-2 text-2xl font-bold tracking-tight">Good day, {data.teacher.firstName}</h1><p className="mt-1 max-w-2xl text-sm text-slate-300">Your timetable, attendance, homework and important messages in one daily view.</p></div>
         <Input label="Working date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="w-full sm:w-48" />
       </div>
     </section>
 
-    <div className="grid gap-4 sm:grid-cols-3">
-      <Summary icon={Clock3} label="Periods today" value={data.todayTimetable.length} />
+    <div className="grid gap-4 sm:grid-cols-4">
+      <Summary icon={Clock3} label="Periods" value={data.todayTimetable.length} />
       <Summary icon={Users} label="Assigned classes" value={data.assignedClasses.length} />
-      <Summary icon={CalendarCheck2} label="Attendance groups" value={data.attendance.length} />
+      <Summary icon={BookOpen} label="Homework due soon" value={data.homework.length} />
+      <Summary icon={Bell} label="Unread notices" value={data.unreadNotifications} />
     </div>
 
+    {(currentPeriod || nextPeriod) && <Card><CardContent className="grid gap-3 py-4 sm:grid-cols-2">
+      {currentPeriod && <div className="rounded-xl border border-primary-200 bg-primary-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Current period</p><p className="mt-1 font-semibold text-slate-900">{currentPeriod.subjectId?.name ?? "Subject"}</p><p className="mt-1 text-sm text-slate-600">{label(currentPeriod.classId, "Class")}{currentPeriod.sectionId?.name ? ` · ${currentPeriod.sectionId.name}` : ""} · {currentPeriod.startTime}–{currentPeriod.endTime}</p></div>}
+      {nextPeriod && <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next period</p><p className="mt-1 font-semibold text-slate-900">{nextPeriod.subjectId?.name ?? "Subject"}</p><p className="mt-1 text-sm text-slate-600">{label(nextPeriod.classId, "Class")}{nextPeriod.sectionId?.name ? ` · ${nextPeriod.sectionId.name}` : ""} · {nextPeriod.startTime}–{nextPeriod.endTime}</p></div>}
+    </CardContent></Card>}
+
     <div className="grid gap-6 xl:grid-cols-[1fr_1.35fr]">
-      <Card><CardHeader><h2 className="text-base font-semibold text-slate-900">Today’s timetable</h2><p className="text-sm text-slate-500">Periods assigned to you for {date}.</p></CardHeader><CardContent>{data.todayTimetable.length ? <div className="space-y-3">{data.todayTimetable.map((item: any) => <div key={item._id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{item.subjectId?.name ?? "Subject"}</p><p className="mt-1 text-sm text-slate-500">{label(item.classId, "Class")}{item.sectionId?.name ? ` · ${item.sectionId.name}` : ""}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.startTime}–{item.endTime}</span></div>{item.roomNumber && <p className="mt-3 text-xs text-slate-500">Room {item.roomNumber}</p>}</div>)}</div> : <p className="py-4 text-sm text-slate-500">No periods are assigned to you for this date.</p>}</CardContent></Card>
+      <div className="space-y-6">
+        <Card><CardHeader><h2 className="text-base font-semibold text-slate-900">Today’s timetable</h2><p className="text-sm text-slate-500">Periods assigned to you for {date}.</p></CardHeader><CardContent>{data.todayTimetable.length ? <div className="space-y-3">{data.todayTimetable.map((item: any) => <div key={item._id} className={`rounded-xl border p-4 ${item.workspaceState === "current" ? "border-primary-300 bg-primary-50/50" : "border-slate-200"}`}><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{item.subjectId?.name ?? "Subject"}</p><p className="mt-1 text-sm text-slate-500">{label(item.classId, "Class")}{item.sectionId?.name ? ` · ${item.sectionId.name}` : ""}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.startTime}–{item.endTime}</span></div>{item.roomNumber && <p className="mt-3 text-xs text-slate-500">Room {item.roomNumber}</p>}</div>)}</div> : <p className="py-4 text-sm text-slate-500">No periods are assigned to you for this date.</p>}</CardContent></Card>
+
+        <Card><CardHeader><div className="flex items-center justify-between gap-3"><div><h2 className="text-base font-semibold text-slate-900">Homework action list</h2><p className="text-sm text-slate-500">Upcoming work from your existing homework records.</p></div><a href="/teacher-homework" className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700">Open <ExternalLink className="h-3.5 w-3.5" /></a></div></CardHeader><CardContent>{data.homework.length ? <div className="space-y-3">{data.homework.slice(0, 6).map((item: any) => <div key={item._id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{item.title}</p><p className="mt-1 text-xs text-slate-500">{label(item.classId, "Class")}{item.sectionId?.name ? ` · ${item.sectionId.name}` : ""}{item.subjectId?.name ? ` · ${item.subjectId.name}` : ""}</p></div><span className="shrink-0 text-xs font-semibold text-slate-600">Due {formatDate(item.dueDate)}</span></div></div>)}</div> : <p className="py-4 text-sm text-slate-500">No homework is due in the next 7 days.</p>}</CardContent></Card>
+
+        <Card><CardHeader><div className="flex items-center justify-between gap-3"><div><h2 className="text-base font-semibold text-slate-900">Notices & messages</h2><p className="text-sm text-slate-500">Your latest in-app notifications.</p></div><a href="/notifications" className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700">View all <ExternalLink className="h-3.5 w-3.5" /></a></div></CardHeader><CardContent>{data.notifications.length ? <div className="space-y-3">{data.notifications.slice(0, 5).map((item: any) => <div key={item._id} className={`rounded-xl border p-4 ${item.readAt ? "border-slate-200" : "border-primary-200 bg-primary-50/40"}`}><div className="flex items-start gap-3"><Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" /><div className="min-w-0"><p className="font-semibold text-slate-900">{item.title}</p><p className="mt-1 text-sm text-slate-600">{item.message}</p><p className="mt-2 text-xs text-slate-400">{item.category ?? "notification"}</p></div></div></div>)}</div> : <p className="py-4 text-sm text-slate-500">Nothing requires your attention right now.</p>}</CardContent></Card>
+      </div>
 
       <Card><CardHeader><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-base font-semibold text-slate-900">Attendance</h2><p className="text-sm text-slate-500">Only classes assigned to you as class teacher are available here.</p></div><div className="flex w-full gap-2 sm:w-auto"><Select aria-label="Attendance class" value={selectedClass} onChange={(event) => { setSelectedClass(event.target.value); setSelectedSection(""); saveMutation.reset(); }} className="min-w-0 flex-1 sm:w-44"><option value="">Select class</option>{data.assignedClasses.map((item) => <option key={item._id} value={item._id}>{item.displayName}</option>)}</Select><Select aria-label="Attendance section" value={selectedSection} onChange={(event) => { setSelectedSection(event.target.value); saveMutation.reset(); }} disabled={!selectedClass} className="min-w-0 flex-1 sm:w-32"><option value="">Section</option>{sections.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}</Select></div></div></CardHeader><CardContent>
         {saveMutation.isError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage(saveMutation.error)}</div>}
@@ -81,7 +107,7 @@ export default function TeacherWorkspacePage() {
         {hasExistingAttendance && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Attendance has already been recorded for this group. Corrections require school management authorization.</div>}
         {!selectedClass || !selectedSection ? <p className="py-8 text-center text-sm text-slate-500">Choose a class and section to mark attendance.</p> : students.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No active students are assigned to this section.</p> : <>
           <div className="space-y-2 md:hidden">{students.map((student) => <div key={student._id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{student.firstName} {student.lastName}</p><p className="text-xs text-slate-500">{student.admissionNo}</p></div><Select aria-label={`Attendance status for ${student.firstName} ${student.lastName}`} value={draft[student._id]?.status ?? "present"} disabled={hasExistingAttendance || saveMutation.isPending} onChange={(event) => setDraft((current) => ({ ...current, [student._id]: { ...(current[student._id] ?? { status: "present", remark: "" }), status: event.target.value as Status } }))} className="w-32">{statuses.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</Select></div><Input aria-label={`Remark for ${student.firstName} ${student.lastName}`} value={draft[student._id]?.remark ?? ""} disabled={hasExistingAttendance || saveMutation.isPending} onChange={(event) => setDraft((current) => ({ ...current, [student._id]: { ...(current[student._id] ?? { status: "present", remark: "" }), remark: event.target.value } }))} placeholder="Optional remark" className="mt-2" /></div>)}</div>
-          <div className="hidden overflow-x-auto md:block"><table className="w-full"><thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500"><th className="px-3 py-3">Student</th><th className="px-3 py-3">Admission</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Remark</th></tr></thead><tbody className="divide-y divide-slate-100">{students.map((student) => <tr key={student._id}><td className="px-3 py-3 text-sm font-medium text-slate-900">{student.firstName} {student.lastName}</td><td className="px-3 py-3 text-sm text-slate-500">{student.admissionNo}</td><td className="px-3 py-3"><Select aria-label={`Attendance status for ${student.firstName} ${student.lastName}`} value={draft[student._id]?.status ?? "present"} disabled={hasExistingAttendance || saveMutation.isPending} onChange={(event) => setDraft((current) => ({ ...current, [student._id]: { ...(current[student._id] ?? { status: "present", remark: "" }), status: event.target.value as Status } }))} className="w-32">{statuses.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</Select></td><td className="px-3 py-3"><Input aria-label={`Remark for ${student.firstName} ${student.lastName}`} value={draft[student._id]?.remark ?? ""} disabled={hasExistingAttendance || saveMutation.isPending} onChange={(event) => setDraft((current) => ({ ...current, [student._id]: { ...(current[student._id] ?? { status: "present", remark: "" }), remark: event.target.value } }))} placeholder="Optional remark" /></td></tr>)}</tbody></table></div>
+          <div className="hidden overflow-x-auto md:block"><table className="w-full"><thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500"><th className="px-3 py-3">Student</th><th className="px-3 py-3">Admission</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Remark</th></tr></thead><tbody className="divide-y divide-slate-100">{students.map((student) => <tr key={student._id}><td className="px-3 py-3 text-sm font-medium text-slate-900">{student.firstName} {student.lastName}</td><td className="px-3 py-3 text-sm text-slate-500">{student.admissionNo}</td><td className="px-3 py-3"><Select aria-label={`Attendance status for ${student.firstName} ${student.lastName}`} value={draft[student._id]?.status ?? "present"} disabled={hasExistingAttendance || saveMutation.isPending} onChange={(event) => setDraft((current) => ({ ...current, [student._id]: { ...(current[student._id] ?? { status: "present", remark: "" }), status: event.target.value as Status, } }))} className="w-32">{statuses.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</Select></td><td className="px-3 py-3"><Input aria-label={`Remark for ${student.firstName} ${student.lastName}`} value={draft[student._id]?.remark ?? ""} disabled={hasExistingAttendance || saveMutation.isPending} onChange={(event) => setDraft((current) => ({ ...current, [student._id]: { ...(current[student._id] ?? { status: "present", remark: "" }), remark: event.target.value } }))} placeholder="Optional remark" /></td></tr>)}</tbody></table></div>
           <div className="mt-4 flex justify-end"><Button onClick={() => saveMutation.mutate()} disabled={hasExistingAttendance || saveMutation.isPending}>{saveMutation.isPending ? "Saving..." : <><CheckCircle2 className="mr-2 h-4 w-4" />Mark attendance</>}</Button></div>
         </>}
       </CardContent></Card>
