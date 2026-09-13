@@ -46,6 +46,8 @@ export { Attendance } from "./Attendance.js";
 export type { IAttendance, IAttendanceRecord } from "./Attendance.js";
 export { FeeStructure } from "./FeeStructure.js";
 export type { IFeeStructure, IFeeInstallment, IFeeConcessionRule, IFeeLateFeePolicy, FeeStructureStatus } from "./FeeStructure.js";
+export { FeePolicyApproval } from "./FeePolicyApproval.js";
+export type { IFeePolicyApproval, FeePolicyApprovalStatus } from "./FeePolicyApproval.js";
 export { FeeHead } from "./FeeHead.js";
 export type { IFeeHead, FeeHeadKind } from "./FeeHead.js";
 export { Fee } from "./Fee.js";
