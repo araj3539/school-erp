@@ -1,0 +1,48 @@
+name: Repair npm lockfile
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Regenerate lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Restore deterministic CI install
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('render.yaml')
+          s = p.read_text()
+          s = s.replace('npm install --include=dev && npm run build --prefix shared && npm run build --prefix server', 'npm ci --include=dev && npm run build --prefix shared && npm run build --prefix server')
+          p.write_text(s)
+          PY
+
+      - name: Commit repaired lockfile and configuration
+        run: |
+          rm -f .github/workflows/repair-lockfile.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json render.yaml .github/workflows/repair-lockfile.yml
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'fix(deps): synchronize npm lockfile and restore ci' || exit 0
+          git push origin main
