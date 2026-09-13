@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { Attendance, AcademicYear, Class, Section, Student, Teacher, Timetable } from "../models/index.js";
+import { Attendance, AcademicYear, Class, Section, Student, Teacher, Timetable, Homework, Notification } from "../models/index.js";
 import { UserRole } from "@school-erp/shared";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
@@ -32,7 +32,11 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
     }
 
     const classIds = teacher.classTeacherOf ?? [];
-    const [classes, timetable, attendance] = await Promise.all([
+    const subjectIds = teacher.subjects ?? [];
+    const dayStart = date;
+    const dayEnd = addCalendarDays(date, 1);
+
+    const [classes, timetable, attendance, homework, notifications] = await Promise.all([
       classIds.length
         ? Class.find({ _id: { $in: classIds }, schoolId }).select("_id displayName name sectionIds classTeacherId roomNumber").sort({ name: 1 }).lean()
         : [],
@@ -42,13 +46,34 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
         .limit(20)
         .lean(),
       classIds.length
-        ? Attendance.find({ schoolId, date: { $gte: date, $lt: addCalendarDays(date, 1) }, classId: { $in: classIds } })
+        ? Attendance.find({ schoolId, date: { $gte: date, $lt: dayEnd }, classId: { $in: classIds } })
             .select("_id date classId sectionId records markedBy")
             .populate("classId sectionId")
             .sort({ classId: 1, sectionId: 1 })
             .limit(50)
             .lean()
         : [],
+      subjectIds.length || classIds.length
+        ? Homework.find({
+            schoolId,
+            academicYearId: academicYear._id,
+            $or: [
+              ...(classIds.length ? [{ classId: { $in: classIds } }] : []),
+              ...(subjectIds.length ? [{ subjectId: { $in: subjectIds } }] : []),
+            ],
+            dueDate: { $gte: dayStart, $lt: addCalendarDays(date, 8) },
+          })
+            .populate("classId sectionId subjectId")
+            .select("_id title description assignedDate dueDate classId sectionId subjectId status")
+            .sort({ dueDate: 1, assignedDate: -1 })
+            .limit(12)
+            .lean()
+        : [],
+      Notification.find({ schoolId, recipientId: req.user!.userId })
+        .select("_id title message category priority readAt createdAt actionUrl")
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .lean(),
     ]);
 
     const sectionIds = classes.flatMap((item) => item.sectionIds ?? []);
@@ -65,6 +90,16 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
         : [],
     ]);
 
+    const currentMinutes = new Date().getUTCHours() * 60 + new Date().getUTCMinutes();
+    const periodWithState = timetable.map((period: any) => {
+      const [startHour, startMinute] = String(period.startTime ?? "00:00").split(":").map(Number);
+      const [endHour, endMinute] = String(period.endTime ?? "00:00").split(":").map(Number);
+      const start = startHour * 60 + startMinute;
+      const end = endHour * 60 + endMinute;
+      const isToday = date.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+      return { ...period, workspaceState: isToday && currentMinutes >= start && currentMinutes < end ? "current" : isToday && currentMinutes < start ? "upcoming" : "scheduled" };
+    });
+
     return res.json({
       teacher: { _id: teacher._id, firstName: teacher.firstName, lastName: teacher.lastName },
       academicYear,
@@ -72,8 +107,11 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
       assignedClasses: classes,
       assignedSections: sections,
       assignedStudents: students,
-      todayTimetable: timetable,
+      todayTimetable: periodWithState,
       attendance,
+      homework,
+      notifications,
+      unreadNotifications: notifications.filter((item: any) => !item.readAt).length,
       permissions: { canMarkAttendance: true },
     });
   } catch (error) {
