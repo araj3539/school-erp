@@ -29,17 +29,17 @@ describe("at-risk student scoring", () => {
     ]);
   });
 
-  it("keeps a moderate signal at watch and filters scores below 25", () => {
+  it("includes a boundary score of 25 and filters lower scores", () => {
     const result = scoreAtRiskStudents({
       students: [student("watch"), student("safe")],
       attendance: [],
-      results: [{ studentId: id("watch"), percentage: 60, result: "pass" }],
-      behaviour: [{ studentId: id("watch"), severity: "medium" }]
+      results: [{ studentId: id("watch"), percentage: 70, result: "fail" }],
+      behaviour: []
     });
 
     expect(result).toHaveLength(1);
     expect(result[0].student.firstName).toBe("watch");
-    expect(result[0].score).toBe(20);
+    expect(result[0].score).toBe(25);
     expect(result[0].level).toBe("watch");
   });
 
