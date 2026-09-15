@@ -34,6 +34,8 @@ export { StudentLifecycleEvent } from "./StudentLifecycleEvent.js";
 export type { IStudentLifecycleEvent } from "./StudentLifecycleEvent.js";
 export { Teacher } from "./Teacher.js";
 export type { ITeacher, ITeacherDocument } from "./Teacher.js";
+export { TeacherAbsence } from "./TeacherAbsence.js";
+export type { ITeacherAbsence, TeacherAbsenceStatus } from "./TeacherAbsence.js";
 export { Staff } from "./Staff.js";
 export type { IStaff } from "./Staff.js";
 export { Class } from "./Class.js";
