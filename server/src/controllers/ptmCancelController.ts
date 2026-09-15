@@ -1,0 +1,2 @@
+import {Request,Response,NextFunction} from "express";import {updateAppointment} from "../services/ptmService.js";import {getTenantId} from "../utils/tenant.js";
+export async function cancel(req:Request,res:Response,next:NextFunction){try{res.json(await updateAppointment(getTenantId(req),req.params.id,req.params.appointmentId,{status:"cancelled"},req.user!.userId))}catch(e){next(e)}}
