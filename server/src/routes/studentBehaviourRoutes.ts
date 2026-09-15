@@ -1,0 +1,11 @@
+import { Router } from "express";
+import { requirePermission, validate } from "../middleware/index.js";
+import { CreateStudentBehaviourSchema, StudentBehaviourQuerySchema, UpdateStudentBehaviourSchema } from "../validators/studentBehaviour.js";
+import { create, list, detail, update, acknowledge } from "../controllers/studentBehaviourController.js";
+const r=Router();
+r.get("/",validate(StudentBehaviourQuerySchema,"query"),list);
+r.get("/:id",detail);
+r.post("/",requirePermission("students:read"),validate(CreateStudentBehaviourSchema,"body"),create);
+r.patch("/:id",requirePermission("students:read"),validate(UpdateStudentBehaviourSchema,"body"),update);
+r.post("/:id/acknowledge",acknowledge);
+export default r;
