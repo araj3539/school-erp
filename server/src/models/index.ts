@@ -6,6 +6,8 @@ export { AcademicYear } from "./AcademicYear.js";
 export type { IAcademicYear } from "./AcademicYear.js";
 export { AcademicCalendarEvent } from "./AcademicCalendarEvent.js";
 export type { IAcademicCalendarEvent, AcademicCalendarEventType } from "./AcademicCalendarEvent.js";
+export { PTMSession } from "./PTMSession.js";
+export type { IPTMSession, IPTMAppointment, PTMSessionStatus } from "./PTMSession.js";
 export { NotificationTemplate } from "./NotificationTemplate.js";
 export type { INotificationTemplate } from "./NotificationTemplate.js";
 export { ScheduledJob } from "./ScheduledJob.js";

@@ -1,0 +1,7 @@
+import {Request,Response,NextFunction} from "express";import {createPTM,listPTMs,getPTM,openPTM,bookPTM,updateAppointment} from "../services/ptmService.js";import {getTenantId} from "../utils/tenant.js";
+export const create=async(req:Request,res:Response,next:NextFunction)=>{try{res.status(201).json(await createPTM(getTenantId(req),req.validatedBody,req.user!.userId))}catch(e){next(e)}};
+export const list=async(req:Request,res:Response,next:NextFunction)=>{try{res.json(await listPTMs(getTenantId(req),req.validatedQuery||{}))}catch(e){next(e)}};
+export const detail=async(req:Request,res:Response,next:NextFunction)=>{try{res.json(await getPTM(getTenantId(req),req.params.id))}catch(e){next(e)}};
+export const open=async(req:Request,res:Response,next:NextFunction)=>{try{res.json(await openPTM(getTenantId(req),req.params.id,req.user!.userId))}catch(e){next(e)}};
+export const book=async(req:Request,res:Response,next:NextFunction)=>{try{res.status(201).json(await bookPTM(getTenantId(req),req.params.id,req.validatedBody,req.user!.userId))}catch(e){next(e)}};
+export const appointment=async(req:Request,res:Response,next:NextFunction)=>{try{res.json(await updateAppointment(getTenantId(req),req.params.id,req.params.appointmentId,req.validatedBody,req.user!.userId))}catch(e){next(e)}};
