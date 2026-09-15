@@ -1,5 +1,7 @@
 import { Types } from "mongoose";
-import { StudentBehaviour, Student, AuditLog } from "../models/index.js";
+import { StudentBehaviour } from "../models/StudentBehaviour.js";
+import { Student } from "../models/Student.js";
+import { AuditLog } from "../models/AuditLog.js";
 import { AppError } from "../utils/errors.js";
 function id(value:string){if(!Types.ObjectId.isValid(value))throw AppError.badRequest("Invalid id");return new Types.ObjectId(value);}
 async function student(schoolId:Types.ObjectId|string,studentId:string){const s=await Student.findOne({_id:id(studentId),schoolId}).select("_id classId sectionId parentIds userId").lean();if(!s)throw AppError.notFound("Student not found");return s;}
