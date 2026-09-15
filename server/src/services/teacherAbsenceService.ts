@@ -35,10 +35,10 @@ export async function getAbsenceDetails(schoolId: string, id: string) {
 }
 
 async function findAffectedPeriod(schoolId: string, absence: any, timetableId: string) {
-  return Timetable.findOne({ schoolId, _id: timetableId, academicYearId: { $exists: true } }).lean().then((period: any) => {
-    if (!period || !absence.affectedTimetableIds.some((id: any) => id.toString() === timetableId)) throw AppError.badRequest("Timetable period is not part of this absence");
-    return period;
-  });
+  if (!absence.affectedTimetableIds.some((id: any) => id.toString() === timetableId)) throw AppError.badRequest("Timetable period is not part of this absence");
+  const period: any = await Timetable.findOne({ schoolId, _id: timetableId }).lean();
+  if (!period) throw AppError.badRequest("Timetable period no longer exists");
+  return period;
 }
 
 export async function eligibleSubstitutes(schoolId: string, absenceId: string, timetableId: string) {
