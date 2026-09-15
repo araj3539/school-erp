@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate, requireAnyPermission, requirePermission, validate, reserveTenantUsage } from "../middleware/index.js";
 import { upload, validateStudentDocumentUpload } from "../middleware/upload.js";
 import { getStudents, getStudentById, getStudentDocumentUrl, createStudent, updateStudent, deleteStudent, uploadStudentDocument, deleteStudentDocument } from "../controllers/studentController.js";
+import { getStudent360Controller } from "../controllers/student360Controller.js";
 import { bulkImportStudentsHardened, exportStudentsHardened } from "../controllers/studentBulkOperationsController.js";
 import { getStudentParents, assignStudentParents } from "../controllers/studentParentController.js";
 import { getStudentDocumentRecoveryHistory, previewStudentDocumentRecovery, restoreStudentDocumentRecovery, runManualStorageBackup } from "../controllers/documentRecoveryController.js";
@@ -19,6 +20,8 @@ router.get("/", parentOnly, requirePermission("students:read:child"), validate(P
 router.get("/", requireAnyPermission("students:read", "students:read:own"), validate(StudentQuerySchema, "query"), getStudents);
 router.get("/export", requirePermission("students:read"), validate(StudentQuerySchema, "query"), exportStudentsHardened);
 router.post("/document-recoveries/backup", requirePermission("settings:write"), runManualStorageBackup);
+router.get("/:id/360", parentOnly, requirePermission("students:read:child"), validate(IdParamSchema, "params"), getStudent360Controller);
+router.get("/:id/360", requireAnyPermission("students:read", "students:read:own"), validate(IdParamSchema, "params"), getStudent360Controller);
 router.get("/:id/parents", requirePermission("students:read"), validate(IdParamSchema, "params"), getStudentParents);
 router.put("/:id/parents", requirePermission("students:write"), validate(IdParamSchema, "params"), assignStudentParents);
 router.get("/:id/siblings", parentOnly, requirePermission("students:read:child"), validate(IdParamSchema, "params"), getStudentSiblings);
