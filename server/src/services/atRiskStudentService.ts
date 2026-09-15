@@ -29,7 +29,7 @@ export async function getAtRiskStudents(req: Request): Promise<{ academicYear: a
     if (studentResults.length) { const average = studentResults.reduce((sum, result) => sum + Number(result.percentage || 0), 0) / studentResults.length; if (average < 50) { score += 20; factors.push(`Published result average ${Math.round(average)}%`); } else if (average < 65) { score += 10; factors.push(`Published result average ${Math.round(average)}%`); } }
     const incidents = behaviourByStudent.get(id) ?? []; const high = incidents.filter((item) => item.severity === "high").length; const medium = incidents.filter((item) => item.severity === "medium").length;
     if (high) { score += 20; factors.push(`${high} open high-severity behaviour incident${high > 1 ? "s" : ""}`); } else if (medium) { score += 10; factors.push(`${medium} open medium-severity behaviour incident${medium > 1 ? "s" : ""}`); }
-    const finalScore = clamp(score); return { student, score: finalScore, level: finalScore >= 50 ? "intervention" : "watch", factors };
+    const finalScore = clamp(score); const level: RiskLevel = finalScore >= 50 ? "intervention" : "watch"; return { student, score: finalScore, level, factors };
   }).filter((item) => item.score >= 25).sort((a, b) => b.score - a.score);
   return { academicYear, students: scored };
 }
