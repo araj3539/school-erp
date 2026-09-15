@@ -102,3 +102,5 @@ export { InventoryItem } from "./InventoryItem.js";
 export type { IInventoryItem } from "./InventoryItem.js";
 export { InventoryMovement } from "./InventoryMovement.js";
 export type { IInventoryMovement } from "./InventoryMovement.js";
+export { AdmissionEnquiry } from "./AdmissionEnquiry.js";
+export type { IAdmissionEnquiry, AdmissionStage } from "./AdmissionEnquiry.js";
