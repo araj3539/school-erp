@@ -34,11 +34,17 @@ export async function getAbsenceDetails(schoolId: string, id: string) {
   return { absence, periods };
 }
 
+async function findAffectedPeriod(schoolId: string, absence: any, timetableId: string) {
+  return Timetable.findOne({ schoolId, _id: timetableId, academicYearId: { $exists: true } }).lean().then((period: any) => {
+    if (!period || !absence.affectedTimetableIds.some((id: any) => id.toString() === timetableId)) throw AppError.badRequest("Timetable period is not part of this absence");
+    return period;
+  });
+}
+
 export async function eligibleSubstitutes(schoolId: string, absenceId: string, timetableId: string) {
   const absence: any = await TeacherAbsence.findOne({ _id: absenceId, schoolId }).lean();
   if (!absence || absence.status === "cancelled") throw AppError.notFound("Teacher absence not found");
-  const period: any = await Timetable.findOne({ _id: timetableId, schoolId, _id: { $in: absence.affectedTimetableIds } }).lean();
-  if (!period) throw AppError.badRequest("Timetable period is not part of this absence");
+  const period: any = await findAffectedPeriod(schoolId, absence, timetableId);
   const teachers: any[] = await Teacher.find({ schoolId, status: "active", _id: { $ne: absence.teacherId } }).select("_id firstName lastName employeeId subjects classTeacherOf").sort({ firstName: 1, lastName: 1 }).lean();
   const busy = await Timetable.find({ schoolId, academicYearId: period.academicYearId, dayOfWeek: period.dayOfWeek, startTime: { $lt: period.endTime }, endTime: { $gt: period.startTime } }).select("teacherId").lean();
   const busyIds = new Set(busy.map((x) => x.teacherId.toString()));
@@ -49,8 +55,7 @@ export async function eligibleSubstitutes(schoolId: string, absenceId: string, t
 export async function assignSubstitute(schoolId: string, absenceId: string, timetableId: string, substituteTeacherId: string, actorId: string) {
   const absence: any = await TeacherAbsence.findOne({ _id: absenceId, schoolId });
   if (!absence || absence.status === "cancelled") throw AppError.notFound("Teacher absence not found");
-  const period: any = await Timetable.findOne({ schoolId, _id: { $eq: timetableId, $in: absence.affectedTimetableIds } }).lean();
-  if (!period) throw AppError.badRequest("Timetable period is not part of this absence");
+  const period: any = await findAffectedPeriod(schoolId, absence, timetableId);
   const substitute = await Teacher.findOne({ _id: substituteTeacherId, schoolId, status: "active" }).select("_id firstName lastName userId").lean();
   if (!substitute) throw AppError.badRequest("Substitute teacher must be active and belong to this school");
   if (substituteTeacherId === absence.teacherId.toString()) throw AppError.conflict("Absent teacher cannot substitute their own period");
