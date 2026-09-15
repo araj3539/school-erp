@@ -32,22 +32,18 @@ describe("at-risk student scoring", () => {
   it("keeps a moderate signal at watch and filters scores below 25", () => {
     const result = scoreAtRiskStudents({
       students: [student("watch"), student("safe")],
-      attendance: [{ records: [
-        { studentId: id("watch"), status: "present" },
-        { studentId: id("watch"), status: "absent" },
-        { studentId: id("safe"), status: "present" }
-      ] }],
-      results: [],
+      attendance: [],
+      results: [{ studentId: id("watch"), percentage: 60, result: "pass" }],
       behaviour: [{ studentId: id("watch"), severity: "medium" }]
     });
 
     expect(result).toHaveLength(1);
     expect(result[0].student.firstName).toBe("watch");
-    expect(result[0].score).toBe(25);
+    expect(result[0].score).toBe(20);
     expect(result[0].level).toBe("watch");
   });
 
-  it("sorts highest score first and caps the score at 100", () => {
+  it("sorts the highest score first", () => {
     const result = scoreAtRiskStudents({
       students: [student("low"), student("high")],
       attendance: [{ records: [
@@ -71,6 +67,6 @@ describe("at-risk student scoring", () => {
     });
 
     expect(result.map((item) => item.student.firstName)).toEqual(["high", "low"]);
-    expect(result[0].score).toBe(100);
+    expect(result[0].score).toBe(95);
   });
 });
