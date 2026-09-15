@@ -3,13 +3,6 @@ import { AcademicYear, Teacher, TeacherAbsence, Timetable } from "../models/inde
 import { AppError } from "../utils/errors.js";
 import { createAuditLog } from "./auditLog.js";
 import { enqueueNotificationEvent } from "./notificationService.js";
-import { User } from "../models/User.js";
-
-const overlap = (a: any, b: any) => a.startTime < b.endTime && b.startTime < a.endTime;
-
-async function teacherForUser(schoolId: string, userId: string) {
-  return Teacher.findOne({ schoolId, userId, status: "active" }).select("_id").lean();
-}
 
 export async function listAbsences(schoolId: string, query: any) {
   const filter: any = { schoolId };
@@ -28,7 +21,7 @@ export async function createAbsence(schoolId: string, data: any, actorId: string
   const year = await AcademicYear.findOne({ schoolId, isCurrent: true }).select("_id").lean();
   if (!year) throw AppError.badRequest("No current academic year configured");
   const day = new Date(`${data.date}T00:00:00Z`).getUTCDay() || 7;
-  const periods = await Timetable.find({ schoolId, academicYearId: year._id, teacherId: data.teacherId, dayOfWeek: day }).select("_id classId sectionId subjectId teacherId startTime endTime periodLabel roomNumber").lean();
+  const periods = await Timetable.find({ schoolId, academicYearId: year._id, teacherId: data.teacherId, dayOfWeek: day }).select("_id classId sectionId subjectId teacherId startTime endTime periodLabel roomNumber academicYearId dayOfWeek").lean();
   const absence = await TeacherAbsence.create({ schoolId, teacherId: data.teacherId, date: data.date, reason: data.reason, affectedTimetableIds: periods.map((p) => p._id), createdBy: actorId });
   await createAuditLog({ userId: actorId, schoolId, action: "TEACHER_ABSENCE_REPORTED", entity: "TeacherAbsence", entityId: absence._id.toString(), after: { date: data.date, teacherId: data.teacherId, affectedPeriods: periods.length } });
   return { absence, affectedPeriods: periods };
@@ -56,7 +49,7 @@ export async function eligibleSubstitutes(schoolId: string, absenceId: string, t
 export async function assignSubstitute(schoolId: string, absenceId: string, timetableId: string, substituteTeacherId: string, actorId: string) {
   const absence: any = await TeacherAbsence.findOne({ _id: absenceId, schoolId });
   if (!absence || absence.status === "cancelled") throw AppError.notFound("Teacher absence not found");
-  const period: any = await Timetable.findOne({ _id: timetableId, schoolId, _id: { $in: absence.affectedTimetableIds } }).lean();
+  const period: any = await Timetable.findOne({ schoolId, _id: { $eq: timetableId, $in: absence.affectedTimetableIds } }).lean();
   if (!period) throw AppError.badRequest("Timetable period is not part of this absence");
   const substitute = await Teacher.findOne({ _id: substituteTeacherId, schoolId, status: "active" }).select("_id firstName lastName userId").lean();
   if (!substitute) throw AppError.badRequest("Substitute teacher must be active and belong to this school");
@@ -64,16 +57,12 @@ export async function assignSubstitute(schoolId: string, absenceId: string, time
   const busy = await Timetable.findOne({ schoolId, academicYearId: period.academicYearId, dayOfWeek: period.dayOfWeek, teacherId: substituteTeacherId, startTime: { $lt: period.endTime }, endTime: { $gt: period.startTime } }).select("_id").lean();
   if (busy) throw AppError.conflict("Substitute teacher has a timetable conflict", "SUBSTITUTE_TEACHER_CONFLICT");
   const already = absence.assignments.find((x: any) => x.timetableId.toString() === timetableId);
-  if (already) {
-    if (already.substituteTeacherId.toString() === substituteTeacherId) return absence.toObject();
-    throw AppError.conflict("This period already has a substitute");
-  }
+  if (already) { if (already.substituteTeacherId.toString() === substituteTeacherId) return absence.toObject(); throw AppError.conflict("This period already has a substitute"); }
   if (absence.assignments.some((x: any) => x.substituteTeacherId.toString() === substituteTeacherId)) throw AppError.conflict("Substitute teacher is already assigned to another affected period");
   absence.assignments.push({ timetableId: new Types.ObjectId(timetableId), substituteTeacherId: new Types.ObjectId(substituteTeacherId), assignedBy: new Types.ObjectId(actorId), assignedAt: new Date() } as any);
   absence.status = absence.assignments.length === absence.affectedTimetableIds.length ? "assigned" : "partially_assigned";
   await absence.save();
-  const recipients = [substitute.userId].filter(Boolean) as Types.ObjectId[];
-  if (recipients.length) await enqueueNotificationEvent({ schoolId: new Types.ObjectId(schoolId), eventType: "teacher.substitute_assigned", category: "academic", priority: "high", recipientIds: recipients, title: "Substitute period assigned", message: `You have been assigned a substitute period on ${absence.date}.`, idempotencyKey: `substitute:${absence._id}:${timetableId}`, payload: { absenceId, timetableId } });
+  if (substitute.userId) await enqueueNotificationEvent({ schoolId: new Types.ObjectId(schoolId), eventType: "teacher.substitute_assigned", category: "attendance", priority: "high", recipientIds: [substitute.userId], title: "Substitute period assigned", message: `You have been assigned a substitute period on ${absence.date}.`, idempotencyKey: `substitute:${absence._id}:${timetableId}`, payload: { absenceId, timetableId } });
   await createAuditLog({ userId: actorId, schoolId, action: "ASSIGN_TEACHER_SUBSTITUTE", entity: "TeacherAbsence", entityId: absenceId, after: { timetableId, substituteTeacherId, status: absence.status } });
   return absence.toObject();
 }
