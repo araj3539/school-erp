@@ -3,7 +3,7 @@ import { Attendance, AcademicYear, Class, Section, Student, Teacher, Timetable, 
 import { UserRole } from "@school-erp/shared";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
-import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
+import { parseCalendarDate, addCalendarDays, addDaysToDateKey } from "../utils/calendarDate.js";
 
 function getDayOfWeek(date: Date) {
   const day = date.getUTCDay();
@@ -25,16 +25,24 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
       .lean();
     if (!academicYear) throw AppError.badRequest("No current academic year set");
 
-    const requestedDate = typeof req.query.date === "string" ? req.query.date : undefined;
-    const date = requestedDate ? parseCalendarDate(requestedDate) : parseCalendarDate(new Date().toISOString().slice(0, 10));
+    const requestedDate = typeof req.query.date === "string" ? req.query.date.trim() : undefined;
+    let date: Date;
+    try {
+      date = requestedDate ? parseCalendarDate(requestedDate) : parseCalendarDate(new Date().toISOString().slice(0, 10));
+    } catch {
+      throw AppError.badRequest("Invalid date; expected YYYY-MM-DD");
+    }
     if (date < new Date(academicYear.startDate) || date >= new Date(academicYear.endDate)) {
       throw AppError.badRequest("Selected date must fall within the current academic year");
     }
 
     const classIds = teacher.classTeacherOf ?? [];
     const subjectIds = teacher.subjects ?? [];
-    const dayStart = date;
-    const dayEnd = addCalendarDays(date, 1);
+    // Homework.dueDate is a "YYYY-MM-DD" string: Date bounds never match a String
+    // field, so its range must use string day keys. Attendance dates remain Date
+    // bounds (UTC calendar day) as before.
+    const dayKey = date.toISOString().slice(0, 10);
+    const homeworkDueRange = { $gte: dayKey, $lt: addDaysToDateKey(dayKey, 8) };
 
     const [classes, timetable, attendance, homework, notifications] = await Promise.all([
       classIds.length
@@ -46,7 +54,7 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
         .limit(20)
         .lean(),
       classIds.length
-        ? Attendance.find({ schoolId, date: { $gte: date, $lt: dayEnd }, classId: { $in: classIds } })
+        ? Attendance.find({ schoolId, date: { $gte: date, $lt: addCalendarDays(date, 1) }, classId: { $in: classIds } })
             .select("_id date classId sectionId records markedBy")
             .populate("classId sectionId")
             .sort({ classId: 1, sectionId: 1 })
@@ -61,16 +69,16 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
               ...(classIds.length ? [{ classId: { $in: classIds } }] : []),
               ...(subjectIds.length ? [{ subjectId: { $in: subjectIds } }] : []),
             ],
-            dueDate: { $gte: dayStart, $lt: addCalendarDays(date, 8) },
+            dueDate: homeworkDueRange,
           })
             .populate("classId sectionId subjectId")
-            .select("_id title description assignedDate dueDate classId sectionId subjectId status")
+            .select("_id title description assignedDate dueDate classId sectionId subjectId")
             .sort({ dueDate: 1, assignedDate: -1 })
             .limit(12)
             .lean()
         : [],
       Notification.find({ schoolId, recipientId: req.user!.userId })
-        .select("_id title message category priority readAt createdAt actionUrl")
+        .select("_id title message category priority readAt createdAt")
         .sort({ createdAt: -1 })
         .limit(8)
         .lean(),
@@ -90,7 +98,10 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
         : [],
     ]);
 
-    const currentMinutes = new Date().getUTCHours() * 60 + new Date().getUTCMinutes();
+    // Timetable periods are school-local wall-clock strings ("09:00"), so the
+    // current-period comparison must use local minutes, not UTC.
+    const nowLocal = new Date();
+    const currentMinutes = nowLocal.getHours() * 60 + nowLocal.getMinutes();
     const periodWithState = timetable.map((period: any) => {
       const [startHour, startMinute] = String(period.startTime ?? "00:00").split(":").map(Number);
       const [endHour, endMinute] = String(period.endTime ?? "00:00").split(":").map(Number);

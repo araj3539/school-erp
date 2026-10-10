@@ -45,10 +45,20 @@ export async function getPortalAttendance(req: Request, res: Response, next: Nex
       const record = entry.records?.find((item: any) => item.studentId?.toString() === student._id.toString());
       return { date: entry.date, status: record?.status || "not_recorded", remark: record?.remark || "" };
     });
+    // Counters use camelCase keys while statuses are snake_case enum values;
+    // map explicitly so half_day/on_leave records are counted (and included in
+    // the attendance-rate numerator) instead of being silently skipped.
+    const statusCountKey = (status: string): keyof typeof counts | null => {
+      if (status === "not_recorded") return "notRecorded";
+      if (status === "half_day") return "halfDay";
+      if (status === "on_leave") return "onLeave";
+      if (status === "present" || status === "absent" || status === "late") return status;
+      return null;
+    };
     const counts = { present: 0, absent: 0, late: 0, halfDay: 0, onLeave: 0, notRecorded: 0 };
     for (const item of records) {
-      if (item.status === "not_recorded") counts.notRecorded++;
-      else if (item.status in counts) counts[item.status as keyof typeof counts]++;
+      const key = statusCountKey(item.status);
+      if (key) counts[key]++;
     }
     const recorded = records.filter((item) => item.status !== "not_recorded").length;
     const presentEquivalent = counts.present + counts.late + counts.halfDay * 0.5;

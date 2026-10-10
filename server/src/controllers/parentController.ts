@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { Attendance, Fee, Student } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
+import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
 
 function schoolId(req: Request) {
   if (!req.user?.schoolId) throw AppError.unauthorized("School context is required");
@@ -66,12 +67,13 @@ export async function getMyChildFees(req: Request, res: Response, next: NextFunc
     const query: Record<string, unknown> = { schoolId: schoolId(req), studentId: child._id };
     if (academicYear) query.academicYear = academicYear;
     const fees = await Fee.find(query).populate("feeStructureId").sort({ createdAt: -1 }).lean();
+    const now = new Date();
     const summary = { totalDue: 0, paid: 0, balance: 0, overdue: 0 };
-    fees.forEach((fee) => {
+    fees.forEach((fee: any) => {
       summary.totalDue += fee.totalDue;
       summary.paid += fee.paidAmount;
       summary.balance += fee.balance;
-      if (fee.status === "overdue") summary.overdue += fee.balance;
+      if (computeEffectiveFeeStatus(fee.status, fee.feeStructureId?.dueDate, fee.balance, now) === "overdue") summary.overdue += fee.balance;
     });
     res.json({ childId: child._id, fees, summary });
   } catch (error) {

@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { AcademicYear, Attendance, Exam, ExamResult, Fee, Homework, Notice, Student, Timetable } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
+import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
+import { localDateKey, addDaysToDateKey } from "../utils/calendarDate.js";
 
 function dayStart(date = new Date()) { const value = new Date(date); value.setHours(0, 0, 0, 0); return value; }
 function dayEnd(date = new Date()) { const value = dayStart(date); value.setDate(value.getDate() + 1); return value; }
@@ -27,12 +29,15 @@ export async function getStudentWorkspace(req: Request, res: Response, next: Nex
       ...(student.sectionId ? [{ audience: "section", classId: student.classId, sectionId: student.sectionId }] : []),
     ];
 
+    const todayKey = localDateKey();
+    const homeworkDueRange = { $gte: todayKey, $lt: addDaysToDateKey(todayKey, 15) };
+
     const [todayClasses, attendance, homework, exams, results, fees, notices] = await Promise.all([
       Timetable.find({ schoolId, academicYearId: academicYear._id, classId: student.classId, ...sectionScope, dayOfWeek: todayDay })
         .populate("subjectId teacherId sectionId").sort({ startTime: 1 }).limit(8).lean(),
       Attendance.find({ schoolId, classId: student.classId, ...(student.sectionId ? { sectionId: student.sectionId } : {}), "records.studentId": student._id })
         .select("date records").sort({ date: -1 }).limit(30).lean(),
-      Homework.find({ schoolId, academicYearId: academicYear._id, classId: student.classId, ...sectionScope, dueDate: { $gte: dayStart(), $lt: dayEnd(new Date(Date.now() + 14 * 86400000)) } })
+      Homework.find({ schoolId, academicYearId: academicYear._id, classId: student.classId, ...sectionScope, dueDate: homeworkDueRange })
         .populate("subjectId sectionId").sort({ dueDate: 1 }).limit(8).lean(),
       Exam.find({ schoolId, academicYearId: academicYear._id, classId: student.classId, status: "published" })
         .select("name startDate endDate status").sort({ startDate: 1 }).limit(5).lean(),
@@ -47,9 +52,10 @@ export async function getStudentWorkspace(req: Request, res: Response, next: Nex
     ]);
 
     const present = attendance.reduce((sum: number, row: any) => sum + (row.records.some((record: any) => record.studentId.toString() === student._id.toString() && record.status === "present") ? 1 : 0), 0);
+    const feeNow = new Date();
     const feeSummary = fees.reduce((summary: { totalDue: number; paid: number; balance: number; overdue: number }, fee: any) => {
       summary.totalDue += fee.totalDue || 0; summary.paid += fee.paidAmount || 0; summary.balance += fee.balance || 0;
-      if (fee.status === "overdue") summary.overdue += fee.balance || 0;
+      if (computeEffectiveFeeStatus(fee.status, fee.feeStructureId?.dueDate, fee.balance, feeNow) === "overdue") summary.overdue += fee.balance || 0;
       return summary;
     }, { totalDue: 0, paid: 0, balance: 0, overdue: 0 });
 

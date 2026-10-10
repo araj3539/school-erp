@@ -6,7 +6,7 @@ import { Badge } from "../components/ui/Badge";
 import api from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 
-const labels: Record<string, string> = { present: "Present", absent: "Absent", late: "Late", halfDay: "Half day", onLeave: "On leave", not_recorded: "Not recorded" };
+const labels: Record<string, string> = { present: "Present", absent: "Absent", late: "Late", half_day: "Half day", on_leave: "On leave", not_recorded: "Not recorded" };
 
 export default function PortalAttendancePage() {
   const { user } = useAuthStore();

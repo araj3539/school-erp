@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { AcademicYear, Attendance, Class, Fee, Payment, Student, Teacher } from "../models/index.js";
+import { effectiveFeeStatusStages } from "./feeStatus.js";
 
 export type AnalyticsRange = 7 | 30 | 90;
 export type TenantId = Types.ObjectId | string;
@@ -87,7 +88,10 @@ export async function getAnalyticsDataset(schoolId: TenantId, rangeDays: Analyti
     ]),
     Fee.aggregate([
       { $match: { schoolId, academicYear: currentYear._id } },
-      { $group: { _id: "$status", count: { $sum: 1 }, outstanding: { $sum: "$balance" } } },
+      // Effective status: pending/partial fees past their structure due date with an
+      // outstanding balance are reported as overdue (read-time, records never mutated).
+      ...effectiveFeeStatusStages(),
+      { $group: { _id: "$effectiveStatus", count: { $sum: 1 }, outstanding: { $sum: "$balance" } } },
       { $sort: { count: -1, _id: 1 } },
     ]),
     Student.countDocuments({ schoolId, status: "active", $or: [{ classId: { $exists: false } }, { classId: null }] }),
