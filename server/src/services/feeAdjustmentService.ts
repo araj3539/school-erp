@@ -4,7 +4,7 @@ import { AppError } from "../utils/errors.js";
 import { createAuditLog } from "./auditLog.js";
 import { FeeStatus } from "@school-erp/shared";
 
-export async function adjustStudentFee(schoolId: string, feeId: string, actorId: string, input: { type: "discount" | "waiver" | "surcharge" | "amount_override"; amount: number; reason: string }) {
+export async function adjustStudentFee(schoolId: string, feeId: string, actorId: string, input: { type: "discount" | "waiver" | "surcharge" | "amount_override"; amount?: number; percent?: number; reason: string }) {
   const session = await mongoose.startSession();
   try {
     let result: any;
@@ -13,11 +13,13 @@ export async function adjustStudentFee(schoolId: string, feeId: string, actorId:
       if (!fee) throw AppError.notFound("Fee not found");
       const before = fee.toObject();
       if (fee.paidAmount > 0 && input.type !== "surcharge") throw AppError.conflict("Paid or partially paid fees require a controlled credit/refund workflow");
+      const value = Math.round((input.percent !== undefined ? fee.amount * (input.percent / 100) : input.amount ?? 0) * 100) / 100;
+      if (!Number.isFinite(value) || value < 0) throw AppError.badRequest("Adjustment amount must be a valid non-negative number");
       let amount = fee.amount;
       let discount = fee.discount;
-      if (input.type === "discount" || input.type === "waiver") discount += input.amount;
-      if (input.type === "amount_override") amount = input.amount;
-      if (input.type === "surcharge") amount += input.amount;
+      if (input.type === "discount" || input.type === "waiver") discount += value;
+      if (input.type === "amount_override") amount = value;
+      if (input.type === "surcharge") amount += value;
       if (discount > amount) throw AppError.badRequest("Discount cannot exceed the fee amount");
       const totalDue = amount - discount + fee.fine;
       if (totalDue < 0) throw AppError.badRequest("Fee total cannot be negative");
@@ -27,7 +29,7 @@ export async function adjustStudentFee(schoolId: string, feeId: string, actorId:
       fee.discount = discount;
       fee.totalDue = totalDue;
       fee.balance = balance;
-      fee.status = balance === 0 ? (totalDue === 0 ? FeeStatus.WAIVED : FeeStatus.PAID) : fee.paidAmount > 0 ? FeeStatus.PARTIAL : FeeStatus.PENDING;
+      fee.status = balance < 0.009 ? (totalDue === 0 ? FeeStatus.WAIVED : FeeStatus.PAID) : fee.paidAmount > 0 ? FeeStatus.PARTIAL : FeeStatus.PENDING;
       await fee.save({ session });
       await createAuditLog({ userId: actorId, action: "FEE_ADJUST", entity: "Fee", entityId: fee._id.toString(), before: before as any, after: { ...fee.toObject(), adjustment: input } as any });
       result = fee;

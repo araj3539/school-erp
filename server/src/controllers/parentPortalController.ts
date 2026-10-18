@@ -6,8 +6,6 @@ import { getTenantId } from "../utils/tenant.js";
 import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
 import { localDateKey, addDaysToDateKey, utcTodayRange } from "../utils/calendarDate.js";
 
-const dayStart = (date = new Date()) => { const d = new Date(date); d.setHours(0, 0, 0, 0); return d; };
-const dayEnd = (date = new Date()) => { const d = dayStart(date); d.setDate(d.getDate() + 1); return d; };
 const noticeFilter = (targets: Record<string, unknown>[]) => ({ publishAt: { $lte: new Date() }, $and: [{ $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }] }, { $or: targets }] });
 
 async function currentYear(schoolId: string) { return AcademicYear.findOne({ schoolId, isCurrent: true }).select("_id name startDate endDate").lean(); }

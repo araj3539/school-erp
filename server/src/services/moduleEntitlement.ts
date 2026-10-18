@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { ModuleEntitlement, School } from "../models/index.js";
+import type { ISaaSPlan } from "../models/SaaSPlan.js";
 import { createAuditLog } from "./auditLog.js";
 
 export const MODULES = {
@@ -76,5 +77,26 @@ export async function setModuleEntitlement(schoolId: string, moduleId: string, e
     return { moduleId, enabled: resultEnabled };
   } finally {
     await session.endSession();
+  }
+}
+
+/**
+ * Materializes plan-based module entitlements for a tenant: every known module is
+ * upserted to the plan's includedModules truth. Passing plan=null disables every
+ * entitlement row for the tenant (used when a subscription stops serving: suspended,
+ * cancelled or expired). Tenant-scoped and idempotent; joins the caller's transaction
+ * when a session is supplied.
+ */
+export async function syncPlanModuleEntitlements(schoolId: string, plan: Pick<ISaaSPlan, "includedModules"> | null, session?: mongoose.ClientSession) {
+  if (!plan) {
+    await ModuleEntitlement.updateMany({ schoolId }, { $set: { enabled: false } }, { session });
+    return;
+  }
+  for (const moduleId of Object.keys(MODULES)) {
+    await ModuleEntitlement.findOneAndUpdate(
+      { schoolId, moduleId },
+      { $set: { enabled: plan.includedModules.includes(moduleId) } },
+      { upsert: true, setDefaultsOnInsert: true, session },
+    );
   }
 }

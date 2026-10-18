@@ -5,8 +5,6 @@ import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
 import { localDateKey, addDaysToDateKey, utcTodayRange } from "../utils/calendarDate.js";
 
-function dayStart(date = new Date()) { const value = new Date(date); value.setHours(0, 0, 0, 0); return value; }
-function dayEnd(date = new Date()) { const value = dayStart(date); value.setDate(value.getDate() + 1); return value; }
 function noticeFilter(targets: Record<string, unknown>[]) { return { publishAt: { $lte: new Date() }, $and: [{ $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }] }, { $or: targets }] }; }
 async function getCurrentAcademicYear(schoolId: string) { return AcademicYear.findOne({ schoolId, isCurrent: true }).select("_id name startDate endDate").lean(); }
 async function getTeacherContext(req: Request) { const teacher = await Teacher.findOne({ userId: req.user!.userId, schoolId: getTenantId(req), status: "active" }).select("_id firstName lastName subjects classTeacherOf").lean(); if (!teacher) throw AppError.forbidden("Teacher profile not found"); return teacher; }

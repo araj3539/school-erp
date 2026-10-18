@@ -204,3 +204,23 @@ export async function returnLoan(req: Request, res: Response, next: NextFunction
     res.json({ loan: loan.toObject(), fineAmount });
   } catch (error) { next(error); }
 }
+
+export async function loseLoan(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = IdParamSchema.parse(req.params);
+    const schoolId = getTenantId(req);
+    const existing = await LibraryLoan.findOne({ _id: id, schoolId, activeLoan: true, status: LibraryLoanStatus.ACTIVE }).lean();
+    if (!existing) throw AppError.notFound("Active library loan not found");
+    const returnedAt = new Date();
+    const fineAmount = calculateFine(new Date(existing.dueAt), returnedAt, existing.dailyFineRate);
+    const loan = await LibraryLoan.findOneAndUpdate({ _id: id, schoolId, activeLoan: true, status: LibraryLoanStatus.ACTIVE }, { $set: { returnedAt, fineAmount, status: LibraryLoanStatus.RETURNED, activeLoan: false, returnedBy: req.user!.userId } }, { new: true });
+    if (!loan) throw AppError.conflict("Library loan was already returned or lost");
+    const copy = await LibraryCopy.findOneAndUpdate({ _id: existing.copyId, schoolId, status: LibraryCopyStatus.ISSUED }, { $set: { status: LibraryCopyStatus.LOST } }, { new: true });
+    if (!copy) {
+      await LibraryLoan.updateOne({ _id: id, schoolId, activeLoan: false }, { $set: { status: LibraryLoanStatus.ACTIVE, activeLoan: true, fineAmount: 0 }, $unset: { returnedAt: 1, returnedBy: 1 } });
+      throw AppError.conflict("Library copy state is inconsistent; loss was rolled back");
+    }
+    await createAuditLog({ userId: req.user!.userId, action: "MARK_LOST", entity: "LibraryLoan", entityId: id, after: { copyId: existing.copyId, returnedAt, fineAmount, copyStatus: LibraryCopyStatus.LOST } });
+    res.json({ loan: loan.toObject(), fineAmount });
+  } catch (error) { next(error); }
+}

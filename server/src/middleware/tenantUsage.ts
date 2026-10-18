@@ -12,14 +12,14 @@ export function reserveTenantUsage(dimension: UsageDimension, delta = 1) {
       reserved = true;
       res.once("finish", () => {
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          void incrementTenantUsage(schoolId, dimension, -delta).catch(() => undefined);
+          void incrementTenantUsage(schoolId, dimension, -delta).catch((error) => console.error("[TenantUsage] Failed to release reserved usage after a non-2xx response; manual reconciliation may be required:", { schoolId, dimension, delta, error }));
         }
       });
       next();
     } catch (error) {
       if (reserved) {
         const schoolId = getTenantId(req);
-        void incrementTenantUsage(schoolId, dimension, -delta).catch(() => undefined);
+        void incrementTenantUsage(schoolId, dimension, -delta).catch((error) => console.error("[TenantUsage] Failed to release reserved usage after a failed reservation; manual reconciliation may be required:", { schoolId, dimension, delta, error }));
       }
       next(error);
     }

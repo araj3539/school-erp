@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
 import { Fee, FeeItem, FeeStructure, Student } from "../models/index.js";
 import { calculateConcession } from "../services/feeStructureService.js";
 import { createAuditLog } from "../services/auditLog.js";
@@ -13,6 +14,7 @@ const context = (req: Request) => {
 const body = (req: Request) => {
   const { classId, academicYear } = req.body || {};
   if (!classId || !academicYear) throw AppError.badRequest("classId and academicYear are required");
+  if (!Types.ObjectId.isValid(String(classId)) || !Types.ObjectId.isValid(String(academicYear))) throw AppError.badRequest("classId and academicYear must be valid identifiers");
   return { classId, academicYear };
 };
 
@@ -118,7 +120,7 @@ export async function generateItemizedFees(req: Request, res: Response, next: Ne
           totalDue,
           paidAmount: 0,
           balance: totalDue,
-          status: FeeStatus.PENDING,
+          status: totalDue === 0 ? FeeStatus.WAIVED : FeeStatus.PENDING,
           academicYear,
         });
         feesCreated++;

@@ -7,9 +7,9 @@ export interface FeeStructurePolicy { lifecycle: FeeStructureLifecycle; concessi
 
 export function calculateConcession(amount: number, policy: Pick<FeeStructurePolicy, "concessionPercent" | "concessionAmount">) {
   if (!Number.isFinite(amount) || amount < 0) throw AppError.badRequest("Fee amount must be a non-negative number");
-  const percent = Math.max(0, Math.min(100, Number(policy.concessionPercent ?? 0)));
-  const fixed = Math.max(0, Number(policy.concessionAmount ?? 0));
-  const discount = Math.min(amount, amount * percent / 100 + fixed);
+  const percent = Math.max(0, Math.min(100, Number(policy.concessionPercent ?? 0) || 0));
+  const fixed = Math.max(0, Number(policy.concessionAmount ?? 0) || 0);
+  const discount = Math.min(amount, Math.round((amount * percent / 100 + fixed) * 100) / 100);
   return { discount, totalDue: amount - discount };
 }
 

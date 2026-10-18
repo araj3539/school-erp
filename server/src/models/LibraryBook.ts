@@ -35,6 +35,6 @@ const LibraryBookSchema = new Schema<ILibraryBook>({
 
 LibraryBookSchema.index({ schoolId: 1, status: 1, createdAt: -1 });
 LibraryBookSchema.index({ schoolId: 1, category: 1, status: 1 });
-LibraryBookSchema.index({ schoolId: 1, isbn: 1 }, { partialFilterExpression: { isbn: { $exists: true } } });
+LibraryBookSchema.index({ schoolId: 1, isbn: 1 }, { unique: true, partialFilterExpression: { isbn: { $type: "string" }, status: LibraryBookStatus.ACTIVE } });
 
 export const LibraryBook = mongoose.model<ILibraryBook>("LibraryBook", LibraryBookSchema);

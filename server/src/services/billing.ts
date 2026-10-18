@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { SaaSPlan, SaaSProduct, School, Subscription } from "../models/index.js";
 import { createAuditLog } from "./auditLog.js";
 import { createInvoiceForSubscription } from "./saasInvoice.js";
+import { syncPlanModuleEntitlements } from "./moduleEntitlement.js";
 import { AppError } from "../utils/errors.js";
 import type { CreatePlanVersionInput, CreateProductVersionInput } from "../validators/billingValidators.js";
 import type { SubscriptionStatus } from "../models/Subscription.js";
@@ -66,6 +67,7 @@ export async function createSubscription(schoolId: string, planId: string, actor
       const status: SubscriptionStatus = plan.trialDays > 0 ? "trialing" : "active";
       const subscription = new Subscription({ schoolId, productId: plan.productId, planId: plan._id, planCode: plan.code, planVersion: plan.version, status, currency: plan.currency, amountMinor: plan.amountMinor, billingInterval: plan.billingInterval, startedAt, trialEndsAt, currentPeriodStart: startedAt, currentPeriodEnd: addBillingInterval(startedAt, plan.billingInterval), stateRevision: 0 });
       await subscription.save({ session });
+      await syncPlanModuleEntitlements(schoolId, plan, session);
       await createInvoiceForSubscription(subscription._id, session);
       await createAuditLog({ userId: actorUserId, schoolId, action: "CREATE", entity: "Subscription", entityId: subscription._id.toString(), after: { planId: plan._id.toString(), planCode: plan.code, planVersion: plan.version, status }, ip, userAgent, session });
       created = subscription.toObject() as unknown as Record<string, unknown>;
@@ -84,8 +86,19 @@ export async function transitionSubscription(schoolId: string, event: Subscripti
       const current = await Subscription.findOne({ schoolId }).session(session);
       if (!current) throw AppError.notFound("Subscription not found");
       const nextStatus = getNextSubscriptionStatus(current.status, event);
-      const updated = await Subscription.findOneAndUpdate({ _id: current._id, stateRevision: current.stateRevision }, { $set: { status: nextStatus, ...(nextStatus === "cancelled" ? { cancelledAt: new Date() } : {}), ...(nextStatus === "expired" ? { cancelledAt: current.cancelledAt ?? new Date() } : {}) }, $inc: { stateRevision: 1 } }, { new: true, session });
+      const now = new Date();
+      // Provider-less (manual billing) subscriptions that activate/recover with a lapsed
+      // period must start a fresh period, or the lifecycle evaluator immediately re-trips
+      // them to past_due. Kept inside the same stateRevision-guarded atomic update.
+      const advanceLapsedPeriod = nextStatus === "active" && !current.provider && current.currentPeriodEnd <= now ? { currentPeriodStart: now, currentPeriodEnd: addBillingInterval(now, current.billingInterval) } : {};
+      const updated = await Subscription.findOneAndUpdate({ _id: current._id, stateRevision: current.stateRevision }, { $set: { status: nextStatus, ...(nextStatus === "cancelled" ? { cancelledAt: now } : {}), ...(nextStatus === "expired" ? { cancelledAt: current.cancelledAt ?? now } : {}), ...advanceLapsedPeriod }, $inc: { stateRevision: 1 } }, { new: true, session });
       if (!updated) throw AppError.conflict("Subscription changed concurrently; retry the transition");
+      if (["active", "trialing"].includes(nextStatus)) {
+        const plan = await SaaSPlan.findOne({ _id: current.planId }).session(session);
+        if (plan) await syncPlanModuleEntitlements(schoolId, plan, session);
+      } else if (["suspended", "cancelled", "expired"].includes(nextStatus)) {
+        await syncPlanModuleEntitlements(schoolId, null, session);
+      }
       await createAuditLog({ userId: actorUserId, schoolId, action: "SUBSCRIPTION_STATE_CHANGE", entity: "Subscription", entityId: updated._id.toString(), before: { status: current.status, stateRevision: current.stateRevision }, after: { status: updated.status, stateRevision: updated.stateRevision, event }, ip, userAgent, session });
       result = updated.toObject() as unknown as Record<string, unknown>;
     });
@@ -114,6 +127,7 @@ export async function changeSubscriptionPlan(schoolId: string, planId: string, a
       subscription.currency = plan.currency;
       subscription.billingInterval = plan.billingInterval;
       await subscription.save({ session });
+      await syncPlanModuleEntitlements(schoolId, plan, session);
       await createAuditLog({ userId: actorUserId, schoolId, action: "SUBSCRIPTION_PLAN_CHANGE", entity: "Subscription", entityId: subscription._id.toString(), before, after: { planId: plan._id.toString(), planCode: plan.code, planVersion: plan.version, amountMinor: plan.amountMinor, currency: plan.currency, billingInterval: plan.billingInterval }, ip, userAgent, session });
       result = subscription.toObject() as unknown as Record<string, unknown>;
     });

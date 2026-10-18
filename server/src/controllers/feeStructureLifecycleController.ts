@@ -11,7 +11,8 @@ export async function setFeeStructureLifecycle(req: Request, res: Response, next
     const schoolId = tenantId(req);
     if (!schoolId) throw AppError.forbidden("A school context is required");
     const { id } = req.validatedParams as { id: string };
-    const target = req.body.status as "active" | "archived";
+    const target = req.body?.status as "active" | "archived";
+    if (target !== "active" && target !== "archived") throw AppError.badRequest("Lifecycle status must be either 'active' or 'archived'");
     const before = await FeeStructure.findOne({ _id: id, schoolId }).lean();
     if (!before) throw AppError.notFound("Fee structure not found");
     const structure = target === "archived"

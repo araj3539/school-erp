@@ -5,9 +5,6 @@ import { getTenantId } from "../utils/tenant.js";
 import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
 import { localDateKey, addDaysToDateKey } from "../utils/calendarDate.js";
 
-function dayStart(date = new Date()) { const value = new Date(date); value.setHours(0, 0, 0, 0); return value; }
-function dayEnd(date = new Date()) { const value = dayStart(date); value.setDate(value.getDate() + 1); return value; }
-
 export async function getStudentWorkspace(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = getTenantId(req);
