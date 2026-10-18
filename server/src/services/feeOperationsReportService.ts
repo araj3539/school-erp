@@ -82,14 +82,15 @@ export async function getFeeDefaulters(params: {
         } },
       ],
       total: [{ $count: "count" }],
-      summary: [{ $group: { _id: "$agingBucket", count: { $sum: 1 }, balance: { $round: [{ $sum: "$balance" }, 2] } } }],
+      summary: [{ $group: { _id: "$agingBucket", count: { $sum: 1 }, balance: { $sum: "$balance" } } }],
     } },
   ];
   const [result] = await FeeItem.aggregate(pipeline);
   return {
     data: result?.data ?? [],
     pagination: { page: params.page, limit: params.limit, total: result?.total?.[0]?.count ?? 0, totalPages: Math.ceil((result?.total?.[0]?.count ?? 0) / params.limit) },
-    summary: result?.summary ?? [],
+    // $round cannot wrap an accumulator inside $group; round the grouped sums here.
+    summary: (result?.summary ?? []).map((row: any) => ({ ...row, balance: money(Number(row.balance ?? 0)) })),
     asOf,
   };
 }
@@ -115,10 +116,16 @@ export async function getFeeLedgerSummary(params: {
     ...(params.sectionId ? [{ $match: { "student.sectionId": objectId(params.sectionId) } }] : []),
     { $lookup: { from: "feeheads", localField: "feeHeadId", foreignField: "_id", as: "feeHead" } },
     { $unwind: { path: "$feeHead", preserveNullAndEmptyArrays: true } },
-    { $group: { _id: "$feeHeadId", feeHead: { $first: "$feeHead" }, items: { $sum: 1 }, amount: { $round: [{ $sum: "$amount" }, 2] }, discount: { $round: [{ $sum: "$discount" }, 2] }, fine: { $round: [{ $sum: "$fine" }, 2] }, totalDue: { $round: [{ $sum: "$totalDue" }, 2] }, paid: { $round: [{ $sum: "$paidAmount" }, 2] }, balance: { $round: [{ $sum: "$balance" }, 2] } } },
+    { $group: { _id: "$feeHeadId", feeHead: { $first: "$feeHead" }, items: { $sum: 1 }, amount: { $sum: "$amount" }, discount: { $sum: "$discount" }, fine: { $sum: "$fine" }, totalDue: { $sum: "$totalDue" }, paid: { $sum: "$paidAmount" }, balance: { $sum: "$balance" } } },
     { $sort: { "feeHead.code": 1, _id: 1 } },
   ];
-  const byHead = await FeeItem.aggregate(pipeline);
+  const rawByHead = await FeeItem.aggregate(pipeline);
+  // $round cannot wrap an accumulator inside $group; round the grouped sums here.
+  const byHead = rawByHead.map((row: any) => ({
+    ...row,
+    amount: money(Number(row.amount ?? 0)), discount: money(Number(row.discount ?? 0)), fine: money(Number(row.fine ?? 0)),
+    totalDue: money(Number(row.totalDue ?? 0)), paid: money(Number(row.paid ?? 0)), balance: money(Number(row.balance ?? 0)),
+  }));
   const totals = byHead.reduce((acc, row) => ({
     items: acc.items + row.items, amount: money(acc.amount + row.amount), discount: money(acc.discount + row.discount),
     fine: money(acc.fine + row.fine), totalDue: money(acc.totalDue + row.totalDue), paid: money(acc.paid + row.paid), balance: money(acc.balance + row.balance),
