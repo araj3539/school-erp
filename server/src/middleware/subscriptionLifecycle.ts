@@ -14,7 +14,7 @@ export function requireSubscriptionAccess(options: { allowGrace?: boolean; mutat
     if (req.user.role === UserRole.SUPER_ADMIN && !req.user.schoolId) { next(); return; }
     if (!req.user.schoolId) { res.status(403).json({ error: "Tenant context required" }); return; }
     try {
-      const subscription = await Subscription.findOne({ schoolId: req.user.schoolId }).select("status trialEndsAt currentPeriodEnd cancelAt").lean();
+      const subscription = await Subscription.findOne({ schoolId: req.user.schoolId }).select("status trialEndsAt currentPeriodEnd cancelAt provider").lean();
       if (!subscription) { res.status(403).json({ error: "Active subscription required", code: "SUBSCRIPTION_REQUIRED" }); return; }
       const policy = evaluateSubscriptionLifecycle(subscription);
       const allowed = policy.access === "full" || (!options.mutation && options.allowGrace !== false && policy.access === "grace");

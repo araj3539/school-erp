@@ -25,8 +25,11 @@ export function getNextSubscriptionStatus(status: SubscriptionStatus, event: Sub
 
 function addBillingInterval(date: Date, interval: "month" | "year"): Date {
   const result = new Date(date);
+  const day = result.getUTCDate();
+  result.setUTCDate(1);
   if (interval === "month") result.setUTCMonth(result.getUTCMonth() + 1);
   else result.setUTCFullYear(result.getUTCFullYear() + 1);
+  result.setUTCDate(Math.min(day, new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate()));
   return result;
 }
 

@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import { Attendance, Fee, Student } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
+import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
 
 function schoolId(req: Request) {
   if (!req.user?.schoolId) throw AppError.unauthorized("School context is required");
@@ -49,11 +51,17 @@ export async function getMyChildAttendance(req: Request, res: Response, next: Ne
       "records.studentId": child._id,
     };
     if (startDate || endDate) {
-      query.date = {};
-      if (startDate) (query.date as Record<string, Date>).$gte = new Date(String(startDate));
-      if (endDate) (query.date as Record<string, Date>).$lte = new Date(String(endDate));
+      const dateRange: Record<string, Date> = {};
+      try {
+        if (startDate) dateRange.$gte = parseCalendarDate(String(startDate));
+        if (endDate) dateRange.$lt = addCalendarDays(parseCalendarDate(String(endDate)), 1);
+      } catch {
+        throw AppError.badRequest("Invalid date; expected YYYY-MM-DD");
+      }
+      query.date = dateRange;
     }
     const attendance = await Attendance.find(query).sort({ date: -1 }).lean();
+    attendance.forEach((doc: any) => { doc.records = (doc.records as any[]).filter((record: any) => record.studentId.toString() === child._id.toString()); });
     res.json({ childId: child._id, attendance });
   } catch (error) {
     next(error);
@@ -64,6 +72,7 @@ export async function getMyChildFees(req: Request, res: Response, next: NextFunc
   try {
     const child = await getChild(req);
     const { academicYear } = req.query;
+    if (academicYear && !mongoose.isValidObjectId(String(academicYear))) throw AppError.badRequest("Invalid academicYear");
     const query: Record<string, unknown> = { schoolId: schoolId(req), studentId: child._id };
     if (academicYear) query.academicYear = academicYear;
     const fees = await Fee.find(query).populate("feeStructureId").sort({ createdAt: -1 }).lean();

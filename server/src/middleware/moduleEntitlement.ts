@@ -12,7 +12,7 @@ export function requireModule(moduleId: ModuleId) {
     try {
       // Tenants created before billing activation remain usable until a subscription
       // exists. Once subscribed, billing lifecycle becomes an authoritative gate.
-      const subscription = await Subscription.findOne({ schoolId: req.user.schoolId }).select("status trialEndsAt currentPeriodEnd cancelAt").lean();
+      const subscription = await Subscription.findOne({ schoolId: req.user.schoolId }).select("status trialEndsAt currentPeriodEnd cancelAt provider").lean();
       if (subscription) {
         const policy = evaluateSubscriptionLifecycle(subscription);
         if (policy.access === "none") {

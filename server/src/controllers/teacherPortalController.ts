@@ -111,6 +111,10 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
       return { ...period, workspaceState: isToday && currentMinutes >= start && currentMinutes < end ? "current" : isToday && currentMinutes < start ? "upcoming" : "scheduled" };
     });
 
+    // Total unread count (the visible list is capped at 8; counting that batch
+    // alone under-reports the badge).
+    const unreadNotifications = await Notification.countDocuments({ schoolId, recipientId: req.user!.userId, readAt: { $exists: false } });
+
     return res.json({
       teacher: { _id: teacher._id, firstName: teacher.firstName, lastName: teacher.lastName },
       academicYear,
@@ -122,7 +126,7 @@ export async function getTeacherWorkspace(req: Request, res: Response, next: Nex
       attendance,
       homework,
       notifications,
-      unreadNotifications: notifications.filter((item: any) => !item.readAt).length,
+      unreadNotifications,
       permissions: { canMarkAttendance: true },
     });
   } catch (error) {

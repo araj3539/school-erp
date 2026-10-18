@@ -62,7 +62,7 @@ export async function getNotices(req: Request, res: Response, next: NextFunction
     if (q.priority) filter.priority = q.priority;
     const skip = (q.page - 1) * q.limit;
     const [data, total] = await Promise.all([
-      Notice.find(filter).populate("classId sectionId createdBy").sort({ priority: -1, publishAt: -1 }).skip(skip).limit(q.limit).lean(),
+      Notice.find(filter).populate("classId sectionId createdBy").sort({ priorityRank: -1, publishAt: -1 }).skip(skip).limit(q.limit).lean(),
       Notice.countDocuments(filter),
     ]);
     res.json({ data, pagination: { page: q.page, limit: q.limit, total, totalPages: Math.ceil(total / q.limit) } });

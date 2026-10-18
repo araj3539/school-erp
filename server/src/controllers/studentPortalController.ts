@@ -19,7 +19,7 @@ export async function getStudentWorkspace(req: Request, res: Response, next: Nex
 
     const academicYear = await AcademicYear.findOne({ schoolId, isCurrent: true }).select("_id name startDate endDate").lean();
     if (!academicYear) throw AppError.badRequest("No current academic year set");
-    const todayDay = new Date().getDay() || 7;
+    const todayDay = new Date().getUTCDay() || 7;
     const sectionScope = student.sectionId
       ? { $or: [{ sectionId: student.sectionId }, { sectionId: { $exists: false } }] }
       : { sectionId: { $exists: false } };
@@ -44,12 +44,14 @@ export async function getStudentWorkspace(req: Request, res: Response, next: Nex
       ExamResult.find({ schoolId, studentId: student._id, status: "published" })
         .populate("examId marks.subjectId").sort({ createdAt: -1 }).limit(5).lean(),
       Fee.find({ schoolId, studentId: student._id, academicYear: academicYear._id })
-        .populate("feeStructureId").sort({ createdAt: -1 }).limit(20).lean(),
+        .populate("feeStructureId").sort({ createdAt: -1 }).lean(),
       Notice.find({ schoolId, publishAt: { $lte: new Date() }, $and: [
         { $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }] },
         { $or: noticeTargets },
-      ] }).sort({ priority: -1, publishAt: -1 }).limit(8).lean(),
+      ] }).sort({ priorityRank: -1, publishAt: -1 }).limit(8).lean(),
     ]);
+
+    attendance.forEach((row: any) => { row.records = (row.records as any[]).filter((record: any) => record.studentId.toString() === student._id.toString()); });
 
     const present = attendance.reduce((sum: number, row: any) => sum + (row.records.some((record: any) => record.studentId.toString() === student._id.toString() && record.status === "present") ? 1 : 0), 0);
     const feeNow = new Date();
@@ -69,7 +71,7 @@ export async function getStudentWorkspace(req: Request, res: Response, next: Nex
       upcomingHomework: homework,
       upcomingExams: exams,
       latestResults: results,
-      fees: { summary: feeSummary, items: fees },
+      fees: { summary: feeSummary, items: fees.slice(0, 20) },
       notices,
     });
   } catch (error) { next(error); }

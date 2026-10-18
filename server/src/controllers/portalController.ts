@@ -17,7 +17,7 @@ export async function getPortalDashboard(req: Request, res: Response, next: Next
   try {
     const schoolId = getTenantId(req); const role = req.user!.role; const academicYear = await getCurrentAcademicYear(schoolId);
     if (!academicYear) throw AppError.badRequest("No current academic year set");
-    const todayDay = new Date().getDay() || 7;
+    const todayDay = new Date().getUTCDay() || 7;
 
     if (role === UserRole.TEACHER) {
       const teacher = await getTeacherContext(req); const classIds = teacher.classTeacherOf ?? []; const subjectIds = teacher.subjects ?? [];
@@ -30,7 +30,7 @@ export async function getPortalDashboard(req: Request, res: Response, next: Next
         Timetable.find({ schoolId, academicYearId: academicYear._id, teacherId: teacher._id, dayOfWeek: todayDay }).populate("classId sectionId subjectId").sort({ startTime: 1 }).limit(8).lean(),
         classIds.length ? Attendance.find({ schoolId, date: { $gte: attendanceToday.start, $lt: attendanceToday.end }, classId: { $in: classIds } }).select("classId sectionId records").populate("classId sectionId").sort({ classId: 1 }).limit(20).lean() : [],
         Homework.find({ schoolId, academicYearId: academicYear._id, ...homeworkScope, dueDate: homeworkDueRange }).populate("classId sectionId subjectId").sort({ dueDate: 1 }).limit(8).lean(),
-        Notice.find({ schoolId, ...noticeFilter(targets) }).sort({ priority: -1, publishAt: -1 }).limit(5).lean(),
+        Notice.find({ schoolId, ...noticeFilter(targets) }).sort({ priorityRank: -1, publishAt: -1 }).limit(5).lean(),
       ]);
       return res.json({ role, academicYear, teacher: { _id: teacher._id, firstName: teacher.firstName, lastName: teacher.lastName }, summary: { assignedClasses: classIds.length, assignedSubjects: subjectIds.length, classesToday: todayClasses.length }, todayClasses, todayAttendance, homeworkAttention, notices });
     }
@@ -45,8 +45,9 @@ export async function getPortalDashboard(req: Request, res: Response, next: Next
         Attendance.find({ schoolId, classId: student.classId, ...(student.sectionId ? { sectionId: student.sectionId } : {}), "records.studentId": student._id }).select("date records").sort({ date: -1 }).limit(30).lean(),
         Homework.find({ schoolId, academicYearId: academicYear._id, classId: student.classId, ...sectionScope, dueDate: homeworkDueRange }).populate("subjectId classId sectionId").sort({ dueDate: 1 }).limit(8).lean(),
         Exam.find({ schoolId, academicYearId: academicYear._id, classId: student.classId, status: "published" }).select("name startDate endDate status").sort({ startDate: 1 }).limit(5).lean(),
-        Notice.find({ schoolId, ...noticeFilter(targets) }).sort({ priority: -1, publishAt: -1 }).limit(5).lean(),
+        Notice.find({ schoolId, ...noticeFilter(targets) }).sort({ priorityRank: -1, publishAt: -1 }).limit(5).lean(),
       ]);
+      attendance.forEach((item: any) => { item.records = (item.records as any[]).filter((record: any) => record.studentId.toString() === student._id.toString()); });
       const attendanceSummary = { total: attendance.length, present: attendance.reduce((sum: number, item: any) => sum + (item.records.some((record: any) => record.studentId.toString() === student._id.toString() && record.status === "present") ? 1 : 0), 0) };
       return res.json({ role, academicYear, student, summary: { attendanceTotal: attendanceSummary.total, attendancePresent: attendanceSummary.present, attendanceRate: attendanceSummary.total ? Math.round((attendanceSummary.present / attendanceSummary.total) * 100) : 0 }, todayClasses, upcomingHomework: homework, upcomingExams: exams, notices });
     }
@@ -57,11 +58,12 @@ export async function getPortalDashboard(req: Request, res: Response, next: Next
       const todayKey = localDateKey();
       const homeworkDueRange = { $gte: todayKey, $lt: addDaysToDateKey(todayKey, 15) };
       const [attendance, homework, exams, notices] = await Promise.all([
-        childIds.length ? Attendance.find({ schoolId, "records.studentId": { $in: childIds }, date: { $gte: new Date(Date.now() - 30 * 86400000), $lt: dayEnd() } }).select("date classId sectionId records").sort({ date: -1 }).limit(100).lean() : [],
+        childIds.length ? Attendance.find({ schoolId, "records.studentId": { $in: childIds }, date: { $gte: new Date(Date.now() - 30 * 86400000), $lt: utcTodayRange().end } }).select("date classId sectionId records").sort({ date: -1 }).limit(Math.max(100, childIds.length * 35)).lean() : [],
         classIds.length ? Homework.find({ schoolId, academicYearId: academicYear._id, classId: { $in: classIds }, dueDate: homeworkDueRange }).populate("classId sectionId subjectId").sort({ dueDate: 1 }).limit(12).lean() : [],
         classIds.length ? Exam.find({ schoolId, academicYearId: academicYear._id, classId: { $in: classIds }, status: "published" }).select("name classId startDate endDate status").sort({ startDate: 1 }).limit(10).lean() : [],
-        Notice.find({ schoolId, ...noticeFilter(targets) }).sort({ priority: -1, publishAt: -1 }).limit(8).lean(),
+        Notice.find({ schoolId, ...noticeFilter(targets) }).sort({ priorityRank: -1, publishAt: -1 }).limit(8).lean(),
       ]);
+      attendance.forEach((item: any) => { item.records = (item.records as any[]).filter((record: any) => childIds.some((id) => record.studentId.toString() === id.toString())); });
       const attendanceByChild = children.map((child) => { const rows = attendance.filter((item: any) => item.records.some((record: any) => record.studentId.toString() === child._id.toString())); const present = rows.reduce((sum: number, item: any) => sum + (item.records.some((record: any) => record.studentId.toString() === child._id.toString() && record.status === "present") ? 1 : 0), 0); return { studentId: child._id, total: rows.length, present, rate: rows.length ? Math.round((present / rows.length) * 100) : 0 }; });
       return res.json({ role, academicYear, children, attendance: attendanceByChild, upcomingHomework: homework, upcomingExams: exams, notices });
     }

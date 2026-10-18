@@ -8,6 +8,7 @@ export interface INotificationEvent extends Document {
   eventType: string;
   category: NotificationCategory;
   priority: NotificationPriority;
+  priorityRank: number;
   recipientIds: Types.ObjectId[];
   title: string;
   message: string;
@@ -28,6 +29,7 @@ const NotificationEventSchema = new Schema<INotificationEvent>({
   eventType: { type: String, required: true, trim: true, maxlength: 100 },
   category: { type: String, enum: ["announcement", "attendance", "homework", "result", "fee", "system"], required: true },
   priority: { type: String, enum: ["low", "normal", "high", "urgent"], default: "normal", required: true },
+  priorityRank: { type: Number, min: 0, max: 4, default: 2 },
   recipientIds: { type: [Schema.Types.ObjectId], ref: "User", required: true },
   title: { type: String, required: true, trim: true, maxlength: 160 },
   message: { type: String, required: true, trim: true, maxlength: 2000 },
@@ -45,5 +47,6 @@ NotificationEventSchema.index({ schoolId: 1, status: 1, nextAttemptAt: 1 });
 NotificationEventSchema.index({ schoolId: 1, status: 1, lockedAt: 1 });
 NotificationEventSchema.index({ schoolId: 1, createdAt: -1 });
 NotificationEventSchema.index({ schoolId: 1, idempotencyKey: 1 }, { unique: true });
+NotificationEventSchema.index({ status: 1, priorityRank: -1, nextAttemptAt: 1 });
 
 export const NotificationEvent = model<INotificationEvent>("NotificationEvent", NotificationEventSchema);

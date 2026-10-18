@@ -9,8 +9,8 @@ function tenantSchoolId(req: Request): string {
 
 export async function getSaaSBillingHistoryController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const page = Math.max(1, Number(req.query.page || 1));
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
+    const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit ?? "20"), 10) || 1));
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
     if (status && !["issued", "paid", "overdue", "void"].includes(status)) throw AppError.badRequest("Invalid invoice status");
     const result = await getBillingHistory(tenantSchoolId(req), page, limit, status);

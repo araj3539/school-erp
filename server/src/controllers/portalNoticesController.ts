@@ -67,7 +67,7 @@ export async function getPortalNotices(req: Request, res: Response, next: NextFu
     const limit = Math.min(50, Math.max(1, Number(q.limit || 20)));
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      Notice.find(filter).select("title content priority publishAt expiresAt audience classId sectionId").populate("classId sectionId").sort({ priority: -1, publishAt: -1 }).skip(skip).limit(limit).lean(),
+      Notice.find(filter).select("title content priority publishAt expiresAt audience classId sectionId").populate("classId sectionId").sort({ priorityRank: -1, publishAt: -1 }).skip(skip).limit(limit).lean(),
       Notice.countDocuments(filter),
     ]);
     res.json({ students: students.map(formatStudent), selectedStudentId, data: data.map(formatNotice), pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });

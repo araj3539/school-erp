@@ -15,7 +15,8 @@ function calculateFine(dueAt: Date, returnedAt: Date, dailyFineRate: number): nu
   const overdueMs = returnedAt.getTime() - dueAt.getTime();
   if (overdueMs <= 0 || dailyFineRate <= 0) return 0;
   const overdueDays = Math.ceil(overdueMs / 86400000);
-  return Math.max(0, overdueDays * dailyFineRate);
+  // Round to 2 decimals: float multiplication can produce values like 0.30000000000000004.
+  return Math.round(Math.max(0, overdueDays * dailyFineRate) * 100) / 100;
 }
 
 function loanView(loan: Record<string, any>) {
