@@ -1,7 +1,9 @@
 import axios, { type AxiosRequestConfig } from "axios";
 import { useAuthStore } from "../store/authStore";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "https://school-erp-api-6gm7.onrender.com/api/v1";
+// Local development defaults to the local API server (PORT 4000). Override with
+// VITE_API_URL for staging/production; do not hard-code a remote origin here.
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
 const api = axios.create({ baseURL: API_BASE_URL, withCredentials: true, timeout: 30_000 });
 
 type AuthRequestConfig = AxiosRequestConfig & { _retry?: boolean; _authSessionVersion?: number };

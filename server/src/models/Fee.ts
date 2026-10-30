@@ -41,11 +41,11 @@ FeeSchema.pre("validate", async function () {
   if (!student) throw new Error("Fee student must belong to the same school");
   if (!feeStructure) throw new Error("Fee structure must belong to the same school and academic year");
   const expectedTotalDue = this.amount - this.discount + this.fine;
-  if (expectedTotalDue < 0 || this.totalDue !== expectedTotalDue) {
+  if (expectedTotalDue < 0 || Math.abs(this.totalDue - expectedTotalDue) > 0.01) {
     throw new mongoose.Error.ValidatorError({ path: "totalDue", message: "totalDue must equal amount - discount + fine" });
   }
   const expectedBalance = this.totalDue - this.paidAmount;
-  if (expectedBalance < 0 || this.balance !== expectedBalance) {
+  if (expectedBalance < 0 || Math.abs(this.balance - expectedBalance) > 0.01) {
     throw new mongoose.Error.ValidatorError({ path: "balance", message: "balance must equal totalDue - paidAmount and cannot be negative" });
   }
 });
