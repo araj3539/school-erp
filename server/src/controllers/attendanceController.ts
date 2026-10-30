@@ -42,7 +42,7 @@ async function assertAttendanceDateInCurrentAcademicYear(schoolId: Types.ObjectI
   if (!academicYear) throw AppError.conflict("Current academic year could not be resolved");
   const startDay = calendarDayStart(academicYear.startDate);
   const endDay = calendarDayStart(academicYear.endDate);
-  if (date < startDay || date >= endDay) throw AppError.badRequest("Attendance date must fall within the current academic year");
+  if (date < startDay || date > endDay) throw AppError.badRequest("Attendance date must fall within the current academic year");
 }
 async function assertAttendanceCorrectionAccess(req: Request) {
   if (req.user!.role !== UserRole.PRINCIPAL && req.user!.role !== UserRole.SUPER_ADMIN) throw AppError.forbidden("Only school management can correct existing attendance");
@@ -116,8 +116,10 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
     if (existing) {
       await assertAttendanceCorrectionAccess(req);
       const before = existing.records.map((record) => ({ studentId: record.studentId.toString(), status: record.status, remark: record.remark }));
-      existing.records = records; existing.markedBy = new Types.ObjectId(req.user!.userId); await existing.save();
-      await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { recordsCount: records.length, date: date.toISOString(), classId: data.classId, sectionId: data.sectionId } });
+      existing.records = records; existing.markedBy = new Types.ObjectId(req.user!.userId); existing.lifecycle = "CORRECTED";
+      existing.corrections.push({ requestedBy: new Types.ObjectId(req.user!.userId), requestedAt: new Date(), reason: "direct-re-mark", correctedBy: new Types.ObjectId(req.user!.userId), correctedAt: new Date() });
+      await existing.save();
+      await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { records: existing.records, lifecycle: existing.lifecycle } });
       void enqueueAttendanceNotifications(existing).catch(() => undefined);
       return res.json({ attendance: existing, corrected: true });
     }
@@ -144,8 +146,10 @@ export async function bulkMarkAttendance(req: Request, res: Response, next: Next
         if (attendance) {
           await assertAttendanceCorrectionAccess(req);
           const before = attendance.records.map((record) => ({ studentId: record.studentId.toString(), status: record.status, remark: record.remark }));
-          attendance.records = records; attendance.markedBy = new Types.ObjectId(req.user!.userId); await attendance.save({ session });
-          await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: attendance._id.toString(), before: { records: before }, after: { recordsCount: records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId }, session });
+          attendance.records = records; attendance.markedBy = new Types.ObjectId(req.user!.userId); attendance.lifecycle = "CORRECTED";
+          attendance.corrections.push({ requestedBy: new Types.ObjectId(req.user!.userId), requestedAt: new Date(), reason: "direct-re-mark", correctedBy: new Types.ObjectId(req.user!.userId), correctedAt: new Date() });
+          await attendance.save({ session });
+          await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: attendance._id.toString(), before: { records: before }, after: { records: attendance.records, lifecycle: attendance.lifecycle }, session });
         } else {
           [attendance] = await Attendance.create([{ ...entry, records, date, schoolId, markedBy: new Types.ObjectId(req.user!.userId) }], { session });
           await createAuditLog({ schoolId, userId: req.user!.userId, action: "CREATE", entity: "Attendance", entityId: attendance._id.toString(), after: { recordsCount: records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId }, session });
@@ -197,6 +201,7 @@ export async function importAttendanceSpreadsheet(req: MulterRequest, res: Respo
 
     if (grouped.size > 31) validationErrors.push({ row: 1, message: "Attendance import cannot contain more than 31 class/section/date entries" });
     const prepared: any[] = [];
+    const preparedRows: number[][] = [];
     for (const entry of grouped.values()) {
       try {
         if (!Types.ObjectId.isValid(entry.classId) || !Types.ObjectId.isValid(entry.sectionId)) throw AppError.badRequest("Invalid classId or sectionId");
@@ -220,6 +225,7 @@ export async function importAttendanceSpreadsheet(req: MulterRequest, res: Respo
           delete record.admissionNo;
         }
         prepared.push({ date: entry.date, classId: entry.classId, sectionId: entry.sectionId, records: entry.records });
+        preparedRows.push(entry.rows);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Invalid attendance entry";
         entry.rows.forEach((row: number) => validationErrors.push({ row, message }));
@@ -229,7 +235,9 @@ export async function importAttendanceSpreadsheet(req: MulterRequest, res: Respo
     const schemaResult = BulkAttendanceSchema.safeParse({ entries: prepared });
     if (!schemaResult.success) {
       for (const issue of schemaResult.error.issues) {
-        validationErrors.push({ row: Number(issue.path[issue.path.length - 1]) || 1, message: issue.message });
+        const preparedIndex = Number(issue.path[1]);
+        const originalRows = Number.isFinite(preparedIndex) && preparedIndex >= 0 && preparedIndex < preparedRows.length ? preparedRows[preparedIndex] : [1];
+        for (const row of originalRows) validationErrors.push({ row, message: issue.message });
       }
     }
     if (validationErrors.length) return res.status(400).json({ error: "Attendance import validation failed", code: "VALIDATION_ERROR", errors: validationErrors });
@@ -250,9 +258,10 @@ export async function importAttendanceSpreadsheet(req: MulterRequest, res: Respo
           await assertAttendanceCorrectionAccess(req);
           const before = existing.records.map((record: any) => ({ studentId: record.studentId.toString(), status: record.status, remark: record.remark }));
           existing.records = entry.records.map((record: any) => ({ ...record, studentId: new Types.ObjectId(record.studentId) }));
-          existing.markedBy = new Types.ObjectId(req.user!.userId);
+          existing.markedBy = new Types.ObjectId(req.user!.userId); existing.lifecycle = "CORRECTED";
+          existing.corrections.push({ requestedBy: new Types.ObjectId(req.user!.userId), requestedAt: new Date(), reason: "spreadsheet-import-re-mark", correctedBy: new Types.ObjectId(req.user!.userId), correctedAt: new Date() });
           await existing.save({ session });
-          await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { recordsCount: entry.records.length, date: date.toISOString(), classId: entry.classId, sectionId: entry.sectionId, source: "spreadsheet-import" }, session });
+          await createAuditLog({ schoolId, userId: req.user!.userId, action: "CORRECT", entity: "Attendance", entityId: existing._id.toString(), before: { records: before }, after: { records: existing.records, lifecycle: existing.lifecycle, source: "spreadsheet-import" }, session });
           persistedAttendance.push(existing);
         } else {
           const [attendance] = await Attendance.create([{ date, classId: entry.classId, sectionId: entry.sectionId, schoolId, markedBy: new Types.ObjectId(req.user!.userId), records: entry.records.map((record: any) => ({ ...record, studentId: new Types.ObjectId(record.studentId) })) }], { session });
@@ -285,7 +294,7 @@ export async function exportAttendanceSpreadsheet(req: Request, res: Response, n
     const recordMap = new Map((attendance?.records ?? []).map((record: any) => [record.studentId.toString(), record]));
     const data = students.map((student) => {
       const record = recordMap.get(student._id.toString());
-      return { date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: student.admissionNo, studentName: `${student.firstName} ${student.lastName}`, status: record?.status ?? "present", remark: record?.remark ?? "" };
+      return { date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: student.admissionNo, studentName: `${student.firstName} ${student.lastName}`, status: record?.status ?? null, remark: record?.remark ?? "" };
     });
     const workbook = await generateExcelFile(data.length ? data : [{ date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: "", studentName: "", status: "present", remark: "" }], "Attendance");
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

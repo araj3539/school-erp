@@ -5,6 +5,8 @@ import { Section } from "./Section.js";
 import { Student } from "./Student.js";
 
 export type AttendanceLifecycle = "OPEN" | "SUBMITTED" | "LOCKED" | "CORRECTION_REQUESTED" | "CORRECTED";
+// "OPEN" is the pre-submit draft state a teacher works in before marking is finalized as SUBMITTED.
+// Nothing currently transitions into OPEN; keep it documented for the draft-workflow roadmap.
 export interface IAttendanceRecord { studentId: Types.ObjectId; status: AttendanceStatus; remark?: string; }
 export interface IAttendanceCorrection { requestedBy: Types.ObjectId; requestedAt: Date; reason: string; correctedBy?: Types.ObjectId; correctedAt?: Date; }
 export interface IAttendance extends Document { date: Date; classId: Types.ObjectId; sectionId: Types.ObjectId; schoolId: Types.ObjectId; records: IAttendanceRecord[]; markedBy: Types.ObjectId; lifecycle: AttendanceLifecycle; lockedAt?: Date; lockedBy?: Types.ObjectId; corrections: IAttendanceCorrection[]; createdAt: Date; updatedAt: Date; }

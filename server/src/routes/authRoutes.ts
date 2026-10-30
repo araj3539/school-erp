@@ -11,7 +11,7 @@ const mobileAuth: RequestHandler = (_req, res, next) => {
   next();
 };
 
-router.post("/register", authenticate, requireRole(UserRole.SUPER_ADMIN), reserveTenantUsage("school_users"), register);
+router.post("/register", authenticate, requirePermission("users:write"), reserveTenantUsage("school_users"), register);
 router.post("/login", login);
 router.post("/refresh", refresh);
 router.post("/mobile/login", mobileAuth, login);

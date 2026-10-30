@@ -7,6 +7,7 @@ export interface IFeeHead extends Document {
   name: string;
   code: string;
   kind: FeeHeadKind;
+  category: string;
   description?: string;
   isActive: boolean;
   createdBy: Types.ObjectId;
@@ -19,6 +20,7 @@ const FeeHeadSchema = new Schema<IFeeHead>({
   name: { type: String, required: true, trim: true, maxlength: 100 },
   code: { type: String, required: true, trim: true, uppercase: true, maxlength: 40 },
   kind: { type: String, enum: ["one_time", "recurring", "optional"], default: "recurring" },
+  category: { type: String, enum: ["tuition", "admission", "exam", "transport", "uniform", "books", "activity", "other"], default: "other" },
   description: { type: String, trim: true, maxlength: 500 },
   isActive: { type: Boolean, default: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true }

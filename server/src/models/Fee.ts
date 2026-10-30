@@ -15,6 +15,7 @@ export interface IFee extends Document {
   balance: number;
   status: FeeStatus;
   academicYear: Types.ObjectId;
+  stateRevision: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,7 +31,8 @@ const FeeSchema = new Schema<IFee>({
   paidAmount: { type: Number, default: 0, min: 0 },
   balance: { type: Number, required: true, min: 0 },
   status: { type: String, enum: Object.values(FeeStatus), default: FeeStatus.PENDING },
-  academicYear: { type: Schema.Types.ObjectId, ref: "AcademicYear", required: true }
+  academicYear: { type: Schema.Types.ObjectId, ref: "AcademicYear", required: true },
+  stateRevision: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
 FeeSchema.pre("validate", async function () {

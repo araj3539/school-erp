@@ -25,7 +25,7 @@ const PaymentSchema = new Schema<IPayment>({
   mode: { type: String, enum: Object.values(PaymentMode), required: true },
   transactionId: { type: String, maxlength: 100 },
   idempotencyKey: { type: String, maxlength: 100, trim: true },
-  receiptNo: { type: String, required: true, unique: true, maxlength: 20 },
+  receiptNo: { type: String, required: true, maxlength: 20 },
   collectedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   date: { type: Date, required: true }
 }, { timestamps: true });
@@ -67,6 +67,7 @@ PaymentSchema.pre("deleteMany", function () {
 PaymentSchema.index({ schoolId: 1, feeId: 1 });
 PaymentSchema.index({ schoolId: 1, studentId: 1, date: 1 });
 PaymentSchema.index({ schoolId: 1, date: 1 });
+PaymentSchema.index({ schoolId: 1, receiptNo: 1 }, { unique: true });
 PaymentSchema.index({ schoolId: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
 PaymentSchema.index({ schoolId: 1, transactionId: 1 }, { unique: true, sparse: true });
 

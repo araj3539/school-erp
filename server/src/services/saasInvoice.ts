@@ -53,13 +53,12 @@ export async function reconcileOverdueInvoices(schoolId: string): Promise<void> 
   }
 }
 
-export async function getBillingHistory(schoolId: string, page = 1, limit = 20, status?: string) {
-  await reconcileOverdueInvoices(schoolId);
+export async function getBillingHistory(schoolId: string, page = 1, limit = 20, status?: string, now = new Date()) {
   const query: Record<string, unknown> = { schoolId };
   if (status && ["issued", "paid", "overdue", "void"].includes(status)) query.status = status;
   const skip = (page - 1) * limit;
   const [invoices, total] = await Promise.all([SaaSInvoice.find(query).sort({ issuedAt: -1 }).skip(skip).limit(limit).lean(), SaaSInvoice.countDocuments(query)]);
-  return { invoices, total, page, limit, pages: Math.ceil(total / limit) };
+  return { invoices: invoices.map((inv: any) => ({ ...inv, effectiveStatus: effectiveInvoiceStatus(inv, now) })), total, page, limit, pages: Math.ceil(total / limit) };
 }
 
 export async function voidInvoice(invoiceId: string, actorUserId: string, ip?: string, userAgent?: string) {

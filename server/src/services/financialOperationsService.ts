@@ -43,13 +43,24 @@ export async function requestFeePolicyApproval(schoolId: string, feeStructureId:
   return approval;
 }
 
+const ALLOWED_POLICY_FIELDS = new Set(["amount", "concessionPercent", "concessionAmount", "lateFeePolicy", "installments", "dueDate"]);
+const FORBIDDEN_POLICY_FIELDS = new Set(["schoolId", "classId", "academicYear", "feeType", "status", "_id", "id", "createdAt", "updatedAt"]);
+
 export async function reviewFeePolicyApproval(schoolId: string, id: string, actorId: string, approved: boolean, reason?: string) {
   const approval = await FeePolicyApproval.findOne({ _id: id, schoolId, status: "pending" }); if (!approval) throw AppError.notFound("Pending fee policy approval not found");
   if (approval.requestedBy.toString() === actorId) throw AppError.forbidden("Maker-checker requires a different reviewer");
   if (!approved && !reason?.trim()) throw AppError.badRequest("A rejection reason is required");
   if (approved) {
     const structure = await FeeStructure.findOne({ _id: approval.feeStructureId, schoolId, status: { $ne: "archived" } }); if (!structure) throw AppError.notFound("Fee structure not found");
-    Object.assign(structure, approval.proposedChanges); await structure.save();
+    const raw = approval.proposedChanges as Record<string, unknown> | undefined;
+    const proposed: Record<string, unknown> = {};
+    if (raw) {
+      for (const [key, value] of Object.entries(raw)) {
+        if (FORBIDDEN_POLICY_FIELDS.has(key)) throw AppError.badRequest(`Field "${key}" cannot be changed through a fee policy approval`);
+        if (ALLOWED_POLICY_FIELDS.has(key)) proposed[key] = value;
+      }
+    }
+    Object.assign(structure, proposed); await structure.save();
   }
   approval.status = approved ? "approved" : "rejected"; approval.reviewedBy = new mongoose.Types.ObjectId(actorId); approval.reviewedAt = new Date(); approval.reviewReason = reason?.trim(); await approval.save();
   await createAuditLog({ userId: actorId, schoolId, action: approved ? "FEE_POLICY_APPROVED" : "FEE_POLICY_REJECTED", entity: "FeePolicyApproval", entityId: id, after: { approved, reason } });
