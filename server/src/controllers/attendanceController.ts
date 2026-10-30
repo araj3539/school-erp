@@ -47,6 +47,17 @@ async function assertAttendanceDateInCurrentAcademicYear(schoolId: Types.ObjectI
 async function assertAttendanceCorrectionAccess(req: Request) {
   if (req.user!.role !== UserRole.PRINCIPAL && req.user!.role !== UserRole.SUPER_ADMIN) throw AppError.forbidden("Only school management can correct existing attendance");
 }
+// Attendance statuses are snake_case enum values (half_day/on_leave) while the
+// API summary contracts use camelCase keys — map explicitly so every status is
+// counted under the right key.
+function attendanceSummaryKey(status: string): "present" | "absent" | "late" | "halfDay" | "onLeave" | null {
+  switch (status) {
+    case "present": case "absent": case "late": return status;
+    case "half_day": return "halfDay";
+    case "on_leave": return "onLeave";
+    default: return null;
+  }
+}
 async function validateAttendanceEntry(req: Request, entry: any, session: mongoose.ClientSession) {
   const schoolId = getTenantId(req);
   const date = parseCalendarDate(String(entry.date));
@@ -296,7 +307,7 @@ export async function getStudentAttendance(req: Request, res: Response, next: Ne
     if (startDate || endDate) { dbQuery.date = {}; if (startDate) dbQuery.date.$gte = parseCalendarDate(String(startDate)); if (endDate) dbQuery.date.$lt = addCalendarDays(parseCalendarDate(String(endDate)), 1); }
     const attendance = await Attendance.find(dbQuery).sort({ date: -1 }).lean();
     const summary = { present: 0, absent: 0, late: 0, halfDay: 0, onLeave: 0 };
-    attendance.forEach((a) => { const record = a.records.find((r) => r.studentId.toString() === id); if (record) summary[record.status as keyof typeof summary]++; });
+    attendance.forEach((a) => { const record = a.records.find((r) => r.studentId.toString() === id); if (!record) return; const key = attendanceSummaryKey(record.status as string); if (key) summary[key]++; });
     res.json({ attendance, summary });
   } catch (error) { next(error); }
 }
@@ -322,7 +333,7 @@ export async function getMonthlyAttendanceReport(req: Request, res: Response, ne
     if (!section) throw AppError.notFound("Class or section not found");
     const students = await Student.find({ classId, sectionId, schoolId, status: "active" }).lean();
     const attendance = await Attendance.find({ classId, sectionId, schoolId, date: { $gte: startDate, $lt: endDate } }).lean();
-    const report = students.map((student: any) => { const studentAttendance = attendance.map((a) => a.records.find((r) => r.studentId.toString() === student._id.toString())?.status ?? null); const counts = { present: 0, absent: 0, late: 0, halfDay: 0, onLeave: 0 }; studentAttendance.forEach((status) => { if (status) counts[status as keyof typeof counts]++; }); return { studentId: student._id, admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}`, attendance: studentAttendance, counts }; });
+    const report = students.map((student: any) => { const studentAttendance = attendance.map((a) => a.records.find((r) => r.studentId.toString() === student._id.toString())?.status ?? null); const counts = { present: 0, absent: 0, late: 0, halfDay: 0, onLeave: 0 }; studentAttendance.forEach((status) => { if (!status) return; const key = attendanceSummaryKey(status as string); if (key) counts[key]++; }); return { studentId: student._id, admissionNo: student.admissionNo, name: `${student.firstName} ${student.lastName}`, attendance: studentAttendance, counts }; });
     res.json({ report, month: numericMonth, year: numericYear, academicYear: academicYear.name });
   } catch (error) { next(error); }
 }

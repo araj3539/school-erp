@@ -5,7 +5,7 @@ import { createAuditLog } from "./auditLog.js";
 import { getNextSubscriptionStatus, transitionSubscription } from "./billing.js";
 
 export type SubscriptionAccess = "full" | "grace" | "none";
-type LifecycleInput = Pick<ISubscription, "status" | "trialEndsAt" | "currentPeriodEnd" | "cancelAt">;
+type LifecycleInput = Pick<ISubscription, "status" | "trialEndsAt" | "currentPeriodEnd" | "cancelAt" | "provider">;
 
 export type SubscriptionLifecycleSnapshot = {
   status: ISubscription["status"];
@@ -19,7 +19,8 @@ export type SubscriptionLifecycleSnapshot = {
 export function evaluateSubscriptionLifecycle(subscription: LifecycleInput, now = new Date()): SubscriptionLifecycleSnapshot {
   let effectiveStatus = subscription.status;
   if (subscription.status === "trialing" && subscription.trialEndsAt && subscription.trialEndsAt <= now) effectiveStatus = "expired";
-  if (subscription.status === "active" && subscription.cancelAt && subscription.cancelAt <= now) effectiveStatus = "cancelled";
+  if (subscription.status === "active" && !subscription.provider && subscription.currentPeriodEnd && subscription.currentPeriodEnd <= now) effectiveStatus = "past_due";
+  if (["active", "trialing"].includes(subscription.status) && subscription.cancelAt && subscription.cancelAt <= now) effectiveStatus = "cancelled";
   if (subscription.status === "past_due" && subscription.currentPeriodEnd && subscription.currentPeriodEnd <= now) effectiveStatus = "suspended";
   if (subscription.status === "cancelled" && subscription.currentPeriodEnd && subscription.currentPeriodEnd <= now) effectiveStatus = "expired";
 
@@ -38,7 +39,7 @@ export async function reconcileSubscriptionLifecycle(schoolId: string, actorUser
   const policy = evaluateSubscriptionLifecycle(subscription, now);
   if (policy.effectiveStatus === subscription.status) return { subscription, policy };
 
-  const event = policy.effectiveStatus === "expired" ? "expire" : policy.effectiveStatus === "cancelled" ? "cancel" : "suspend";
+  const event = policy.effectiveStatus === "expired" ? "expire" : policy.effectiveStatus === "cancelled" ? "cancel" : policy.effectiveStatus === "past_due" ? "mark_past_due" : "suspend";
   getNextSubscriptionStatus(subscription.status, event);
   const updated = await transitionSubscription(schoolId, event, actorUserId);
   return { subscription: updated, policy: evaluateSubscriptionLifecycle(updated as unknown as ISubscription, now) };

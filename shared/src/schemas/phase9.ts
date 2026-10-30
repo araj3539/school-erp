@@ -13,7 +13,13 @@ export const NotificationPrioritySchema = z.enum(["low", "normal", "high", "urge
 export const NotificationChannelSchema = z.enum(["in_app", "email", "sms", "push"]);
 
 export const NotificationQuerySchema = PaginationSchema.extend({
-  unreadOnly: z.coerce.boolean().default(false),
+  // z.coerce.boolean() turned the query string "false" into true (any non-empty
+  // string is truthy), so ?unreadOnly=false still filtered to unread-only.
+  // Parse query strings explicitly; tolerate real booleans for non-HTTP callers.
+  unreadOnly: z.preprocess((value) => {
+    if (typeof value === "string") return value === "true";
+    return value;
+  }, z.boolean().default(false)),
   category: NotificationCategorySchema.optional(),
 });
 

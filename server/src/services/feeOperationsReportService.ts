@@ -1,14 +1,27 @@
 import { Types } from "mongoose";
 import { FeeItem, Payment } from "../models/index.js";
+import { AppError } from "../utils/errors.js";
+import { startOfUtcDay } from "./feeStatus.js";
 
 const DAY_MS = 86_400_000;
 
+const money = (value: number) => Math.round(value * 100) / 100;
+
 function objectId(value?: string) {
-  return value ? new Types.ObjectId(value) : undefined;
+  if (!value) return undefined;
+  if (!Types.ObjectId.isValid(value)) throw AppError.badRequest("Invalid ObjectId filter value");
+  return new Types.ObjectId(value);
+}
+
+function dateStart(value?: string) {
+  if (!value) return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw AppError.badRequest("Date filters must be YYYY-MM-DD");
+  return new Date(`${value}T00:00:00.000Z`);
 }
 
 function dateEnd(value?: string) {
-  return value ? new Date(`${value}T23:59:59.999Z`) : undefined;
+  const start = dateStart(value);
+  return start ? new Date(start.getTime() + DAY_MS - 1) : undefined;
 }
 
 export async function getFeeDefaulters(params: {
@@ -23,10 +36,13 @@ export async function getFeeDefaulters(params: {
   asOf?: string;
 }) {
   const asOf = dateEnd(params.asOf) ?? new Date();
+  // Overdue means the entire due day has passed (see feeStatus.ts): fees due
+  // today are still payable and must not be listed as defaulters.
+  const overdueCutoff = startOfUtcDay(asOf);
   const match: Record<string, unknown> = {
     schoolId: new Types.ObjectId(params.schoolId),
     balance: { $gt: 0 },
-    dueDate: { $lt: asOf },
+    dueDate: { $lt: overdueCutoff },
   };
   if (params.feeHeadId) match.feeHeadId = objectId(params.feeHeadId);
   if (params.academicYear) match.academicYear = objectId(params.academicYear);
@@ -73,7 +89,8 @@ export async function getFeeDefaulters(params: {
   return {
     data: result?.data ?? [],
     pagination: { page: params.page, limit: params.limit, total: result?.total?.[0]?.count ?? 0, totalPages: Math.ceil((result?.total?.[0]?.count ?? 0) / params.limit) },
-    summary: result?.summary ?? [],
+    // $round cannot wrap an accumulator inside $group; round the grouped sums here.
+    summary: (result?.summary ?? []).map((row: any) => ({ ...row, balance: money(Number(row.balance ?? 0)) })),
     asOf,
   };
 }
@@ -90,7 +107,7 @@ export async function getFeeLedgerSummary(params: {
   const match: Record<string, unknown> = { schoolId: new Types.ObjectId(params.schoolId) };
   if (params.feeHeadId) match.feeHeadId = objectId(params.feeHeadId);
   if (params.academicYear) match.academicYear = objectId(params.academicYear);
-  if (params.startDate || params.endDate) match.dueDate = { ...(params.startDate ? { $gte: new Date(`${params.startDate}T00:00:00.000Z`) } : {}), ...(params.endDate ? { $lte: dateEnd(params.endDate) } : {}) };
+  if (params.startDate || params.endDate) match.dueDate = { ...(params.startDate ? { $gte: dateStart(params.startDate) } : {}), ...(params.endDate ? { $lte: dateEnd(params.endDate) } : {}) };
   const pipeline: any[] = [
     { $match: match },
     { $lookup: { from: "students", localField: "studentId", foreignField: "_id", as: "student" } },
@@ -102,21 +119,27 @@ export async function getFeeLedgerSummary(params: {
     { $group: { _id: "$feeHeadId", feeHead: { $first: "$feeHead" }, items: { $sum: 1 }, amount: { $sum: "$amount" }, discount: { $sum: "$discount" }, fine: { $sum: "$fine" }, totalDue: { $sum: "$totalDue" }, paid: { $sum: "$paidAmount" }, balance: { $sum: "$balance" } } },
     { $sort: { "feeHead.code": 1, _id: 1 } },
   ];
-  const byHead = await FeeItem.aggregate(pipeline);
+  const rawByHead = await FeeItem.aggregate(pipeline);
+  // $round cannot wrap an accumulator inside $group; round the grouped sums here.
+  const byHead = rawByHead.map((row: any) => ({
+    ...row,
+    amount: money(Number(row.amount ?? 0)), discount: money(Number(row.discount ?? 0)), fine: money(Number(row.fine ?? 0)),
+    totalDue: money(Number(row.totalDue ?? 0)), paid: money(Number(row.paid ?? 0)), balance: money(Number(row.balance ?? 0)),
+  }));
   const totals = byHead.reduce((acc, row) => ({
-    items: acc.items + row.items, amount: acc.amount + row.amount, discount: acc.discount + row.discount,
-    fine: acc.fine + row.fine, totalDue: acc.totalDue + row.totalDue, paid: acc.paid + row.paid, balance: acc.balance + row.balance,
+    items: acc.items + row.items, amount: money(acc.amount + row.amount), discount: money(acc.discount + row.discount),
+    fine: money(acc.fine + row.fine), totalDue: money(acc.totalDue + row.totalDue), paid: money(acc.paid + row.paid), balance: money(acc.balance + row.balance),
   }), { items: 0, amount: 0, discount: 0, fine: 0, totalDue: 0, paid: 0, balance: 0 });
   return { byHead, totals };
 }
 
 export async function getPaymentReconciliationExceptions(params: { schoolId: string; page: number; limit: number; startDate?: string; endDate?: string }) {
   const match: Record<string, unknown> = { schoolId: new Types.ObjectId(params.schoolId) };
-  if (params.startDate || params.endDate) match.date = { ...(params.startDate ? { $gte: new Date(`${params.startDate}T00:00:00.000Z`) } : {}), ...(params.endDate ? { $lte: dateEnd(params.endDate) } : {}) };
+  if (params.startDate || params.endDate) match.date = { ...(params.startDate ? { $gte: dateStart(params.startDate) } : {}), ...(params.endDate ? { $lte: dateEnd(params.endDate) } : {}) };
   const pipeline: any[] = [
     { $match: match },
     { $lookup: { from: "paymentallocations", localField: "_id", foreignField: "paymentId", as: "allocations" } },
-    { $set: { allocatedAmount: { $reduce: { input: "$allocations", initialValue: 0, in: { $add: ["$$value", { $cond: [{ $eq: ["$$this.type", "allocation"] }, "$$this.amount", { $multiply: ["$$this.amount", -1] }] }] } } } } },
+    { $set: { allocatedAmount: { $round: [{ $reduce: { input: "$allocations", initialValue: 0, in: { $add: ["$$value", { $cond: [{ $eq: ["$$this.type", "allocation"] }, "$$this.amount", { $multiply: ["$$this.amount", -1] }] }] } } }, 2] } } },
     { $set: { difference: { $round: [{ $subtract: ["$amount", "$allocatedAmount"] }, 2] } } },
     { $match: { difference: { $ne: 0 } } },
     { $sort: { date: -1, _id: 1 } },

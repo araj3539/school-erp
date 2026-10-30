@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { Student, Teacher, Fee, Payment, Attendance, Class, AcademicYear } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
+import { effectiveFeeStatusStages, startOfUtcDay } from "../services/feeStatus.js";
 
 function utcDateKey(date: Date): string {
   return date.toISOString().split("T")[0];
@@ -26,20 +27,29 @@ export async function getDashboardStats(req: Request, res: Response, next: NextF
     const currentYear = await AcademicYear.findOne({ schoolId, isCurrent: true });
     if (!currentYear) throw AppError.badRequest("No current academic year set");
 
-    const [totalStudents, totalTeachers, totalClasses, pendingFees, todayAttendance, recentAdmissions] = await Promise.all([
+    const now = new Date();
+    // Attendance is stored as UTC calendar dates; "today" must span the whole
+    // school (every class/section record), not a single arbitrary document.
+    const todayStart = startOfUtcDay(now);
+    const todayEnd = new Date(todayStart); todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+    const [totalStudents, totalTeachers, totalClasses, pendingFees, todayAttendanceTotals, recentAdmissions] = await Promise.all([
       Student.countDocuments({ schoolId, status: "active" }),
       Teacher.countDocuments({ schoolId, status: "active" }),
       Class.countDocuments({ schoolId }),
       Fee.countDocuments({ schoolId, academicYear: currentYear._id, status: { $in: ["pending", "overdue", "partial"] } }),
-      Attendance.findOne({ schoolId, date: { $gte: new Date(new Date().setHours(0, 0, 0, 0)), $lt: new Date(new Date().setHours(23, 59, 59, 999)) } }).lean(),
+      Attendance.aggregate([
+        { $match: { schoolId, date: { $gte: todayStart, $lt: todayEnd } } },
+        { $unwind: "$records" },
+        { $group: { _id: null, present: { $sum: { $cond: [{ $eq: ["$records.status", "present"] }, 1, 0] } }, total: { $sum: 1 } } },
+      ]),
       Student.find({ schoolId }).sort({ admissionDate: -1 }).limit(5).select("admissionNo firstName lastName classId admissionDate").populate("classId").lean()
     ]);
 
-    const presentToday = todayAttendance ? todayAttendance.records.filter((r: any) => r.status === "present").length : 0;
-    const totalStudentsToday = todayAttendance ? todayAttendance.records.length : 0;
+    const presentToday = todayAttendanceTotals[0]?.present ?? 0;
+    const totalStudentsToday = todayAttendanceTotals[0]?.total ?? 0;
     const attendanceRate = totalStudentsToday > 0 ? (presentToday / totalStudentsToday) * 100 : 0;
-    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
     const todayPayments = await Payment.find({ schoolId, date: { $gte: startOfDay, $lte: endOfDay } }).lean();
     const todayCollection = todayPayments.reduce((sum, p) => sum + p.amount, 0);
 
@@ -106,7 +116,9 @@ export async function getDashboardCharts(req: Request, res: Response, next: Next
 
     const feeStatus = await Fee.aggregate([
       { $match: { schoolId, academicYear: currentYear._id } },
-      { $group: { _id: "$status", count: { $sum: 1 }, total: { $sum: "$balance" } } },
+      // Effective status groups past-due pending/partial fees under "overdue".
+      ...effectiveFeeStatusStages(),
+      { $group: { _id: "$effectiveStatus", count: { $sum: 1 }, total: { $sum: "$balance" } } },
     ]);
     res.json({ attendanceTrend, collectionTrend, feeStatus });
   } catch (error) { next(error); }
@@ -115,11 +127,13 @@ export async function getDashboardCharts(req: Request, res: Response, next: Next
 export async function getBirthdays(req: Request, res: Response, next: NextFunction) {
   try {
     const schoolId = getTenantId(req);
+    // DOB is a UTC calendar date (DateOnlySchema), so today's UTC calendar
+    // month/day must be compared against the UTC-extracted DOB parts.
     const today = new Date();
     const students = await Student.aggregate([
       { $match: { schoolId, status: "active" } },
       { $addFields: { dobMonth: { $month: "$dob" }, dobDay: { $dayOfMonth: "$dob" } } },
-      { $match: { dobMonth: today.getMonth() + 1, dobDay: today.getDate() } },
+      { $match: { dobMonth: today.getUTCMonth() + 1, dobDay: today.getUTCDate() } },
       { $project: { admissionNo: 1, firstName: 1, lastName: 1, dob: 1, classId: 1 } },
       { $limit: 10 }
     ]);

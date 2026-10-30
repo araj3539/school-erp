@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { Types } from "mongoose";
+import { Types, isValidObjectId } from "mongoose";
 import { Notification, NotificationDeliveryAttempt, NotificationPreference, User, Student } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId } from "../utils/tenant.js";
@@ -65,7 +65,7 @@ export async function getNotificationDeliveryAttempts(req: Request, res: Respons
     const page = Number.isInteger(rawPage) && rawPage > 0 ? Math.min(rawPage, 100000) : 1; const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
     const filter: Record<string, unknown> = tenantFilter(req);
     if (typeof req.query.status === "string" && ["processing", "succeeded", "retrying", "dead_letter"].includes(req.query.status)) filter.status = req.query.status;
-    if (typeof req.query.eventId === "string" && req.query.eventId.length <= 100) filter.eventId = req.query.eventId;
+    if (typeof req.query.eventId === "string" && isValidObjectId(req.query.eventId)) filter.eventId = req.query.eventId;
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([NotificationDeliveryAttempt.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(), NotificationDeliveryAttempt.countDocuments(filter)]);
     res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
@@ -76,14 +76,18 @@ export async function sendFeeReminders(req: Request, res: Response, next: NextFu
   try {
     const data = req.validatedBody as { studentIds: string[]; kind: "due" | "overdue"; message?: string };
     const schoolId = getTenantId(req);
-    const students = await Student.find({ _id: { $in: data.studentIds }, schoolId }).select("_id firstName lastName userId parentIds").lean();
-    if (students.length !== data.studentIds.length) throw AppError.badRequest("Every selected student must belong to the current school");
+    // Dedupe before the ownership check: duplicate ids previously failed the
+    // count comparison with a misleading "must belong to the current school" 400.
+    const uniqueStudentIds = [...new Set(data.studentIds)];
+    const students = await Student.find({ _id: { $in: uniqueStudentIds }, schoolId }).select("_id firstName lastName userId parentIds").lean();
+    if (students.length !== uniqueStudentIds.length) throw AppError.badRequest("Every selected student must belong to the current school");
+    // Batch: resolve every recipient user with one query instead of one per student.
+    const allRecipientIds = students.flatMap((student) => [student.userId, ...(student.parentIds ?? [])].filter((id): id is Types.ObjectId => Boolean(id)));
+    const validUserSet = new Set(allRecipientIds.length ? (await User.find({ _id: { $in: allRecipientIds }, schoolId, isActive: true }).select("_id").lean()).map((user) => user._id.toString()) : []);
     const dayKey = new Date().toISOString().slice(0, 10);
     let queued = 0;
     for (const student of students) {
-      const recipientIds = [student.userId, ...(student.parentIds ?? [])].filter((id): id is Types.ObjectId => Boolean(id));
-      const validUsers = recipientIds.length ? await User.find({ _id: { $in: recipientIds }, schoolId, isActive: true }).select("_id").lean() : [];
-      const ids = validUsers.map((user) => user._id);
+      const ids = [student.userId, ...(student.parentIds ?? [])].filter((id): id is Types.ObjectId => id != null && validUserSet.has(id.toString()));
       if (!ids.length) continue;
       const name = `${student.firstName} ${student.lastName}`.trim();
       const title = data.kind === "overdue" ? `Fee overdue reminder: ${name}` : `Fee due reminder: ${name}`;

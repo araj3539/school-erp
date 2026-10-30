@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { isValidObjectId } from "mongoose";
 import { Exam, Teacher } from "../models/index.js";
 import { UserRole } from "@school-erp/shared";
 import { AppError } from "../utils/errors.js";
@@ -17,10 +18,21 @@ export async function getTeacherMarksExams(req: Request, res: Response, next: Ne
     if (!scope.length) return res.json({ data: [] });
 
     const filter: Record<string, unknown> = { schoolId: getTenantId(req), $or: scope };
-    if (typeof req.query.classId === "string" && req.query.classId) filter.classId = req.query.classId;
+    const requestedClassId = typeof req.query.classId === "string" ? req.query.classId.trim() : "";
+    if (requestedClassId) {
+      if (!isValidObjectId(requestedClassId)) throw AppError.badRequest("Invalid class id");
+      filter.classId = requestedClassId;
+    }
     const candidates = await Exam.find(filter).populate("classId subjects.subjectId").sort({ startDate: -1, createdAt: -1 }).limit(50).lean();
     const assignedSubjectIds = new Set(subjectIds);
-    const data = candidates.filter((exam: any) => (exam.subjects ?? []).every((item: any) => assignedSubjectIds.has((item.subjectId?._id ?? item.subjectId).toString())));
+    const classTeacherOf = new Set(classIds);
+    // Keep exams the teacher can actually enter marks for: class-teacher of the
+    // exam's class, OR assigned every subject on it (matches assertTeacherCanMark).
+    const data = candidates.filter((exam: any) => {
+      const examClassId = (exam.classId?._id ?? exam.classId)?.toString();
+      const everySubjectAssigned = (exam.subjects ?? []).every((item: any) => assignedSubjectIds.has((item.subjectId?._id ?? item.subjectId).toString()));
+      return Boolean(examClassId && classTeacherOf.has(examClassId)) || everySubjectAssigned;
+    });
     return res.json({ data });
   } catch (error) {
     next(error);

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, requirePermission, validate } from "../middleware/index.js";
-import { getBooks, getBookById, createBook, updateBook, deactivateBook, getCopies, createCopy, updateCopy, getLoans, issueLoan, returnLoan } from "../controllers/libraryController.js";
+import { getBooks, getBookById, createBook, updateBook, deactivateBook, getCopies, createCopy, updateCopy, getLoans, issueLoan, returnLoan, loseLoan } from "../controllers/libraryController.js";
 import { CreateLibraryBookSchema, UpdateLibraryBookSchema, LibraryBookQuerySchema, UpdateLibraryCopySchema, LibraryCopyQuerySchema, IssueLibraryLoanSchema, ReturnLibraryLoanSchema, LibraryLoanQuerySchema, IdParamSchema } from "../validators/index.js";
 
 const router = Router();
@@ -16,4 +16,5 @@ router.put("/copies/:id", requirePermission("library:write"), validate(IdParamSc
 router.get("/loans", requirePermission("library:read"), validate(LibraryLoanQuerySchema, "query"), getLoans);
 router.post("/loans", requirePermission("library:circulate"), validate(IssueLibraryLoanSchema), issueLoan);
 router.post("/loans/:id/return", requirePermission("library:circulate"), validate(IdParamSchema, "params"), validate(ReturnLibraryLoanSchema), returnLoan);
+router.post("/loans/:id/lose", requirePermission("library:circulate"), validate(IdParamSchema, "params"), loseLoan);
 export default router;

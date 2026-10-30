@@ -16,7 +16,7 @@ function invoiceSnapshot(subscription: any, plan: any, invoiceId: mongoose.Types
 
 export async function createInvoiceForSubscription(subscriptionId: mongoose.Types.ObjectId, session: mongoose.ClientSession): Promise<ISaaSInvoice | undefined> {
   const subscription = await Subscription.findById(subscriptionId).session(session);
-  if (!subscription || subscription.amountMinor <= 0) return undefined;
+  if (!subscription || subscription.status === "trialing" || subscription.amountMinor <= 0) return undefined;
   const plan = await SaaSPlan.findById(subscription.planId).session(session);
   if (!plan) throw AppError.notFound("SaaS plan for invoice was not found");
   const invoice = invoiceSnapshot(subscription, plan, new mongoose.Types.ObjectId(), new Date(), subscription.currentPeriodStart, subscription.currentPeriodEnd);

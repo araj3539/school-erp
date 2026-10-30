@@ -1,4 +1,5 @@
 import { Document, Schema, Types, model } from "mongoose";
+import { priorityRank } from "../utils/priorityRank.js";
 
 export type NoticePriority = "low" | "normal" | "high" | "urgent";
 export type NoticeAudience = "school" | "class" | "section";
@@ -8,6 +9,7 @@ export interface INotice extends Document {
   title: string;
   message: string;
   priority: NoticePriority;
+  priorityRank: number;
   audience: NoticeAudience;
   classId?: Types.ObjectId;
   sectionId?: Types.ObjectId;
@@ -24,6 +26,7 @@ const NoticeSchema = new Schema<INotice>({
   title: { type: String, required: true, trim: true, maxlength: 160 },
   message: { type: String, required: true, trim: true, maxlength: 10000 },
   priority: { type: String, enum: ["low", "normal", "high", "urgent"], default: "normal", required: true },
+  priorityRank: { type: Number, min: 0, max: 4, default: 2 },
   audience: { type: String, enum: ["school", "class", "section"], default: "school", required: true },
   classId: { type: Schema.Types.ObjectId, ref: "Class" },
   sectionId: { type: Schema.Types.ObjectId, ref: "Section" },
@@ -35,6 +38,24 @@ const NoticeSchema = new Schema<INotice>({
 
 NoticeSchema.index({ schoolId: 1, publishAt: -1, expiresAt: 1 });
 NoticeSchema.index({ schoolId: 1, classId: 1, sectionId: 1, publishAt: -1 });
+NoticeSchema.index({ schoolId: 1, priorityRank: -1, publishAt: -1 });
+
+NoticeSchema.pre("save", function () {
+  // Keep the numeric sort key in sync with the priority enum on every write.
+  this.priorityRank = priorityRank(this.priority);
+});
+
+NoticeSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate() as any;
+  if (update && update.$set && typeof update.$set.priority === "string") update.$set.priorityRank = priorityRank(update.$set.priority);
+  next();
+});
+
+NoticeSchema.pre("updateOne", function (next) {
+  const update = this.getUpdate() as any;
+  if (update && update.$set && typeof update.$set.priority === "string") update.$set.priorityRank = priorityRank(update.$set.priority);
+  next();
+});
 
 NoticeSchema.pre("validate", function(next) {
   if (this.expiresAt && this.expiresAt <= this.publishAt) return next(new Error("Expiry must be after publication time"));
