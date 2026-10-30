@@ -17,6 +17,7 @@ import {
   ArrowUpRight,
   Sparkles,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 
 function StatCard({
@@ -69,9 +70,9 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const { exams: allExams, isLoading: examsLoading } = useExams();
-  const { students: allStudents, isLoading: studentsLoading } = useStudents({ limit: 1000 });
-  const { fees: allFees, isLoading: feesLoading } = useFees({ limit: 1000 });
+  const { exams: allExams, isLoading: examsLoading, isError: examsError } = useExams({});
+  const { students: allStudents, isLoading: studentsLoading, isError: studentsError } = useStudents({ limit: 1000 });
+  const { fees: allFees, isLoading: feesLoading, isError: feesError } = useFees({ limit: 1000 });
 
   const totalStudents = allStudents.length;
   const totalTeachers = 0;
@@ -81,6 +82,7 @@ export default function DashboardPage() {
   const pendingFees = allFees.filter((f) => f.status !== "paid").length;
 
   const isLoading = examsLoading || studentsLoading || feesLoading;
+  const hasError = examsError || studentsError || feesError;
 
   const welcomeMessages = [
     "Good morning! Ready for a productive day?",
@@ -129,6 +131,19 @@ export default function DashboardPage() {
           </GlassPanel>
 
           {/* Stats Grid */}
+          {hasError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-rose-800">Failed to load dashboard data</p>
+                  <p className="text-xs text-rose-600">Some widgets may show zero until the connection is restored.</p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
             <StatCard title="Students" value={totalStudents} icon={<Users className="h-5 w-5" />} tone="bg-blue-50 text-blue-600" subtitle="Enrolled learners" isLoading={isLoading} />
             <StatCard title="Teachers" value={totalTeachers} icon={<UserCheck className="h-5 w-5" />} tone="bg-emerald-50 text-emerald-600" subtitle="Active faculty" isLoading={isLoading} />

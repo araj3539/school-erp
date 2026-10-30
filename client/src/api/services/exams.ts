@@ -65,7 +65,7 @@ export interface ExamQueryParams extends ListParams {
 
 export const examsService = {
   async list(params?: ExamQueryParams) {
-    const queryString = buildQueryParams(params as Record<string, string | number | boolean | undefined>);
+    const queryString = buildQueryParams(params as Record<string, string | number | boolean | undefined> ?? {});
     const response = await api.get<PaginatedResponse<Exam>>(`/exams?${queryString}`);
     return response.data;
   },
