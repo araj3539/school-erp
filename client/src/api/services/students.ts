@@ -44,7 +44,7 @@ export interface StudentQueryParams extends ListParams {
 }
 
 export const studentsService = {
-  async list(params?: StudentQueryParams): Promise<ApiResponse<PaginatedResponse<Student>>> {
+  async list(params?: StudentQueryParams): Promise<PaginatedResponse<Student>> {
     const query = buildQueryParams({
       page: params?.page,
       limit: params?.limit,
@@ -55,7 +55,7 @@ export const studentsService = {
       sectionId: params?.sectionId,
       status: params?.status,
     });
-    const response = await api.get(`/students?${query}`);
+    const response = await api.get<PaginatedResponse<Student>>(`/students?${query}`);
     return response.data;
   },
 

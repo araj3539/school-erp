@@ -15,7 +15,7 @@ export function useStudents(params?: StudentQueryParams) {
     queryKey: ["students", "list", params],
     queryFn: async () => {
       const response = await studentsService.list(params);
-      return response.data;
+      return response;
     },
   });
 
@@ -52,8 +52,8 @@ export function useStudents(params?: StudentQueryParams) {
     },
   });
 
-  const data = query.data?.data ?? [];
-  const pagination = query.data?.pagination;
+  const data = (query.data as { data: Student[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined)?.data ?? [];
+  const pagination = (query.data as { data: Student[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined)?.pagination;
 
   return {
     students: data as Student[],
