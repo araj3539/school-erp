@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { Attendance, Fee, Student } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
+import { FeeStatus } from "@school-erp/shared";
 import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
 import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
 
@@ -75,16 +76,17 @@ export async function getMyChildFees(req: Request, res: Response, next: NextFunc
     if (academicYear && !mongoose.isValidObjectId(String(academicYear))) throw AppError.badRequest("Invalid academicYear");
     const query: Record<string, unknown> = { schoolId: schoolId(req), studentId: child._id };
     if (academicYear) query.academicYear = academicYear;
+    const feeNow = new Date();
     const fees = await Fee.find(query).populate("feeStructureId").sort({ createdAt: -1 }).lean();
-    const now = new Date();
+    const mappedFees = fees.map((fee: any) => ({ ...fee, status: computeEffectiveFeeStatus(fee.status, fee.feeStructureId?.dueDate, fee.balance, feeNow) }));
     const summary = { totalDue: 0, paid: 0, balance: 0, overdue: 0 };
-    fees.forEach((fee: any) => {
+    mappedFees.forEach((fee: any) => {
       summary.totalDue += fee.totalDue;
       summary.paid += fee.paidAmount;
       summary.balance += fee.balance;
-      if (computeEffectiveFeeStatus(fee.status, fee.feeStructureId?.dueDate, fee.balance, now) === "overdue") summary.overdue += fee.balance;
+      if (fee.status === FeeStatus.OVERDUE) summary.overdue += fee.balance;
     });
-    res.json({ childId: child._id, fees, summary });
+    res.json({ childId: child._id, fees: mappedFees, summary });
   } catch (error) {
     next(error);
   }

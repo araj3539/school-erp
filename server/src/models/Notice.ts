@@ -45,6 +45,18 @@ NoticeSchema.pre("save", function () {
   this.priorityRank = priorityRank(this.priority);
 });
 
+NoticeSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate() as any;
+  if (update && update.$set && typeof update.$set.priority === "string") update.$set.priorityRank = priorityRank(update.$set.priority);
+  next();
+});
+
+NoticeSchema.pre("updateOne", function (next) {
+  const update = this.getUpdate() as any;
+  if (update && update.$set && typeof update.$set.priority === "string") update.$set.priorityRank = priorityRank(update.$set.priority);
+  next();
+});
+
 NoticeSchema.pre("validate", function(next) {
   if (this.expiresAt && this.expiresAt <= this.publishAt) return next(new Error("Expiry must be after publication time"));
   if (this.audience === "school" && (this.classId || this.sectionId)) return next(new Error("School notices cannot target a class or section"));

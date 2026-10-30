@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { AcademicYear, Attendance, Exam, ExamResult, Fee, Homework, Notice, Student, Timetable } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
+import { FeeStatus } from "@school-erp/shared";
 import { getTenantId } from "../utils/tenant.js";
 import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
 import { localDateKey, addDaysToDateKey } from "../utils/calendarDate.js";
@@ -52,9 +53,10 @@ export async function getStudentWorkspace(req: Request, res: Response, next: Nex
 
     const present = attendance.reduce((sum: number, row: any) => sum + (row.records.some((record: any) => record.studentId.toString() === student._id.toString() && record.status === "present") ? 1 : 0), 0);
     const feeNow = new Date();
-    const feeSummary = fees.reduce((summary: { totalDue: number; paid: number; balance: number; overdue: number }, fee: any) => {
+    const mappedFees = fees.map((fee: any) => ({ ...fee, status: computeEffectiveFeeStatus(fee.status, fee.feeStructureId?.dueDate, fee.balance, feeNow) }));
+    const feeSummary = mappedFees.reduce((summary: { totalDue: number; paid: number; balance: number; overdue: number }, fee: any) => {
       summary.totalDue += fee.totalDue || 0; summary.paid += fee.paidAmount || 0; summary.balance += fee.balance || 0;
-      if (computeEffectiveFeeStatus(fee.status, fee.feeStructureId?.dueDate, fee.balance, feeNow) === "overdue") summary.overdue += fee.balance || 0;
+      if (fee.status === FeeStatus.OVERDUE) summary.overdue += fee.balance || 0;
       return summary;
     }, { totalDue: 0, paid: 0, balance: 0, overdue: 0 });
 
@@ -68,7 +70,7 @@ export async function getStudentWorkspace(req: Request, res: Response, next: Nex
       upcomingHomework: homework,
       upcomingExams: exams,
       latestResults: results,
-      fees: { summary: feeSummary, items: fees.slice(0, 20) },
+      fees: { summary: feeSummary, items: mappedFees.slice(0, 20) },
       notices,
     });
   } catch (error) { next(error); }

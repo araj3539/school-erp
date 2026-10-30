@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { AcademicYear, Attendance, Exam, Fee, Homework, Notice, Student, Timetable } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
+import { FeeStatus } from "@school-erp/shared";
 import { getTenantId } from "../utils/tenant.js";
 import { computeEffectiveFeeStatus } from "../services/feeStatus.js";
 import { localDateKey, addDaysToDateKey, utcTodayRange } from "../utils/calendarDate.js";
@@ -43,7 +44,8 @@ export async function getParentWorkspace(req: Request, res: Response, next: Next
     attendance.forEach((item: any) => { item.records = (item.records as any[]).filter((record: any) => record.studentId.toString() === selectedChild._id.toString()); });
     const present = attendance.filter((item: any) => item.records.some((record: any) => record.studentId.toString() === selectedChild._id.toString() && record.status === "present")).length;
     const feeNow = new Date();
-    const fee = fees.reduce((s: any, item: any) => ({ totalDue: s.totalDue + item.totalDue, paid: s.paid + item.paidAmount, balance: s.balance + item.balance, overdue: s.overdue + (computeEffectiveFeeStatus(item.status, item.feeStructureId?.dueDate, item.balance, feeNow) === "overdue" ? item.balance : 0) }), { totalDue: 0, paid: 0, balance: 0, overdue: 0 });
-    res.json({ role: "parent", academicYear, children, selectedChild, summary: { attendanceTotal: attendance.length, attendancePresent: present, attendanceRate: attendance.length ? Math.round((present / attendance.length) * 100) : 0, fee }, todayClasses, attendance, upcomingHomework: homework, upcomingExams: exams, fees, notices });
+    const mappedFees = fees.map((fee: any) => ({ ...fee, status: computeEffectiveFeeStatus(fee.status, fee.feeStructureId?.dueDate, fee.balance, feeNow) }));
+    const fee = mappedFees.reduce((s: any, item: any) => ({ totalDue: s.totalDue + item.totalDue, paid: s.paid + item.paidAmount, balance: s.balance + item.balance, overdue: s.overdue + (item.status === FeeStatus.OVERDUE ? item.balance : 0) }), { totalDue: 0, paid: 0, balance: 0, overdue: 0 });
+    res.json({ role: "parent", academicYear, children, selectedChild, summary: { attendanceTotal: attendance.length, attendancePresent: present, attendanceRate: attendance.length ? Math.round((present / attendance.length) * 100) : 0, fee }, todayClasses, attendance, upcomingHomework: homework, upcomingExams: exams, fees: mappedFees, notices });
   } catch (error) { next(error); }
 }
