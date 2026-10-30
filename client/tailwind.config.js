@@ -38,7 +38,10 @@ export default {
       boxShadow: {
         card: "0 1px 2px rgba(15, 23, 42, 0.04)",
         lift: "0 10px 30px rgba(15, 23, 42, 0.06)"
-      }
+      },
+      animation: {
+        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      },
     }
   },
   plugins: []

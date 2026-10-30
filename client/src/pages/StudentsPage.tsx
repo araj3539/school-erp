@@ -1,70 +1,401 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, useRef } from "react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
-import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { PremiumCard, PremiumCardHeader, PremiumCardContent, PremiumCardFooter } from "../components/ui/PremiumCard.js";
 import { Table } from "../components/ui/Table";
 import { Modal } from "../components/ui/Modal";
 import { Badge } from "../components/ui/Badge";
-import { Plus, Search, Download, Upload, Camera, X, Eye, Pencil, RefreshCw, UserRound, GraduationCap, SlidersHorizontal, ArrowRight, Users, ShieldCheck, Phone, Receipt, Printer, RotateCcw } from "lucide-react";
-import { ContextMenu, type ContextMenuItem } from "../components/workspace/ContextMenu";
-import { DetailDrawer } from "../components/workspace/DetailDrawer";
-import { SelectionDock } from "../components/workspace/SelectionDock";
-import StudentSiblingsPanel from "../components/students/StudentSiblingsPanel";
+import { Plus, Search, RefreshCw, Download, Upload, UserRound, Pencil, Eye, RotateCcw, Phone, Receipt, Printer } from "lucide-react";
+import { useStudents } from "../hooks/useStudents.js";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import api from "../lib/api";
-import { StudentStatus, BloodGroup, Gender } from "@school-erp/shared";
+import { StudentStatus, Gender, BloodGroup } from "@school-erp/shared";
+import { GlassPanel, GlowOrb } from "../components/ui/GlassPanel.js";
 
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date").refine((value) => { const [year, month, day] = value.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day; }, "Enter a valid date");
 const optionalObjectId = z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid selection").optional());
 const optionalBloodGroup = z.preprocess((value) => value === "" ? undefined : value, z.nativeEnum(BloodGroup).optional());
-const studentFormSchema = z.object({ admissionNo: z.string().trim().min(1, "Admission No is required").max(20), firstName: z.string().trim().min(1, "First Name is required").max(50), lastName: z.string().trim().min(1, "Last Name is required").max(50), dob: dateOnlySchema, gender: z.nativeEnum(Gender), bloodGroup: optionalBloodGroup, religion: z.string().trim().max(50).optional(), category: z.string().trim().max(50).optional(), fatherName: z.string().trim().min(1, "Father's Name is required").max(100), motherName: z.string().trim().min(1, "Mother's Name is required").max(100), phone: z.string().trim().min(1, "Phone is required").max(20), address: z.string().trim().min(1, "Address is required").max(500), guardianPhone: z.string().trim().max(20).optional(), previousSchool: z.string().trim().max(100).optional(), classId: optionalObjectId, sectionId: optionalObjectId, status: z.nativeEnum(StudentStatus), admissionDate: dateOnlySchema });
+const studentFormSchema = z.object({
+  admissionNo: z.string().trim().min(1, "Admission No is required").max(20),
+  firstName: z.string().trim().min(1, "First Name is required").max(50),
+  lastName: z.string().trim().min(1, "Last Name is required").max(50),
+  dob: dateOnlySchema,
+  gender: z.nativeEnum(Gender),
+  bloodGroup: optionalBloodGroup,
+  religion: z.string().trim().max(50).optional(),
+  category: z.string().trim().max(50).optional(),
+  fatherName: z.string().trim().min(1, "Father's Name is required").max(100),
+  motherName: z.string().trim().min(1, "Mother's Name is required").max(100),
+  phone: z.string().trim().min(1, "Phone is required").max(20),
+  address: z.string().trim().min(1, "Address is required").max(500),
+  guardianPhone: z.string().trim().max(20).optional(),
+  previousSchool: z.string().trim().max(100).optional(),
+  classId: optionalObjectId,
+  sectionId: optionalObjectId,
+  status: z.string().min(1, "Status is required"),
+  admissionDate: dateOnlySchema,
+});
 type StudentForm = z.infer<typeof studentFormSchema>;
 const today = () => new Date().toISOString().split("T")[0];
-const defaultValues: StudentForm = { admissionNo: "", firstName: "", lastName: "", dob: today(), gender: Gender.MALE, fatherName: "", motherName: "", phone: "", address: "", admissionDate: today(), bloodGroup: undefined, religion: "", category: "", guardianPhone: "", previousSchool: "", classId: undefined, sectionId: undefined, status: StudentStatus.ACTIVE };
+const defaultValues: StudentForm = {
+  admissionNo: "", firstName: "", lastName: "", dob: today(), gender: Gender.MALE,
+  fatherName: "", motherName: "", phone: "", address: "", admissionDate: today(),
+  bloodGroup: undefined, religion: "", category: "", guardianPhone: "", previousSchool: "",
+  classId: undefined, sectionId: undefined, status: StudentStatus.ACTIVE,
+};
 const statusBadges: Record<string, "success" | "warning" | "danger" | "info"> = { active: "success", left: "danger", graduated: "info", transferred: "warning" };
-const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"]; const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
+const statusColors: Record<string, string> = { active: "bg-emerald-50 text-emerald-600", left: "bg-rose-50 text-rose-600", graduated: "bg-blue-50 text-blue-600", transferred: "bg-amber-50 text-amber-600" };
 
 export default function StudentsPage() {
-  const navigate = useNavigate(); const queryClient = useQueryClient(); const [searchParams, setSearchParams] = useSearchParams(); const photoInputRef = useRef<HTMLInputElement>(null);
-  const [page, setPage] = useState(1); const [search, setSearch] = useState(""); const [statusFilter, setStatusFilter] = useState(""); const [isModalOpen, setIsModalOpen] = useState(false); const [editingStudent, setEditingStudent] = useState<any>(null); const [photoFile, setPhotoFile] = useState<File | null>(null); const [photoPreview, setPhotoPreview] = useState<string | null>(null); const [photoError, setPhotoError] = useState(""); const [submitError, setSubmitError] = useState("");
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]); const [inspectedStudent, setInspectedStudent] = useState<any>(null); const [context, setContext] = useState<{ x: number; y: number; student: any } | null>(null);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentForm>({ resolver: zodResolver(studentFormSchema), defaultValues });
-  const { data, isLoading, isFetching, isError, refetch } = useQuery({ queryKey: ["students", page, search, statusFilter], queryFn: async () => { const params = new URLSearchParams({ page: page.toString(), limit: "20" }); if (search.trim()) params.append("search", search.trim()); if (statusFilter) params.append("status", statusFilter); return (await api.get(`/students?${params}`)).data; } });
-  const students = data?.data || []; const totalPages = data?.pagination?.totalPages || 1; const total = data?.pagination?.total || 0;
-  const clearPhoto = () => { if (photoPreview) URL.revokeObjectURL(photoPreview); setPhotoFile(null); setPhotoError(""); setPhotoPreview(null); if (photoInputRef.current) photoInputRef.current.value = ""; };
-  const closeModal = () => { setIsModalOpen(false); setEditingStudent(null); setSubmitError(""); reset(defaultValues); clearPhoto(); };
-  const createMutation = useMutation({ mutationFn: async (form: StudentForm) => { const response = await api.post("/students", form); const student = response.data.student; if (photoFile) { const fd = new FormData(); fd.append("file", photoFile); fd.append("type", "photo"); await api.post(`/students/${student._id}/documents`, fd); } return response; }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["students"] }); closeModal(); }, onError: (error: any) => setSubmitError(error?.response?.data?.message || "Unable to create student. Please try again.") });
-  const updateMutation = useMutation({ mutationFn: async ({ id, form }: { id: string; form: StudentForm }) => { const response = await api.put(`/students/${id}`, form); if (photoFile) { const fd = new FormData(); fd.append("file", photoFile); fd.append("type", "photo"); await api.post(`/students/${id}/documents`, fd); } return response; }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["students"] }); queryClient.invalidateQueries({ queryKey: ["student", editingStudent?._id] }); closeModal(); }, onError: (error: any) => setSubmitError(error?.response?.data?.message || "Unable to update student. Please try again.") });
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; if (!PHOTO_TYPES.includes(file.type)) { clearPhoto(); setPhotoError("Please select a JPG, PNG, or WebP image."); return; } if (file.size > MAX_PHOTO_SIZE) { clearPhoto(); setPhotoError("Photo must be 5 MB or smaller."); return; } if (photoPreview) URL.revokeObjectURL(photoPreview); setPhotoError(""); setPhotoFile(file); setPhotoPreview(URL.createObjectURL(file)); };
-  const handleOpenCreate = () => { setEditingStudent(null); setSubmitError(""); reset(defaultValues); clearPhoto(); setIsModalOpen(true); };
-  const handleOpenEdit = (student: any) => { setEditingStudent(student); setSubmitError(""); clearPhoto(); reset({ admissionNo: student.admissionNo || "", firstName: student.firstName || "", lastName: student.lastName || "", dob: student.dob?.split("T")[0] || "", gender: student.gender, bloodGroup: student.bloodGroup || undefined, religion: student.religion || "", category: student.category || "", fatherName: student.fatherName || "", motherName: student.motherName || "", phone: student.phone || "", address: student.address || "", guardianPhone: student.guardianPhone || "", previousSchool: student.previousSchool || "", classId: student.classId?._id || undefined, sectionId: student.sectionId?._id || undefined, status: student.status || StudentStatus.ACTIVE, admissionDate: student.admissionDate?.split("T")[0] || "" }); setIsModalOpen(true); };
-  useEffect(() => { const editId = searchParams.get("edit"); if (!editId || isLoading) return; const student = students.find((item: any) => item._id === editId); if (student) { handleOpenEdit(student); const next = new URLSearchParams(searchParams); next.delete("edit"); setSearchParams(next, { replace: true }); } }, [searchParams, students, isLoading]);
-  const onSubmit = (form: StudentForm) => { setSubmitError(""); if (editingStudent) updateMutation.mutate({ id: editingStudent._id, form }); else createMutation.mutate(form); };
-  const closeContext = () => setContext(null);
-  const contextItems = (student: any): ContextMenuItem[] => [{ label: "Call guardian", onSelect: () => student.guardianPhone && (window.location.href = `tel:${student.guardianPhone}`), disabled: !student.guardianPhone }, { label: "View fee history", onSelect: () => navigate(`/fees?studentId=${student._id}`) }, { label: "Print ID card", onSelect: () => window.print() }, { label: "Issue transfer certificate", onSelect: () => navigate(`/students/${student._id}?transfer=1`) }];
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [inspectedStudent, setInspectedStudent] = useState<any>(null);
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentForm>({
+    resolver: zodResolver(studentFormSchema),
+    defaultValues,
+  });
+
+  const { students, pagination, isLoading, isError, refetch, createStudent, updateStudent, deleteStudent, isCreating, isUpdating } = useStudents({ limit: 20, search, status: statusFilter || undefined });
+  const totalPages = pagination?.totalPages || 1;
+  const total = pagination?.total || 0;
+
+  const clearPhoto = () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(null);
+    setPhotoError("");
+    setPhotoPreview(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingStudent(null);
+    reset(defaultValues);
+    clearPhoto();
+  };
+
+  const handleOpenCreate = () => {
+    setEditingStudent(null);
+    reset(defaultValues);
+    clearPhoto();
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (student: any) => {
+    setEditingStudent(student._id);
+    reset({
+      admissionNo: student.admissionNo || "", firstName: student.firstName || "", lastName: student.lastName || "",
+      dob: student.dob?.split("T")[0] || "", gender: student.gender, bloodGroup: student.bloodGroup || undefined,
+      religion: student.religion || "", category: student.category || "", fatherName: student.fatherName || "",
+      motherName: student.motherName || "", phone: student.phone || "", address: student.address || "",
+      guardianPhone: student.guardianPhone || "", previousSchool: student.previousSchool || "",
+      classId: student.classId?._id || undefined, sectionId: student.sectionId?._id || undefined,
+      status: student.status || StudentStatus.ACTIVE, admissionDate: student.admissionDate?.split("T")[0] || "",
+    });
+    setIsModalOpen(true);
+  };
+
+  const onSubmit = (form: StudentForm) => {
+    const input = { ...form, status: form.status as "active" | "inactive" | "graduated" };
+    if (editingStudent) {
+      updateStudent({ id: editingStudent, input });
+    } else {
+      createStudent(input);
+    }
+  };
+
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      clearPhoto();
+      setPhotoError("Please select a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      clearPhoto();
+      setPhotoError("Photo must be 5 MB or smaller.");
+      return;
+    }
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoError("");
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
   const columns = useMemo(() => [
-    { key: "student", header: "Student", render: (s: any) => <div className="flex min-w-[220px] items-center gap-3.5"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-slate-500"><UserRound className="h-5 w-5" aria-hidden="true" /></div><div className="min-w-0"><p className="truncate font-bold text-slate-900">{s.firstName} {s.lastName}</p><p className="mt-0.5 font-mono text-[11px] font-medium text-slate-400">{s.admissionNo}</p></div></div> },
-    { key: "classId", header: "Class", render: (s: any) => <span className="font-medium text-slate-700">{s.classId?.displayName || "Unassigned"}</span> }, { key: "sectionId", header: "Section", render: (s: any) => <span className="font-medium text-slate-600">{s.sectionId?.name || "Unassigned"}</span> }, { key: "gender", header: "Gender", render: (s: any) => <span className="capitalize text-slate-600">{s.gender || "—"}</span> }, { key: "phone", header: "Phone", render: (s: any) => <span className="whitespace-nowrap text-slate-600">{s.phone || "—"}</span> }, { key: "status", header: "Status", render: (s: any) => <Badge variant={statusBadges[s.status] || "default"}>{s.status || "—"}</Badge> },
-    { key: "actions", header: "Actions", render: (s: any) => <div className="flex gap-2"><Button type="button" variant="outline" size="sm" aria-label={`View ${s.firstName} ${s.lastName}`} onClick={(e: React.MouseEvent) => { e.stopPropagation(); setInspectedStudent(s); }}><Eye className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Inspect</Button><Button type="button" variant="outline" size="sm" aria-label={`Edit ${s.firstName} ${s.lastName}`} onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleOpenEdit(s); }}><Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Edit</Button></div> }
-  ], [navigate]);
-  return <div className="space-y-7 pb-10">
-    <section className="relative overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-950 px-5 py-6 text-white shadow-xl shadow-slate-950/10 sm:px-7 lg:px-8"><div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-primary-500/15 blur-3xl" aria-hidden="true" /><div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"><div className="max-w-2xl"><div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-300"><GraduationCap className="h-3.5 w-3.5 text-primary-300" aria-hidden="true" /> Student directory</div><h1 className="text-3xl font-black tracking-[-0.03em] sm:text-4xl">Students</h1><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">A focused workspace for finding, reviewing and maintaining student records without getting in the way of the work.</p></div><Button onClick={handleOpenCreate} className="shrink-0 bg-white text-slate-950 hover:bg-slate-100 focus-visible:ring-white"><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Add student</Button></div><div className="relative mt-6 grid gap-2 sm:grid-cols-3"><div className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">Directory size</p><p className="mt-1 text-xl font-extrabold tracking-tight">{isLoading ? "—" : total.toLocaleString()}</p></div><div className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">Page</p><p className="mt-1 text-xl font-extrabold tracking-tight">{isLoading ? "—" : `${data?.pagination?.page || page} / ${totalPages}`}</p></div><div className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">Workspace</p><p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-emerald-300"><ShieldCheck className="h-4 w-4" aria-hidden="true" /> Permission-aware</p></div></div></section>
-    <Card className="overflow-hidden border-slate-200/80 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.28)]"><CardHeader className="border-b border-slate-100 bg-white pb-5"><div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><div className="grid min-w-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]"><div className="relative min-w-0"><Input aria-label="Search students" placeholder="Search by name, admission number or phone…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} leftIcon={<Search className="h-4 w-4" />} className="w-full" /><span className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-400 md:inline">SEARCH</span></div><Select aria-label="Filter by student status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="w-full md:w-44 md:shrink-0"><option value="">All statuses</option><option value="active">Active</option><option value="left">Left</option><option value="graduated">Graduated</option><option value="transferred">Transferred</option></Select></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} aria-hidden="true" />Refresh</Button><Button variant="outline"><Download className="mr-2 h-4 w-4" aria-hidden="true" />Export</Button><Button variant="outline"><Upload className="mr-2 h-4 w-4" aria-hidden="true" />Import</Button><Button variant="ghost" className="xl:hidden" aria-label="More filters"><SlidersHorizontal className="mr-2 h-4 w-4" aria-hidden="true" />Filters</Button></div></div>{(search || statusFilter) && <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500"><span className="font-semibold">Active filters:</span>{search && <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">Search: {search}</span>}{statusFilter && <span className="rounded-full bg-primary-50 px-2.5 py-1 font-semibold capitalize text-primary-700">Status: {statusFilter}</span>}<button type="button" className="font-bold text-primary-700 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500" onClick={() => { setSearch(""); setStatusFilter(""); setPage(1); }}>Clear all</button></div>}</CardHeader><CardContent className="p-0">{isError ? <div className="px-6 py-16 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600"><RefreshCw className="h-5 w-5" aria-hidden="true" /></div><p className="mt-4 font-bold text-slate-900">We couldnâ€™t load the directory</p><p className="mx-auto mt-1 max-w-md text-sm text-slate-500">The request failed before the student list could be displayed. Your records are unchanged.</p><Button className="mt-5" variant="outline" onClick={() => refetch()}>Try again</Button></div> : isLoading ? <div className="space-y-3 p-5" aria-busy="true" aria-label="Loading students"><div className="h-12 animate-pulse rounded-xl bg-slate-100" /><div className="h-12 animate-pulse rounded-xl bg-slate-100" /><div className="h-12 animate-pulse rounded-xl bg-slate-100" /><div className="h-12 animate-pulse rounded-xl bg-slate-100" /></div> : students.length === 0 ? <div className="px-6 py-20 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"><Users className="h-6 w-6" aria-hidden="true" /></div><p className="mt-4 font-bold text-slate-900">No students match this view</p><p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">Try a different search or status filter. If you are starting a new directory, add the first student here.</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button variant="outline" onClick={() => { setSearch(""); setStatusFilter(""); setPage(1); }}>Clear filters</Button><Button onClick={handleOpenCreate}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Add student</Button></div></div> : <div className="overflow-hidden"><Table data={students} columns={columns} keyExtractor={(s) => s._id} onRowClick={(student) => setInspectedStudent(student)} onContextMenu={(event, student) => { event.preventDefault(); setContext({ x: event.clientX, y: event.clientY, student }); }} selectable selectedKeys={selectedKeys} onSelectionChange={setSelectedKeys} virtualize={students.length > 40} virtualHeight={Math.min(600, Math.max(320, window.innerHeight - 380))} rowHeight={64} />{totalPages > 1 && <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs font-medium text-slate-500">Page <span className="font-bold text-slate-800">{data.pagination.page}</span> of <span className="font-bold text-slate-800">{totalPages}</span> Â· {total.toLocaleString()} students</p><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button><Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" /></Button></div></div>}</div>}</CardContent></Card>
-    <Modal isOpen={isModalOpen} onClose={() => { if (!createMutation.isPending && !updateMutation.isPending) closeModal(); }} title={editingStudent ? "Edit Student" : "Add Student"} size="lg"><form onSubmit={handleSubmit(onSubmit)} className="space-y-7"><div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center"><div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">{photoPreview ? <img src={photoPreview} alt="Student preview" className="h-full w-full object-cover" /> : <Camera className="h-8 w-8 text-slate-300" aria-hidden="true" />}</div><div className="min-w-0"><p className="font-bold text-slate-900">Student photo</p><p className="mt-1 text-sm text-slate-500">JPG, PNG or WebP Â· maximum 5 MB</p><div className="mt-3 flex flex-wrap items-center gap-2"><input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} className="block max-w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:file:bg-slate-800" />{photoFile && <Button type="button" variant="outline" size="sm" onClick={clearPhoto}><X className="mr-1 h-4 w-4" aria-hidden="true" />Remove</Button>}</div>{photoError && <p className="mt-2 text-sm font-medium text-red-600" role="alert">{photoError}</p>}</div></div></div><div><div className="mb-4"><h3 className="text-base font-extrabold tracking-tight text-slate-900">Basic information</h3><p className="mt-1 text-xs text-slate-500">The core identity fields used across the school.</p></div><div className="grid gap-4 md:grid-cols-2"><Input label="Admission No" {...register("admissionNo")} error={errors.admissionNo?.message} disabled={!!editingStudent} /><Input label="First Name" {...register("firstName")} error={errors.firstName?.message} /><Input label="Last Name" {...register("lastName")} error={errors.lastName?.message} /><Input label="Date of Birth" type="date" {...register("dob")} error={errors.dob?.message} /><Select label="Gender" {...register("gender")} error={errors.gender?.message}><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></Select><Input label="Blood Group" {...register("bloodGroup")} error={errors.bloodGroup?.message} /></div></div><div><div className="mb-4"><h3 className="text-base font-extrabold tracking-tight text-slate-900">Family & contact</h3><p className="mt-1 text-xs text-slate-500">Keep parent and guardian details ready for school communication.</p></div><div className="grid gap-4 md:grid-cols-2"><Input label="Father's Name" {...register("fatherName")} error={errors.fatherName?.message} /><Input label="Mother's Name" {...register("motherName")} error={errors.motherName?.message} /><Input label="Phone" type="tel" {...register("phone")} error={errors.phone?.message} /><Input label="Guardian Phone" type="tel" {...register("guardianPhone")} error={errors.guardianPhone?.message} /><Input label="Religion" {...register("religion")} error={errors.religion?.message} /><Input label="Category" {...register("category")} error={errors.category?.message} /><Input label="Address" {...register("address")} error={errors.address?.message} className="md:col-span-2" /></div></div><div><div className="mb-4"><h3 className="text-base font-extrabold tracking-tight text-slate-900">Admission & academic</h3><p className="mt-1 text-xs text-slate-500">Enrollment context and current student status.</p></div><div className="grid gap-4 md:grid-cols-2"><Input label="Admission Date" type="date" {...register("admissionDate")} error={errors.admissionDate?.message} /><Input label="Previous School" {...register("previousSchool")} error={errors.previousSchool?.message} /><Select label="Status" {...register("status")} error={errors.status?.message}><option value="active">Active</option><option value="left">Left</option><option value="graduated">Graduated</option><option value="transferred">Transferred</option></Select></div></div>{editingStudent && <StudentSiblingsPanel studentId={editingStudent._id} editable />}{submitError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700" role="alert">{submitError}</div>}<div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end"><Button type="button" variant="secondary" onClick={closeModal} disabled={createMutation.isPending || updateMutation.isPending}>Cancel</Button><Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>{createMutation.isPending || updateMutation.isPending ? "Saving…" : editingStudent ? "Save changes" : "Create student"}</Button></div></form></Modal>
-    <SelectionDock count={selectedKeys.length} onClear={() => setSelectedKeys([])} onCall={() => { const student = students.find((item: any) => item._id === selectedKeys[0]); if (student?.guardianPhone) window.location.href = `tel:${student.guardianPhone}`; }} onFees={() => navigate(`/fees?studentId=${selectedKeys[0] || ""}`)} onPrint={() => window.print()} onTransfer={() => selectedKeys[0] && navigate(`/students/${selectedKeys[0]}?transfer=1`)} />
-    <DetailDrawer open={Boolean(inspectedStudent)} title={inspectedStudent ? `${inspectedStudent.firstName} ${inspectedStudent.lastName}` : "Student"} eyebrow={inspectedStudent?.admissionNo || "Student inspector"} onClose={() => setInspectedStudent(null)}>
-      {inspectedStudent && <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center gap-3"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 font-bold text-primary-700">{inspectedStudent.firstName?.charAt(0)}{inspectedStudent.lastName?.charAt(0)}</div><div><p className="font-bold text-slate-900">{inspectedStudent.firstName} {inspectedStudent.lastName}</p><p className="text-xs text-slate-500">{inspectedStudent.classId?.displayName || "Class not assigned"} ? {inspectedStudent.sectionId?.name || "No section"}</p></div></div></div>
-        <dl className="grid gap-4 sm:grid-cols-2">{[["Phone", inspectedStudent.phone], ["Guardian", inspectedStudent.guardianPhone], ["Gender", inspectedStudent.gender], ["Status", inspectedStudent.status]].map(([label, value]) => <div key={label} className="rounded-xl border border-slate-200 p-3"><dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</dt><dd className="mt-1 text-sm font-semibold capitalize text-slate-800">{value || "?"}</dd></div>)}</dl>
-        <div className="grid gap-2 sm:grid-cols-2"><Button onClick={() => handleOpenEdit(inspectedStudent)}><Pencil className="mr-2 h-4 w-4" />Edit record</Button><Button variant="outline" onClick={() => navigate(`/students/${inspectedStudent._id}`)}>Open full profile</Button></div>
-        <div className="rounded-2xl border border-slate-200 p-4"><p className="text-sm font-bold text-slate-900">Quick actions</p><div className="mt-3 grid gap-2 sm:grid-cols-2"><Button variant="outline" size="sm" disabled={!inspectedStudent.guardianPhone} onClick={() => inspectedStudent.guardianPhone && (window.location.href = `tel:${inspectedStudent.guardianPhone}`)}><Phone className="mr-2 h-4 w-4" />Call guardian</Button><Button variant="outline" size="sm" onClick={() => navigate(`/fees?studentId=${inspectedStudent._id}`)}><Receipt className="mr-2 h-4 w-4" />Fee history</Button><Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print ID</Button><Button variant="outline" size="sm" onClick={() => navigate(`/students/${inspectedStudent._id}?transfer=1`)}><RotateCcw className="mr-2 h-4 w-4" />Transfer workflow</Button></div></div>
-      </div>}
-    </DetailDrawer>
-    {context && <ContextMenu x={context.x} y={context.y} items={contextItems(context.student)} onClose={closeContext} />}
-  </div>;
+    {
+      key: "student",
+      header: "Student",
+      render: (s: any) => (
+        <div className="flex min-w-[220px] items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-slate-500">
+            <UserRound className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-bold text-slate-900">{s.firstName} {s.lastName}</p>
+            <p className="mt-0.5 font-mono text-[11px] font-medium text-slate-400">{s.admissionNo}</p>
+          </div>
+        </div>
+      ),
+    },
+    { key: "classId", header: "Class", render: (s: any) => <span className="font-medium text-slate-700">{s.classId?.displayName || "Unassigned"}</span> },
+    { key: "sectionId", header: "Section", render: (s: any) => <span className="font-medium text-slate-600">{s.sectionId?.name || "Unassigned"}</span> },
+    { key: "gender", header: "Gender", render: (s: any) => <span className="capitalize text-slate-600">{s.gender || "—"}</span> },
+    { key: "phone", header: "Phone", render: (s: any) => <span className="whitespace-nowrap text-slate-600">{s.phone || "—"}</span> },
+    { key: "status", header: "Status", render: (s: any) => <Badge variant={statusBadges[s.status] || "default"} className={statusColors[s.status]}>{s.status || "—"}</Badge> },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (s: any) => (
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" className="text-slate-500 hover:text-primary-600 hover:bg-primary-50" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setInspectedStudent(s); }}>
+            <Eye className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Inspect
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleOpenEdit(s); }}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Edit
+          </Button>
+          <Button type="button" variant="danger" size="sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); if (window.confirm(`Delete ${s.firstName} ${s.lastName}?`)) deleteStudent(s._id); }}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Delete
+          </Button>
+        </div>
+      ),
+    },
+  ], []);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100/50 relative overflow-x-hidden pb-12">
+      {/* Background orbs */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <GlowOrb color="primary" size="xl" className="top-[-5%] left-[-10%] animate-pulse-slow" />
+        <GlowOrb color="violet" size="lg" className="bottom-[-10%] right-[-10%] animate-pulse-slow" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Hero Header */}
+        <GlassPanel className="mb-8">
+          <div className="p-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-800 text-white shadow-lg shadow-primary-600/30">
+                    <UserRound className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <h1 className="text-3xl font-black text-slate-900 tracking-tight">Student Directory</h1>
+                </div>
+                <p className="text-slate-500 text-sm leading-relaxed">Manage, inspect, and maintain student records with precision and care.</p>
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Directory Size</p>
+                  <p className="text-2xl font-black text-slate-900 tracking-tight">{total}</p>
+                </div>
+                <Button onClick={handleOpenCreate} className="bg-primary-600 text-white shadow-lg shadow-primary-600/25 hover:bg-primary-700 hover:shadow-primary-600/40 px-6 py-3 text-sm font-semibold rounded-2xl transition-all">
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add Student
+                </Button>
+              </div>
+            </div>
+          </div>
+        </GlassPanel>
+
+        {/* Stats Bar */}
+        <div className="grid gap-4 sm:grid-cols-4 mb-8">
+          {[["Active", "text-emerald-600", "bg-emerald-50"], ["Left", "text-rose-600", "bg-rose-50"], ["Graduated", "text-blue-600", "bg-blue-50"], ["Transferred", "text-amber-600", "bg-amber-50"]].map(([label], i) => (
+            <PremiumCard key={i} className="p-5">
+              <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 mb-1">{label}</p>
+              <p className="text-2xl font-black text-slate-900">{isLoading ? "—" : students.filter(s => s.status === label.toLowerCase()).length}</p>
+            </PremiumCard>
+          ))}
+        </div>
+
+        {/* Student Table Card */}
+        <PremiumCard hover className="overflow-hidden">
+          <PremiumCardHeader className="border-b border-slate-100/60 bg-white/80 pb-5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="grid min-w-0 flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="relative min-w-0">
+                  <Input aria-label="Search students" placeholder="Search by name, admission number or phone…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} leftIcon={<Search className="h-4 w-4" />} className="w-full" />
+                </div>
+                <Select aria-label="Filter by student status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="w-full md:w-48 md:shrink-0">
+                  <option value="">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="left">Left</option>
+                  <option value="graduated">Graduated</option>
+                  <option value="transferred">Transferred</option>
+                </Select>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => refetch()} disabled={isLoading} className="text-slate-600 hover:text-primary-600 hover:border-primary-200">
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" /> Refresh
+                </Button>
+                <Button variant="outline"><Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export</Button>
+                <Button variant="outline"><Upload className="mr-2 h-4 w-4" aria-hidden="true" /> Import</Button>
+              </div>
+            </div>
+          </PremiumCardHeader>
+          <PremiumCardContent className="p-0">
+            {isError ? (
+              <div className="px-6 py-16 text-center">
+                <div className="flex justify-center mb-4">
+                  <RotateCcw className="h-12 w-12 text-red-500 animate-spin" aria-hidden="true" />
+                </div>
+                <p className="mt-3 font-medium text-slate-900">Unable to load students</p>
+                <p className="mt-1 text-sm text-slate-500">Please check your permissions or connection and try again.</p>
+                <Button className="mt-6" variant="outline" onClick={() => refetch()}>Try again</Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table data={students} columns={columns as any} keyExtractor={(s: any) => s._id} emptyMessage="No students found" isLoading={isLoading} />
+              </div>
+            )}
+            {(total > 0 && !isLoading) && (
+              <PremiumCardFooter className="border-t border-slate-100/60 bg-white/80">
+                <div className="flex items-center justify-between px-0">
+                  <span className="text-sm text-slate-600">Page {page} of {totalPages}</span>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>Previous</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}>Next</Button>
+                  </div>
+                </div>
+              </PremiumCardFooter>
+            )}
+          </PremiumCardContent>
+        </PremiumCard>
+
+        {/* Add Student Modal */}
+        <Modal isOpen={isModalOpen} onClose={() => { if (!isCreating && !isUpdating) closeModal(); }} title={editingStudent ? "Edit Student" : "Add New Student"} size="lg">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-7">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  {photoPreview ? <img src={photoPreview} alt="Student preview" className="h-full w-full object-cover" /> : <UserRound className="h-10 w-10 text-slate-300" aria-hidden="true" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-900">Student Photo</p>
+                  <p className="mt-1 text-sm text-slate-500">JPG, PNG or WebP · maximum 5 MB</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} className="block max-w-full text-xs text-slate-600" />
+                    {photoFile && <Button type="button" variant="outline" size="sm" onClick={clearPhoto}><span>×</span> Remove</Button>}
+                  </div>
+                  {photoError && <p className="mt-2 text-sm font-medium text-red-600" role="alert">{photoError}</p>}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-base font-extrabold tracking-tight text-slate-900 mb-3">Basic Information</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input label="Admission No" {...register("admissionNo")} error={errors.admissionNo?.message} disabled={!!editingStudent} />
+                  <Input label="First Name" {...register("firstName")} error={errors.firstName?.message} />
+                  <Input label="Last Name" {...register("lastName")} error={errors.lastName?.message} />
+                  <Input type="date" label="Date of Birth" {...register("dob")} error={errors.dob?.message} />
+                  <Select label="Gender" {...register("gender")} error={errors.gender?.message}>
+                    <option value={Gender.MALE}>Male</option>
+                    <option value={Gender.FEMALE}>Female</option>
+                    <option value={Gender.OTHER}>Other</option>
+                  </Select>
+                  <Select label="Blood Group" {...register("bloodGroup")} error={errors.bloodGroup?.message}>
+                    <option value="">None</option>
+                    <option value={BloodGroup.A_POS}>A+</option>
+                    <option value={BloodGroup.A_NEG}>A-</option>
+                    <option value={BloodGroup.B_POS}>B+</option>
+                    <option value={BloodGroup.B_NEG}>B-</option>
+                    <option value={BloodGroup.AB_POS}>AB+</option>
+                    <option value={BloodGroup.AB_NEG}>AB-</option>
+                    <option value={BloodGroup.O_POS}>O+</option>
+                    <option value={BloodGroup.O_NEG}>O-</option>
+                  </Select>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input label="Father's Name" {...register("fatherName")} error={errors.fatherName?.message} />
+                  <Input label="Mother's Name" {...register("motherName")} error={errors.motherName?.message} />
+                  <Input label="Phone" {...register("phone")} error={errors.phone?.message} />
+                  <Input label="Address" {...register("address")} error={errors.address?.message} />
+                  <Input label="Guardian Phone" {...register("guardianPhone")} error={errors.guardianPhone?.message} />
+                  <Input label="Previous School" {...register("previousSchool")} error={errors.previousSchool?.message} />
+                  <Select label="Class" {...register("classId")} error={errors.classId?.message}>
+                    <option value="">Unassigned</option>
+                  </Select>
+                  <Select label="Section" {...register("sectionId")} error={errors.sectionId?.message}>
+                    <option value="">Unassigned</option>
+                  </Select>
+                  <Select label="Status" {...register("status")} error={errors.status?.message}>
+                    <option value={StudentStatus.ACTIVE}>Active</option>
+                    <option value={StudentStatus.LEFT}>Left</option>
+                    <option value={StudentStatus.GRADUATED}>Graduated</option>
+                    <option value={StudentStatus.TRANSFERRED}>Transferred</option>
+                  </Select>
+                  <Input type="date" label="Admission Date" {...register("admissionDate")} error={errors.admissionDate?.message} />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 pt-6">
+              <Button type="button" variant="outline" onClick={closeModal} disabled={isCreating || isUpdating}>Cancel</Button>
+              <Button type="submit" disabled={isCreating || isUpdating} className="bg-primary-600 text-white shadow-lg shadow-primary-600/25 hover:bg-primary-700 hover:shadow-primary-600/40">
+                {isCreating || isUpdating ? "Saving…" : editingStudent ? "Update Student" : "Add Student"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Student Inspect Modal */}
+        {inspectedStudent && (
+          <Modal isOpen={true} onClose={() => setInspectedStudent(null)} title={`${inspectedStudent.firstName} ${inspectedStudent.lastName}`} size="lg">
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 font-extrabold text-xl">
+                    {inspectedStudent.firstName?.charAt(0)}{inspectedStudent.lastName?.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-slate-900">{inspectedStudent.firstName} {inspectedStudent.lastName}</p>
+                    <p className="text-sm text-slate-500">{inspectedStudent.classId?.displayName || "Class not assigned"} · {inspectedStudent.sectionId?.name || "No section"}</p>
+                  </div>
+                  <Badge variant="secondary" className={statusColors[inspectedStudent.status]}>{inspectedStudent.status}</Badge>
+                </div>
+              </div>
+              <dl className="grid gap-4 sm:grid-cols-2">
+                {[["Admission No", inspectedStudent.admissionNo], ["Phone", inspectedStudent.phone], ["Guardian", inspectedStudent.guardianPhone], ["Gender", inspectedStudent.gender], ["Status", inspectedStudent.status], ["Blood Group", inspectedStudent.bloodGroup]].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-slate-200 p-4">
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</dt>
+                    <dd className="mt-1 text-sm font-semibold capitalize text-slate-800">{value || "—"}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="rounded-2xl border border-slate-200 bg-white p-6">
+                <p className="text-sm font-bold text-slate-900 mb-4">Quick Actions</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Button variant="outline" size="sm" disabled={!inspectedStudent.guardianPhone} onClick={() => inspectedStudent.guardianPhone && (window.location.href = `tel:${inspectedStudent.guardianPhone}`)}>
+                    <Phone className="mr-2 h-4 w-4" />Call Guardian
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setInspectedStudent(null)}>
+                    <Receipt className="mr-2 h-4 w-4" />Fee History
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.print()}>
+                    <Printer className="mr-2 h-4 w-4" />Print ID Card
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.confirm("Transfer student?") && null}>
+                    <RotateCcw className="mr-2 h-4 w-4" />Transfer
+                  </Button>
+                </div>
+              </div>
+              <div className="flex justify-end pt-4">
+                <Button variant="outline" size="sm" onClick={() => handleOpenEdit(inspectedStudent)}>Edit Record</Button>
+                <Button variant="outline" size="sm" onClick={() => setInspectedStudent(null)}>Close</Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+      </div>
+    </div>
+  );
 }

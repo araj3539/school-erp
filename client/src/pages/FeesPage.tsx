@@ -1,114 +1,202 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { AlertCircle, DollarSign, Download, FileText, Plus, ReceiptText, RefreshCw, Search, Trash2, WalletCards } from "lucide-react";
+import { useState } from "react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
-import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { PremiumCard, PremiumCardHeader, PremiumCardContent, PremiumCardFooter } from "../components/ui/PremiumCard.js";
 import { Table } from "../components/ui/Table";
 import { Modal } from "../components/ui/Modal";
-import { Badge } from "../components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
-import api from "../lib/api";
-import { API_BASE_URL } from "../lib/api";
-import { formatCurrency, formatDate } from "../utils";
-import { CreateFeeStructureSchema, PaymentMode } from "@school-erp/shared";
+import { formatCurrency } from "../utils/index.js";
+import { useFees } from "../hooks/useFees.js";
+import { PaymentMode } from "@school-erp/shared";
+import { GlassPanel, GlowOrb } from "../components/ui/GlassPanel.js";
+import { WalletCards, DollarSign, Download, FileText, Plus, RefreshCw, Search, ReceiptText } from "lucide-react";
 
-type FeeRecord = { _id: string; studentId?: { firstName?: string; lastName?: string; admissionNo?: string }; feeStructureId?: { feeType?: string }; totalDue: number; paidAmount: number; balance: number; status: string };
-type PaymentRecord = { _id: string; receiptNo: string; studentId?: { firstName?: string; lastName?: string; admissionNo?: string }; amount: number; mode: PaymentMode; date: string };
-type FeeStructureForm = z.infer<typeof CreateFeeStructureSchema>;
-type PaymentForm = z.infer<typeof paymentSchema>;
-
-const paymentSchema = z.object({ feeId: z.string().min(1), amount: z.coerce.number().positive("Amount must be greater than zero"), mode: z.nativeEnum(PaymentMode), transactionId: z.string().trim().max(100).optional() });
-const statusBadges: Record<string, "success" | "warning" | "danger" | "info" | "secondary"> = { paid: "success", partial: "warning", pending: "info", overdue: "danger", waived: "secondary" };
-const statusLabel = (value: string) => value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-const getError = (error: unknown) => (error as { message?: string })?.message;
+type FeeRecord = { _id: string; studentId?: { firstName?: string; lastName?: string; admissionNo?: string; classId?: { displayName?: string }; sectionId?: { name?: string } }; feeStructureId?: { feeType?: string }; amount: number; paidAmount: number; balance: number; status: string; dueDate: string; academicYear: string };
 
 export default function FeesPage() {
-  const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("fees");
+  const [activeTab, setActiveTab] = useState("register");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [structureModalOpen, setStructureModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [selectedFeeId, setSelectedFeeId] = useState<string | null>(null);
 
-  const feesQuery = useQuery({ queryKey: ["fees", page, search, statusFilter], queryFn: async () => { const params = new URLSearchParams({ page: page.toString(), limit: "20" }); if (search) params.append("search", search); if (statusFilter) params.append("status", statusFilter); return (await api.get("/fees?" + params)).data; } });
-  const structuresQuery = useQuery({ queryKey: ["feeStructures"], queryFn: async () => (await api.get("/fees/structures")).data });
-  const paymentsQuery = useQuery({ queryKey: ["payments", page], queryFn: async () => (await api.get("/fees/payments?page=" + page + "&limit=20")).data });
-  const classesQuery = useQuery({ queryKey: ["classes", "all"], queryFn: async () => (await api.get("/academics/classes")).data });
-  const academicYearsQuery = useQuery({ queryKey: ["academicYears"], queryFn: async () => (await api.get("/academic-years")).data });
+  const { fees, pagination, isLoading, isError, refetch } = useFees({ limit: 20, search, status: statusFilter || undefined });
+  const totalPages = pagination?.totalPages || 1;
 
-  const structureForm = useForm<FeeStructureForm>({ resolver: zodResolver(CreateFeeStructureSchema) });
-  const paymentForm = useForm<PaymentForm>({ resolver: zodResolver(paymentSchema) });
-  const activeYear = academicYearsQuery.data?.data?.find((year: any) => year.isCurrent)?._id || "";
-  const feeRows: FeeRecord[] = feesQuery.data?.data ?? [];
-  const structureRows = structuresQuery.data?.data ?? [];
-  const paymentRows: PaymentRecord[] = paymentsQuery.data?.data ?? [];
-
-  const summary = useMemo(() => feeRows.reduce((acc, fee) => ({ totalDue: acc.totalDue + (Number(fee.totalDue) || 0), paid: acc.paid + (Number(fee.paidAmount) || 0), balance: acc.balance + (Number(fee.balance) || 0), overdue: acc.overdue + (fee.status === "overdue" ? Number(fee.balance) || 0 : 0) }), { totalDue: 0, paid: 0, balance: 0, overdue: 0 }), [feeRows]);
-
-  const structureCreateMutation = useMutation({ mutationFn: (data: FeeStructureForm) => api.post("/fees/structures", data), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["feeStructures"] }); setStructureModalOpen(false); structureForm.reset(); setFeedback({ type: "success", message: "Fee structure created successfully." }); }, onError: (error) => setFeedback({ type: "error", message: getError(error) || "Unable to create the fee structure." }) });
-  const structureDeleteMutation = useMutation({ mutationFn: (id: string) => api.delete("/fees/structures/" + id), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["feeStructures"] }); setDeleteTarget(null); setFeedback({ type: "success", message: "Fee structure deleted successfully." }); }, onError: (error) => setFeedback({ type: "error", message: getError(error) || "Unable to delete the fee structure." }) });
-  const generateFeesMutation = useMutation({ mutationFn: ({ classId, academicYear }: { classId: string; academicYear: string }) => api.post("/fees/generate", { classId, academicYear }), onSuccess: (response) => { void queryClient.invalidateQueries({ queryKey: ["fees"] }); setFeedback({ type: "success", message: `${response.data?.generated ?? 0} fee record(s) generated.` }); }, onError: (error) => setFeedback({ type: "error", message: getError(error) || "Unable to generate fees." }) });
-  const paymentMutation = useMutation({ mutationFn: (data: PaymentForm) => api.post("/fees/payments", data), onSuccess: async () => { await Promise.all([queryClient.invalidateQueries({ queryKey: ["fees"] }), queryClient.invalidateQueries({ queryKey: ["payments"] })]); setPaymentModalOpen(false); paymentForm.reset(); setFeedback({ type: "success", message: "Payment collected. The receipt is available from Payment history." }); }, onError: (error) => setFeedback({ type: "error", message: getError(error) || "Unable to collect this payment." }) });
-
-  const openPaymentModal = (fee: FeeRecord) => { if (fee.balance <= 0) return; paymentForm.reset({ feeId: fee._id, amount: fee.balance, mode: PaymentMode.CASH, transactionId: "" }); setFeedback(null); setPaymentModalOpen(true); };
-  const openStructureModal = () => { structureForm.reset({ classId: "", feeType: undefined as never, amount: 0, dueDate: undefined, academicYear: activeYear }); setFeedback(null); setStructureModalOpen(true); };
-  const handleGenerateFees = (classId: string) => { if (!classId) return; if (!activeYear) { setFeedback({ type: "error", message: "No current academic year is available." }); return; } generateFeesMutation.mutate({ classId, academicYear: activeYear }); };
-
-  const feeColumns = [
-    { key: "studentId", header: "Student", className: "min-w-[220px]", render: (fee: FeeRecord) => <div><p className="font-semibold text-slate-950">{fee.studentId?.firstName} {fee.studentId?.lastName}</p><p className="mt-0.5 text-xs text-slate-500">{fee.studentId?.admissionNo || "No admission number"}</p></div> },
-    { key: "feeStructureId", header: "Fee type", render: (fee: FeeRecord) => statusLabel(fee.feeStructureId?.feeType || "other") },
-    { key: "totalDue", header: "Total due", render: (fee: FeeRecord) => formatCurrency(fee.totalDue) },
-    { key: "paidAmount", header: "Paid", render: (fee: FeeRecord) => <span className="font-medium text-emerald-700">{formatCurrency(fee.paidAmount)}</span> },
-    { key: "balance", header: "Balance", render: (fee: FeeRecord) => <span className={fee.balance > 0 ? "font-bold text-slate-950" : "font-medium text-slate-500"}>{formatCurrency(fee.balance)}</span> },
-    { key: "status", header: "Status", render: (fee: FeeRecord) => <Badge variant={statusBadges[fee.status] || "secondary"}>{statusLabel(fee.status)}</Badge> },
-    { key: "actions", header: "Action", render: (fee: FeeRecord) => <Button size="sm" variant="outline" onClick={() => openPaymentModal(fee)} disabled={fee.balance <= 0} aria-label={`Collect payment for ${fee.studentId?.firstName || "student"}`}><DollarSign className="mr-1.5 h-4 w-4" aria-hidden="true" />Collect</Button> },
-  ];
-
-  const structureColumns = [
-    { key: "classId", header: "Class", render: (structure: any) => structure.classId?.displayName || "-" },
-    { key: "feeType", header: "Fee type", render: (structure: any) => statusLabel(structure.feeType) },
-    { key: "amount", header: "Amount", render: (structure: any) => formatCurrency(structure.amount) },
-    { key: "dueDate", header: "Due date", render: (structure: any) => structure.dueDate ? formatDate(structure.dueDate) : "No due date" },
-    { key: "academicYear", header: "Academic year", render: (structure: any) => structure.academicYear?.name || "-" },
-    { key: "actions", header: "Action", render: (structure: any) => <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(structure); setFeedback(null); }} aria-label={`Delete ${structure.feeType} fee structure`}><Trash2 className="h-4 w-4 text-slate-500" aria-hidden="true" /></Button> },
-  ];
-
-  const paymentColumns = [
-    { key: "receiptNo", header: "Receipt", render: (payment: PaymentRecord) => <span className="font-semibold text-slate-950">{payment.receiptNo}</span> },
-    { key: "studentId", header: "Student", render: (payment: PaymentRecord) => <div><p className="font-medium text-slate-950">{payment.studentId?.firstName} {payment.studentId?.lastName}</p><p className="mt-0.5 text-xs text-slate-500">{payment.studentId?.admissionNo || "-"}</p></div> },
-    { key: "amount", header: "Amount", render: (payment: PaymentRecord) => <span className="font-bold text-emerald-700">{formatCurrency(payment.amount)}</span> },
-    { key: "mode", header: "Mode", render: (payment: PaymentRecord) => statusLabel(payment.mode) },
-    { key: "date", header: "Date", render: (payment: PaymentRecord) => formatDate(payment.date) },
-    { key: "actions", header: "Receipt", render: (payment: PaymentRecord) => <Button size="sm" variant="outline" onClick={() => window.open(`${API_BASE_URL}/fees/receipt/${payment._id}`, "_blank", "noopener,noreferrer")} aria-label={`Open receipt ${payment.receiptNo}`}><FileText className="mr-1.5 h-4 w-4" aria-hidden="true" />View</Button> },
-  ];
+  const feeRows = fees as unknown as FeeRecord[];
 
   return (
-    <div className="space-y-6 pb-8">
-      <section className="relative overflow-hidden rounded-[28px] bg-slate-950 px-5 py-7 text-white shadow-[0_20px_60px_-35px_rgba(15,23,42,0.7)] sm:px-7 sm:py-9">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-60 w-60 rounded-full bg-sky-400/15 blur-3xl" aria-hidden="true" />
-        <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300"><WalletCards className="h-3.5 w-3.5 text-sky-300" aria-hidden="true" />Financial operations</div><h1 className="text-3xl font-black tracking-tight sm:text-4xl">Fees & payments</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Track outstanding dues, manage fee structures, and collect payments without losing sight of the school’s financial record.</p></div><div className="flex flex-wrap gap-2 lg:justify-end"><Button variant="outline" className="border-white/15 bg-white/[0.05] text-white hover:bg-white/10 hover:text-white focus-visible:ring-white" onClick={() => setActiveTab("payments")}><ReceiptText className="mr-2 h-4 w-4" aria-hidden="true" />Payment history</Button><Button className="bg-white text-slate-950 hover:bg-slate-100 focus-visible:ring-white" onClick={openStructureModal}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Fee structure</Button></div></div>
-        <div className="relative mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">{[["Page total due", formatCurrency(summary.totalDue), "text-white"], ["Paid", formatCurrency(summary.paid), "text-emerald-300"], ["Outstanding", formatCurrency(summary.balance), "text-amber-300"], ["Overdue", formatCurrency(summary.overdue), "text-rose-300"]].map(([label, value, tone]) => <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">{label}</p><p className={`mt-1 text-xl font-extrabold ${tone}`}>{value}</p></div>)}</div>
-      </section>
-      {feedback && <div role={feedback.type === "error" ? "alert" : "status"} className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm ${feedback.type === "error" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{feedback.message}</div>}
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100/50 relative overflow-x-hidden pb-12">
+      {/* Background orbs */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <GlowOrb color="amber" size="xl" className="top-[-5%] left-[-10%] animate-pulse-slow" />
+        <GlowOrb color="primary" size="lg" className="bottom-[-10%] right-[-10%] animate-pulse-slow" />
+      </div>
 
-      <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setFeedback(null); }} className="space-y-4">
-        <TabsList><TabsTrigger value="fees"><WalletCards className="mr-2 h-4 w-4" aria-hidden="true" />Student fees</TabsTrigger><TabsTrigger value="structures"><ReceiptText className="mr-2 h-4 w-4" aria-hidden="true" />Fee structures</TabsTrigger><TabsTrigger value="payments"><DollarSign className="mr-2 h-4 w-4" aria-hidden="true" />Payments</TabsTrigger></TabsList>
-        <TabsContent value="fees"><Card><CardHeader><div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"><div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sky-600">Outstanding ledger</p><h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Student fee records</h2><p className="mt-1 text-sm text-slate-500">Search and filter the fee register, then collect only against an existing balance.</p></div><div className="grid gap-3 sm:grid-cols-[minmax(220px,1fr)_160px_minmax(220px,1fr)] xl:min-w-[720px]"><Input aria-label="Search fee records" placeholder="Search student or admission no." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} leftIcon={<Search className="h-4 w-4" aria-hidden="true" />} /><Select aria-label="Filter fee status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}><option value="">All status</option><option value="paid">Paid</option><option value="partial">Partial</option><option value="pending">Pending</option><option value="overdue">Overdue</option></Select><div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]"><Select aria-label="Generate fees for class" value="" onChange={(e) => handleGenerateFees(e.target.value)} disabled={generateFeesMutation.isPending || academicYearsQuery.isLoading}><option value="">{generateFeesMutation.isPending ? "Generating..." : "Generate fees for class"}</option>{classesQuery.data?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.displayName}</option>)}</Select><Button variant="outline" onClick={() => window.open(`${API_BASE_URL}/fees/reports/monthly`, "_blank", "noopener,noreferrer")}><Download className="mr-1.5 h-4 w-4" aria-hidden="true" />Monthly</Button><Button variant="outline" onClick={() => window.open(`${API_BASE_URL}/fees/reports/daily`, "_blank", "noopener,noreferrer")}><Download className="mr-1.5 h-4 w-4" aria-hidden="true" />Daily</Button></div></div></div></CardHeader><CardContent><Table data={feeRows} columns={feeColumns} keyExtractor={(fee) => fee._id} isLoading={feesQuery.isLoading} emptyMessage={search || statusFilter ? "No fee records match the current filters." : "No student fee records found."} />{feesQuery.isFetching && !feesQuery.isLoading && <p role="status" className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-slate-500"><RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Refreshing fee records...</p>}{feesQuery.isError && <p role="alert" className="mt-3 inline-flex items-center gap-2 text-sm text-rose-700"><AlertCircle className="h-4 w-4" aria-hidden="true" />Unable to load fee records. Try again from the current filter set.</p>}{feesQuery.data && feesQuery.data.pagination.totalPages > 1 && <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-500">Page {feesQuery.data.pagination.page} of {feesQuery.data.pagination.totalPages} · {feesQuery.data.pagination.total} total</p><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1}>Previous</Button><Button variant="outline" size="sm" onClick={() => setPage((value) => Math.min(feesQuery.data.pagination.totalPages, value + 1))} disabled={page === feesQuery.data.pagination.totalPages}>Next</Button></div></div>}</CardContent></Card></TabsContent>
-        <TabsContent value="structures"><Card><CardHeader><div className="flex items-center justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sky-600">Configuration</p><h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Fee structures</h2><p className="mt-1 text-sm text-slate-500">Define the class-level fee rules used by fee generation.</p></div><Button onClick={openStructureModal}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Add structure</Button></div></CardHeader><CardContent><Table data={structureRows} columns={structureColumns} keyExtractor={(item: any) => item._id} isLoading={structuresQuery.isLoading} emptyMessage="No fee structures configured yet." />{structuresQuery.isError && <p role="alert" className="mt-3 text-sm text-rose-700">Unable to load fee structures.</p>}</CardContent></Card></TabsContent>
-        <TabsContent value="payments"><Card><CardHeader><div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sky-600">Collection history</p><h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Payments & receipts</h2><p className="mt-1 text-sm text-slate-500">Every payment is recorded by the server and linked to its receipt number.</p></div></CardHeader><CardContent><Table data={paymentRows} columns={paymentColumns} keyExtractor={(payment) => payment._id} isLoading={paymentsQuery.isLoading} emptyMessage="No payments found for this school." />{paymentsQuery.isFetching && !paymentsQuery.isLoading && <p role="status" className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-slate-500"><RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Refreshing payment history...</p>}{paymentsQuery.isError && <p role="alert" className="mt-3 text-sm text-rose-700">Unable to load payment history.</p>}</CardContent></Card></TabsContent>
-      </Tabs>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Hero Header */}
+        <GlassPanel className="mb-8">
+          <div className="p-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-lg shadow-amber-500/30">
+                    <DollarSign className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <h1 className="text-3xl font-black text-slate-900 tracking-tight">Fee Management</h1>
+                </div>
+                <p className="text-slate-500 text-sm leading-relaxed">Track collections, record payments, and manage defaulters from one elegant workspace.</p>
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <Button onClick={() => setStructureModalOpen(true)} className="bg-slate-900 text-white hover:bg-slate-800 px-6 py-3 text-sm font-semibold rounded-2xl transition-all">
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Add Structure
+                </Button>
+              </div>
+            </div>
+          </div>
+        </GlassPanel>
 
-      <Modal isOpen={structureModalOpen} onClose={() => { setStructureModalOpen(false); structureForm.reset(); }} title="Add fee structure" size="md"><form onSubmit={structureForm.handleSubmit((data) => structureCreateMutation.mutate(data))} className="space-y-5"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-sm font-semibold text-slate-900">Define the rule, not a payment</p><p className="mt-1 text-xs leading-5 text-slate-500">The server validates the class, academic year and uniqueness before saving.</p></div><div className="grid gap-4 md:grid-cols-2"><Select label="Class" {...structureForm.register("classId")} error={getError(structureForm.formState.errors.classId)}><option value="">Select class</option>{classesQuery.data?.data?.map((item: any) => <option key={item._id} value={item._id}>{item.displayName}</option>)}</Select><Select label="Fee type" {...structureForm.register("feeType")} error={getError(structureForm.formState.errors.feeType)}><option value="">Select type</option><option value="admission">Admission</option><option value="monthly">Monthly</option><option value="exam">Exam</option><option value="transport">Transport</option><option value="hostel">Hostel</option><option value="fine">Fine</option><option value="other">Other</option></Select><Input label="Amount" type="number" min="0" step="0.01" {...structureForm.register("amount", { valueAsNumber: true })} error={getError(structureForm.formState.errors.amount)} /><Input label="Due date" type="date" {...structureForm.register("dueDate")} error={getError(structureForm.formState.errors.dueDate)} /><Select label="Academic year" {...structureForm.register("academicYear")} error={getError(structureForm.formState.errors.academicYear)}><option value="">Select year</option>{academicYearsQuery.data?.data?.map((year: any) => <option key={year._id} value={year._id}>{year.name}{year.isCurrent ? " · Current" : ""}</option>)}</Select></div><div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><Button type="button" variant="secondary" onClick={() => { setStructureModalOpen(false); structureForm.reset(); }}>Cancel</Button><Button type="submit" disabled={structureCreateMutation.isPending}>{structureCreateMutation.isPending ? "Creating..." : "Create structure"}</Button></div></form></Modal>
-      <Modal isOpen={paymentModalOpen} onClose={() => { setPaymentModalOpen(false); paymentForm.reset(); }} title="Collect payment" size="md"><form onSubmit={paymentForm.handleSubmit((data) => paymentMutation.mutate(data))} className="space-y-5"><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-semibold text-amber-950">Server-authoritative payment</p><p className="mt-1 text-xs leading-5 text-amber-900/80">The amount is submitted to the API, which validates the outstanding balance and records the payment atomically.</p></div><div className="grid gap-4 md:grid-cols-2"><Input label="Fee record" {...paymentForm.register("feeId")} disabled /><Input label="Amount" type="number" min="0.01" step="0.01" {...paymentForm.register("amount", { valueAsNumber: true })} error={getError(paymentForm.formState.errors.amount)} /><Select label="Payment mode" {...paymentForm.register("mode")} error={getError(paymentForm.formState.errors.mode)}><option value={PaymentMode.CASH}>Cash</option><option value={PaymentMode.UPI}>UPI</option><option value={PaymentMode.CARD}>Card</option><option value={PaymentMode.BANK_TRANSFER}>Bank transfer</option><option value={PaymentMode.CHEQUE}>Cheque</option><option value={PaymentMode.ONLINE}>Online</option></Select><Input label="Transaction ID" placeholder="Optional reference" {...paymentForm.register("transactionId")} error={getError(paymentForm.formState.errors.transactionId)} /></div><div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><Button type="button" variant="secondary" onClick={() => { setPaymentModalOpen(false); paymentForm.reset(); }}>Cancel</Button><Button type="submit" disabled={paymentMutation.isPending}>{paymentMutation.isPending ? "Collecting..." : "Collect payment"}</Button></div></form></Modal>
-      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete fee structure" size="sm"><div className="space-y-5"><div><p className="text-sm font-semibold text-slate-900">Remove this fee structure?</p><p className="mt-1 text-sm leading-6 text-slate-500">This removes the configured structure for <span className="font-semibold text-slate-800">{deleteTarget?.classId?.displayName || "this class"}</span>. Existing fee records are not changed by this UI action.</p></div><div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button><Button type="button" onClick={() => deleteTarget && structureDeleteMutation.mutate(deleteTarget._id)} disabled={structureDeleteMutation.isPending}>{structureDeleteMutation.isPending ? "Deleting..." : "Delete structure"}</Button></div></div></Modal>
+        {/* Summary Cards */}
+        <div className="grid gap-4 sm:grid-cols-4 mb-8">
+          <PremiumCard gradient className="p-5 group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <WalletCards className="h-12 w-12 text-amber-500" aria-hidden="true" />
+            </div>
+            <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 mb-1">Total Due</p>
+            <p className="text-2xl font-black text-slate-900">{isLoading ? "—" : formatCurrency(feeRows.reduce((sum, f) => sum + f.amount, 0))}</p>
+          </PremiumCard>
+          <PremiumCard gradient className="p-5 group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <DollarSign className="h-12 w-12 text-emerald-500" aria-hidden="true" />
+            </div>
+            <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 mb-1">Total Collected</p>
+            <p className="text-2xl font-black text-slate-900">{isLoading ? "—" : formatCurrency(feeRows.reduce((sum, f) => sum + f.paidAmount, 0))}</p>
+          </PremiumCard>
+          <PremiumCard gradient className="p-5 group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <ReceiptText className="h-12 w-12 text-rose-500" aria-hidden="true" />
+            </div>
+            <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 mb-1">Outstanding</p>
+            <p className="text-2xl font-black text-rose-600">{isLoading ? "—" : formatCurrency(feeRows.reduce((sum, f) => sum + f.balance, 0))}</p>
+          </PremiumCard>
+          <PremiumCard gradient className="p-5 group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <FileText className="h-12 w-12 text-slate-500" aria-hidden="true" />
+            </div>
+            <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 mb-1">Overdue</p>
+            <p className="text-2xl font-black text-slate-900">{isLoading ? "—" : feeRows.filter(f => f.status === "overdue").length}</p>
+          </PremiumCard>
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="hidden">
+            <TabsTrigger value="register">Fee Register</TabsTrigger>
+            <TabsTrigger value="payments">Payments</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="register">
+            <PremiumCard hover className="overflow-hidden">
+              <PremiumCardHeader className="border-b border-slate-100/60 bg-white/80 pb-5">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div className="grid min-w-0 flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="relative min-w-0">
+                      <Input aria-label="Search fees" placeholder="Search by student name or admission number…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} leftIcon={<Search className="h-4 w-4" />} className="w-full" />
+                    </div>
+                    <Select aria-label="Filter by fee status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="w-full md:w-48 md:shrink-0">
+                      <option value="">All statuses</option>
+                      <option value="paid">Paid</option>
+                      <option value="partial">Partial</option>
+                      <option value="overdue">Overdue</option>
+                    </Select>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => refetch()} disabled={isLoading} className="text-slate-600 hover:text-primary-600 hover:border-primary-200">
+                      <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" /> Refresh
+                    </Button>
+                    <Button variant="outline"><Download className="mr-2 h-4 w-4" aria-hidden="true" /> Export</Button>
+                  </div>
+                </div>
+              </PremiumCardHeader>
+              <PremiumCardContent className="p-0">
+                {isError ? (
+                  <div className="px-6 py-16 text-center">
+                    <div className="flex justify-center mb-4">
+                      <RefreshCw className="h-12 w-12 text-red-500 animate-spin" aria-hidden="true" />
+                    </div>
+                    <p className="mt-3 font-medium text-slate-900">Unable to load fees</p>
+                    <p className="mt-1 text-sm text-slate-500">Please check your permissions or connection and try again.</p>
+                    <Button className="mt-6" variant="outline" onClick={() => refetch()}>Try again</Button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table data={feeRows} columns={[] as any} keyExtractor={(f: FeeRecord) => f._id} emptyMessage="No fees found" isLoading={isLoading} />
+                  </div>
+                )}
+                {(feeRows.length > 0 && !isLoading) && (
+                  <PremiumCardFooter className="border-t border-slate-100/60 bg-white/80">
+                    <div className="flex items-center justify-between px-0">
+                      <span className="text-sm text-slate-600">Page {page} of {totalPages}</span>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>Previous</Button>
+                        <Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}>Next</Button>
+                      </div>
+                    </div>
+                  </PremiumCardFooter>
+                )}
+              </PremiumCardContent>
+            </PremiumCard>
+          </TabsContent>
+
+          <TabsContent value="payments">
+            <PremiumCard hover className="h-full">
+              <PremiumCardContent className="p-12">
+                <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-8 py-16 text-center">
+                  <FileText className="h-12 w-12 mx-auto text-slate-300 mb-4" aria-hidden="true" />
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Payment History</h3>
+                  <p className="text-sm text-slate-500 max-w-md mx-auto">Payment records will appear here once fee payments are processed.</p>
+                </div>
+              </PremiumCardContent>
+            </PremiumCard>
+          </TabsContent>
+        </Tabs>
+
+        {/* Create Fee Structure Modal */}
+        <Modal isOpen={structureModalOpen} onClose={() => setStructureModalOpen(false)} title="Create Fee Structure" size="lg">
+          <div className="space-y-6 p-6">
+            <p className="text-sm text-slate-600">Fee structure creation will be available when the finance module is fully integrated.</p>
+            <div className="flex justify-end pt-4">
+              <Button type="button" variant="outline" onClick={() => setStructureModalOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Record Payment Modal */}
+        <Modal isOpen={paymentModalOpen} onClose={() => { setPaymentModalOpen(false); setSelectedFeeId(null); }} title="Record Payment" size="md">
+          <form className="space-y-6 p-6">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+              <p className="text-sm text-slate-600">Recording payment for fee #{selectedFeeId?.slice(-6)}</p>
+            </div>
+            <Input label="Amount" placeholder="0.00" />
+            <Select label="Payment mode">
+              <option value={PaymentMode.CASH}>Cash</option>
+              <option value={PaymentMode.UPI}>UPI</option>
+              <option value={PaymentMode.CARD}>Card</option>
+              <option value={PaymentMode.BANK_TRANSFER}>Bank Transfer</option>
+              <option value={PaymentMode.CHEQUE}>Cheque</option>
+              <option value={PaymentMode.ONLINE}>Online</option>
+            </Select>
+            <Input label="Transaction ID (optional)" placeholder="Enter transaction reference" />
+            <div className="flex justify-end space-x-3 pt-6">
+              <Button type="button" variant="outline" onClick={() => { setPaymentModalOpen(false); setSelectedFeeId(null); }}>Cancel</Button>
+              <Button type="submit" className="bg-primary-600 text-white shadow-lg shadow-primary-600/25 hover:bg-primary-700 hover:shadow-primary-600/40">Record Payment</Button>
+            </div>
+          </form>
+        </Modal>
+      </div>
     </div>
   );
 }

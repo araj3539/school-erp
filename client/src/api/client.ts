@@ -1,0 +1,103 @@
+import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
+import { useAuthStore } from "../store/authStore.js";
+
+const rawApiUrl = import.meta.env.VITE_API_URL;
+const isDev = import.meta.env.DEV === true;
+
+if (!rawApiUrl) {
+  if (isDev) {
+    console.warn("[api] VITE_API_URL not set; falling back to http://localhost:4000/api/v1 (development only)");
+  } else {
+    throw new Error("[api] VITE_API_URL is required in production builds");
+  }
+}
+
+export const API_BASE_URL = rawApiUrl || "http://localhost:4000/api/v1";
+
+if (!isDev) {
+  try {
+    const u = new URL(API_BASE_URL);
+    if (u.protocol !== "https:") throw new Error("");
+  } catch {
+    throw new Error("[api] VITE_API_URL must use https:// in production");
+  }
+}
+
+type AuthRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean; _authSessionVersion?: number };
+
+let refreshPromise: Promise<void> | null = null;
+
+function refreshSession(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = (axios as AxiosInstance).post("/auth/refresh").then(() => undefined).finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
+}
+
+export function createApiClient(): AxiosInstance {
+  const api = axios.create({
+    baseURL: API_BASE_URL,
+    withCredentials: true,
+    timeout: 30_000,
+  });
+
+  api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    const { user, activeSchoolId, sessionVersion } = useAuthStore.getState();
+    (config as AuthRequestConfig)._authSessionVersion = sessionVersion;
+    if (user?.role === "super_admin" && activeSchoolId) {
+      config.headers.set("X-School-Id", activeSchoolId);
+    }
+    return config;
+  });
+
+  api.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError) => {
+      const originalRequest = error.config as AuthRequestConfig | undefined;
+      const requestUrl = originalRequest?.url ?? "";
+      const isAuthRequest = ["/auth/login", "/auth/refresh", "/auth/logout"].includes(requestUrl);
+
+      if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
+        originalRequest._retry = true;
+        const currentSessionVersion = useAuthStore.getState().sessionVersion;
+        if (originalRequest._authSessionVersion !== currentSessionVersion) {
+          return Promise.reject(error);
+        }
+        try {
+          await refreshSession();
+          if (useAuthStore.getState().sessionVersion !== currentSessionVersion) {
+            return Promise.reject(error);
+          }
+          return (axios as AxiosInstance)(originalRequest);
+        } catch {
+          const authState = useAuthStore.getState();
+          if (authState.sessionVersion === currentSessionVersion && authState.isAuthenticated) {
+            authState.logout();
+          }
+          return Promise.reject(error);
+        }
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  return api;
+}
+
+export const api = createApiClient();
+
+export function getApiErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
+  if (axios.isAxiosError(error)) {
+    if (error.code === "ECONNABORTED") return "The server is taking too long to respond. Please try again.";
+    const data = error.response?.data as { message?: string; error?: string } | undefined;
+    if (data && typeof data === "object") {
+      if (typeof data.message === "string" && data.message) return data.message;
+      if (typeof data.error === "string" && data.error) return data.error;
+    }
+    if (!error.response) return "Unable to reach the server. Check your connection and try again.";
+    if (error.response.status === 403) return "You do not have permission to perform this action.";
+    return fallback;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
