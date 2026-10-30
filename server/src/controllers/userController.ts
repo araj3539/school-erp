@@ -5,12 +5,13 @@ import { CreateUserSchema, UpdateTenantUserSchema } from "../validators/index.js
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { hashPassword } from "../services/auth.js";
+import { getTenantId } from "../utils/tenant.js";
 
 export async function getUsers(req: Request, res: Response, next: NextFunction) {
   try {
     const query = req.validatedQuery as any;
     const { page = 1, limit = 20, sortBy, sortOrder, ...filters } = query;
-    const dbQuery: any = { schoolId: req.user!.schoolId };
+    const dbQuery: any = { schoolId: getTenantId(req) };
     if (filters.role) dbQuery.role = filters.role;
     if (filters.isActive !== undefined) dbQuery.isActive = filters.isActive === "true";
     const sort: any = {};
@@ -28,7 +29,7 @@ export async function getUsers(req: Request, res: Response, next: NextFunction) 
 export async function getUserById(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const user = await User.findOne({ _id: id, schoolId: req.user!.schoolId }).lean();
+    const user = await User.findOne({ _id: id, schoolId: getTenantId(req) }).lean();
     if (!user) throw AppError.notFound("User not found");
     res.json({ user });
   } catch (error) { next(error); }
@@ -36,7 +37,7 @@ export async function getUserById(req: Request, res: Response, next: NextFunctio
 
 export async function createUser(req: Request, res: Response, next: NextFunction) {
   try {
-    const schoolId = req.user!.schoolId;
+    const schoolId = getTenantId(req);
     const data = CreateUserSchema.parse({ ...req.body, schoolId });
     if (req.user!.role !== UserRole.SUPER_ADMIN && (data.role === UserRole.PRINCIPAL || data.role === UserRole.SUPPORT_ADMIN || data.role === UserRole.SUPER_ADMIN)) {
       throw AppError.forbidden("Only super admin can assign platform or principal roles");
@@ -53,10 +54,10 @@ export async function createUser(req: Request, res: Response, next: NextFunction
 export async function updateUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const schoolId = req.user!.schoolId;
+    const schoolId = getTenantId(req);
     const data = UpdateTenantUserSchema.parse(req.body);
-    if (req.user!.role !== UserRole.SUPER_ADMIN && data.role === UserRole.PRINCIPAL) {
-      throw AppError.forbidden("Only super admin can assign the principal role");
+    if (req.user!.role !== UserRole.SUPER_ADMIN && (data.role === UserRole.PRINCIPAL || data.role === UserRole.SUPPORT_ADMIN || data.role === UserRole.SUPER_ADMIN)) {
+      throw AppError.forbidden("Only super admin can assign platform or principal roles");
     }
     const before = await User.findOne({ _id: id, schoolId }).lean();
     if (!before) throw AppError.notFound("User not found");
@@ -77,11 +78,11 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
 export async function deleteUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as { id: string };
-    const schoolId = req.user!.schoolId;
+    const schoolId = getTenantId(req);
     if (id === req.user!.userId) throw AppError.badRequest("You cannot deactivate your own account");
     const user = await User.findOneAndUpdate({ _id: id, schoolId }, { isActive: false }, { new: true }).lean();
     if (!user) throw AppError.notFound("User not found");
-    await createAuditLog({ userId: req.user!.userId, schoolId, action: "DELETE", entity: "User", entityId: id, before: { isActive: true }, after: { isActive: false } });
+    await createAuditLog({ userId: req.user!.userId, schoolId, action: "DEACTIVATE", entity: "User", entityId: id, before: { isActive: true }, after: { isActive: false } });
     res.json({ message: "User deactivated successfully" });
   } catch (error) { next(error); }
 }

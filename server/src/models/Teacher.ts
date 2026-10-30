@@ -51,7 +51,7 @@ const TeacherSchema = new Schema<ITeacher>({
   status: { type: String, enum: Object.values(TeacherStatus), default: TeacherStatus.ACTIVE }
 }, { timestamps: true });
 
-TeacherSchema.index({ email: 1 }, { unique: true });
+TeacherSchema.index({ schoolId: 1, email: 1 }, { unique: true });
 TeacherSchema.index({ schoolId: 1, employeeId: 1 }, { unique: true });
 TeacherSchema.index({ schoolId: 1, status: 1 });
 

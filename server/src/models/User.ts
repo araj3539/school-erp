@@ -34,7 +34,7 @@ UserSchema.pre("validate", function (next) {
   next();
 });
 
-UserSchema.index({ email: 1, schoolId: 1 }, { unique: true });
+UserSchema.index({ email: 1, schoolId: 1 }, { unique: true, partialFilterExpression: { schoolId: { $exists: true, $ne: null } } });
 UserSchema.index({ schoolId: 1, role: 1 });
 
 export const User = mongoose.model<IUser>("User", UserSchema);

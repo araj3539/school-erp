@@ -37,16 +37,18 @@ export async function reconcileTenantUsage(schoolId: string) {
 export async function incrementTenantUsage(schoolId: string, dimension: UsageDimension, delta: number) {
   const tenantId = assertTenant(schoolId);
   assertDelta(delta);
-  const limit = await TenantLimit.findOne({ schoolId: tenantId, dimension }).select("limit").lean();
-  if (limit && !(await TenantUsage.exists({ schoolId: tenantId }))) await reconcileTenantUsage(schoolId);
-  await TenantUsage.updateOne({ schoolId: tenantId }, { $setOnInsert: { schoolId: tenantId, counters: INITIAL_COUNTERS } }, { upsert: true });
 
+  const limit = await TenantLimit.findOne({ schoolId: tenantId, dimension }).select("limit").lean();
   const counterPath = `counters.${dimension}`;
   const filter: Record<string, unknown> = { schoolId: tenantId };
   if (delta > 0 && limit) filter[counterPath] = { $lte: limit.limit - delta };
   if (delta < 0) filter[counterPath] = { $gte: -delta };
 
-  const usage = await TenantUsage.findOneAndUpdate(filter, { $inc: { [counterPath]: delta } }, { new: true }).lean();
+  const usage = await TenantUsage.findOneAndUpdate(
+    filter,
+    { $inc: { [counterPath]: delta }, $setOnInsert: { schoolId: tenantId, counters: INITIAL_COUNTERS } },
+    { new: true, upsert: true }
+  ).lean();
   if (!usage) {
     if (limit && delta > 0) throw AppError.conflict(`Tenant ${dimension} limit exceeded`);
     throw AppError.conflict(`Tenant ${dimension} usage cannot become negative`);

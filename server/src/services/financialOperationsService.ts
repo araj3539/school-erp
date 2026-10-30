@@ -12,15 +12,27 @@ export async function listBankTransactions(schoolId: string, page = 1, limit = 2
 }
 
 export async function resolveBankTransaction(schoolId: string, id: string, orderId: string, actorId: string) {
-  const tx = await BankTransaction.findOne({ _id: id, schoolId }); if (!tx) throw AppError.notFound("Bank transaction not found");
-  if (tx.status === "matched") throw AppError.conflict("Bank transaction is already matched");
-  const order = await PaymentOrder.findOne({ _id: orderId, schoolId, status: "pending" }); if (!order) throw AppError.conflict("Selected payment order is not pending or belongs to another school");
-  if (Math.abs(order.amount - tx.amount) >= 0.01) throw AppError.badRequest("Bank amount must exactly match the payment order amount");
-  if (tx.candidateOrderIds.length && !tx.candidateOrderIds.some(x => x.toString() === orderId)) throw AppError.badRequest("Selected order is not one of the reconciliation candidates");
-  await settleUpiPaymentOrder(schoolId, orderId, actorId, true);
-  tx.status = "matched"; tx.matchedOrderId = new mongoose.Types.ObjectId(orderId); tx.candidateOrderIds = [new mongoose.Types.ObjectId(orderId)]; await tx.save();
-  await createAuditLog({ userId: actorId, schoolId, action: "BANK_TRANSACTION_MATCHED", entity: "BankTransaction", entityId: id, after: { orderId, utr: tx.utr, amount: tx.amount, manual: true } });
-  return tx.toObject();
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const tx = await BankTransaction.findOne({ _id: id, schoolId }).session(session);
+      if (!tx) throw AppError.notFound("Bank transaction not found");
+      if (tx.status === "matched") throw AppError.conflict("Bank transaction is already matched");
+      const order = await PaymentOrder.findOne({ _id: orderId, schoolId, status: "pending" }).session(session);
+      if (!order) throw AppError.conflict("Selected payment order is not pending or belongs to another school");
+      if (Math.abs(order.amount - tx.amount) >= 0.01) throw AppError.badRequest("Bank amount must exactly match the payment order amount");
+      if (tx.candidateOrderIds.length && !tx.candidateOrderIds.some((x) => x.toString() === orderId)) throw AppError.badRequest("Selected order is not one of the reconciliation candidates");
+      await settleUpiPaymentOrder(schoolId, orderId, actorId, true, undefined, session);
+      tx.status = "matched";
+      tx.matchedOrderId = new mongoose.Types.ObjectId(orderId);
+      tx.candidateOrderIds = [new mongoose.Types.ObjectId(orderId)];
+      await tx.save({ session });
+      await createAuditLog({ userId: actorId, schoolId, action: "BANK_TRANSACTION_MATCHED", entity: "BankTransaction", entityId: id, after: { orderId, utr: tx.utr, amount: tx.amount, manual: true }, session });
+      return tx.toObject();
+    });
+  } finally {
+    await session.endSession();
+  }
 }
 
 export async function ignoreBankTransaction(schoolId: string, id: string, actorId: string) {
@@ -37,10 +49,18 @@ export async function listFeePolicyApprovals(schoolId: string, status = "pending
 
 export async function requestFeePolicyApproval(schoolId: string, feeStructureId: string, proposedChanges: Record<string, unknown>, actorId: string) {
   const structure = await FeeStructure.findOne({ _id: feeStructureId, schoolId }).lean(); if (!structure) throw AppError.notFound("Fee structure not found");
-  const pending = await FeePolicyApproval.findOne({ schoolId, feeStructureId, status: "pending" }).lean(); if (pending) throw AppError.conflict("A fee policy approval is already pending");
-  const approval = await FeePolicyApproval.create({ schoolId, feeStructureId, proposedChanges, requestedBy: actorId });
-  await createAuditLog({ userId: actorId, schoolId, action: "FEE_POLICY_APPROVAL_REQUESTED", entity: "FeePolicyApproval", entityId: approval._id.toString(), after: { feeStructureId, proposedChanges } });
-  return approval;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const pending = await FeePolicyApproval.findOne({ schoolId, feeStructureId, status: "pending" }).session(session).lean();
+      if (pending) throw AppError.conflict("A fee policy approval is already pending");
+      const approval = await FeePolicyApproval.create([{ schoolId, feeStructureId, proposedChanges, requestedBy: actorId }], { session });
+      await createAuditLog({ userId: actorId, schoolId, action: "FEE_POLICY_APPROVAL_REQUESTED", entity: "FeePolicyApproval", entityId: approval[0]._id.toString(), after: { feeStructureId, proposedChanges }, session });
+    });
+    return (await FeePolicyApproval.findOne({ schoolId, feeStructureId, status: "pending" }).lean())!;
+  } finally {
+    await session.endSession();
+  }
 }
 
 const ALLOWED_POLICY_FIELDS = new Set(["amount", "concessionPercent", "concessionAmount", "lateFeePolicy", "installments", "dueDate"]);

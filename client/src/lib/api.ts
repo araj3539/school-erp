@@ -1,9 +1,24 @@
 import axios, { type AxiosRequestConfig } from "axios";
 import { useAuthStore } from "../store/authStore";
 
-// Local development defaults to the local API server (PORT 4000). Override with
-// VITE_API_URL for staging/production; do not hard-code a remote origin here.
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+// API base URL must be configured via VITE_API_URL. No localhost fallback is
+// allowed in production builds — a missing or misconfigured URL must fail fast
+// rather than silently sending data to localhost.
+const rawApiUrl = import.meta.env.VITE_API_URL;
+const isDev = import.meta.env.DEV === true;
+if (!rawApiUrl) {
+  if (isDev) {
+    console.warn("[api] VITE_API_URL not set; falling back to http://localhost:4000/api/v1 (development only)");
+  } else {
+    throw new Error("[api] VITE_API_URL is required in production builds");
+  }
+}
+export const API_BASE_URL = rawApiUrl || "http://localhost:4000/api/v1";
+
+// In non-development builds, enforce HTTPS to protect credentials and student/fee data.
+if (!isDev) {
+  try { const u = new URL(API_BASE_URL); if (u.protocol !== "https:") throw new Error(""); } catch { throw new Error("[api] VITE_API_URL must use https:// in production"); }
+}
 const api = axios.create({ baseURL: API_BASE_URL, withCredentials: true, timeout: 30_000 });
 
 type AuthRequestConfig = AxiosRequestConfig & { _retry?: boolean; _authSessionVersion?: number };

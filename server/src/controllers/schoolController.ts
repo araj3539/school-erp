@@ -3,8 +3,9 @@ import { School } from "../models/index.js";
 import { UpdateSchoolSettingsSchema } from "../validators/index.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
+import { getTenantId } from "../utils/tenant.js";
 
-const tenantId = (req: Request) => req.user!.schoolId;
+const tenantId = (req: Request) => getTenantId(req);
 
 export async function getSchoolSettings(req: Request, res: Response, next: NextFunction) {
   try {

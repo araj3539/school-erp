@@ -15,43 +15,54 @@ function schoolId(req: Request): string { const tenant = req.user?.schoolId; if 
 function samePaymentRequest(payment: any, data: any): boolean { return payment.feeId.toString() === data.feeId && payment.amount === data.amount && payment.mode === data.mode && (payment.transactionId || undefined) === (data.transactionId || undefined); }
 export function getRemainingReversibleAmount(paymentAmount: number, alreadyReversed: number, requestedAmount: number): number { const remaining = paymentAmount - alreadyReversed; if (requestedAmount <= 0 || requestedAmount > remaining) throw AppError.badRequest("Reversal/refund exceeds remaining payment amount"); return remaining - requestedAmount; }
 export async function collectPayment(req: Request, res: Response, next: NextFunction) {
-  const session = await mongoose.startSession();
   const tenant = schoolId(req);
   try {
     const raw = { ...req.body };
     const headerKey = req.get("Idempotency-Key")?.trim();
     if (!raw.idempotencyKey && headerKey) raw.idempotencyKey = headerKey;
     const data = CreatePaymentSchema.parse(raw);
-    await session.withTransaction(async () => {
-      if (data.idempotencyKey) {
-        const existing = await Payment.findOne({ schoolId: tenant, idempotencyKey: data.idempotencyKey }).session(session).lean();
-        if (existing) {
-          if (!samePaymentRequest(existing, data)) throw AppError.conflict("Idempotency key was already used for a different payment");
-          return res.status(200).json({ payment: existing, idempotentReplay: true });
+    const session = await mongoose.startSession();
+    let responseSent = false;
+    let result: any = null;
+    try {
+      await session.withTransaction(async () => {
+        if (data.idempotencyKey) {
+          const existing = await Payment.findOne({ schoolId: tenant, idempotencyKey: data.idempotencyKey }).session(session).lean();
+          if (existing) {
+            if (!samePaymentRequest(existing, data)) throw AppError.conflict("Idempotency key was already used for a different payment");
+            result = { payment: existing, idempotentReplay: true };
+            responseSent = true;
+            return;
+          }
         }
-      }
-      const fee = await Fee.findOne({ _id: data.feeId, schoolId: tenant }).session(session);
-      if (!fee) throw AppError.notFound("Fee not found");
-      if (data.amount <= 0) throw AppError.badRequest("Payment amount must be greater than zero");
-      if (data.amount > fee.balance) throw AppError.badRequest("Payment amount exceeds balance");
-      if (fee.balance <= 0) throw AppError.badRequest("Fee has no outstanding balance");
-      const before = { paidAmount: fee.paidAmount, balance: fee.balance, status: fee.status };
-      const payment = new Payment({ feeId: data.feeId, studentId: fee.studentId.toString(), amount: data.amount, mode: data.mode, transactionId: data.transactionId, idempotencyKey: data.idempotencyKey, schoolId: tenant, receiptNo: generateReceiptNumber(), collectedBy: new mongoose.Types.ObjectId(req.user!.userId), date: new Date() });
-      await payment.save({ session });
-      fee.paidAmount = money(fee.paidAmount + data.amount);
-      fee.balance = money(Math.max(0, fee.totalDue - fee.paidAmount));
-      fee.status = fee.balance <= PAID_EPSILON ? FeeStatus.PAID : FeeStatus.PARTIAL;
-      fee.stateRevision = (fee.stateRevision ?? 0) + 1;
-      await fee.save({ session });
-      await allocatePaymentToItems(tenant, payment._id.toString(), req.user!.userId, session);
-      await createAuditLog({ userId: req.user!.userId, schoolId: tenant, action: "CREATE", entity: "Payment", entityId: payment._id.toString(), before, after: { paidAmount: fee.paidAmount, balance: fee.balance, status: fee.status }, session });
-      void enqueuePaymentNotification({ ...payment as any, amount: data.amount, receiptNo: payment.receiptNo, date: payment.date, feeId: payment.feeId, studentId: payment.studentId }).catch((error) => console.error("[Payment] Failed to enqueue payment notification:", { paymentId: payment._id.toString(), error }));
-      res.json({ payment });
-    });
+        const fee = await Fee.findOne({ _id: data.feeId, schoolId: tenant }).session(session);
+        if (!fee) throw AppError.notFound("Fee not found");
+        if (data.amount <= 0) throw AppError.badRequest("Payment amount must be greater than zero");
+        if (data.amount > fee.balance) throw AppError.badRequest("Payment amount exceeds balance");
+        if (fee.balance <= 0) throw AppError.badRequest("Fee has no outstanding balance");
+        const before = { paidAmount: fee.paidAmount, balance: fee.balance, status: fee.status };
+        const payment = new Payment({ feeId: data.feeId, studentId: fee.studentId.toString(), amount: data.amount, mode: data.mode, transactionId: data.transactionId, idempotencyKey: data.idempotencyKey, schoolId: tenant, receiptNo: generateReceiptNumber(), collectedBy: new mongoose.Types.ObjectId(req.user!.userId), date: new Date() });
+        await payment.save({ session });
+        fee.paidAmount = money(fee.paidAmount + data.amount);
+        fee.balance = money(Math.max(0, fee.totalDue - fee.paidAmount));
+        fee.status = fee.balance <= PAID_EPSILON ? FeeStatus.PAID : FeeStatus.PARTIAL;
+        fee.stateRevision = (fee.stateRevision ?? 0) + 1;
+        await fee.save({ session });
+        await allocatePaymentToItems(tenant, payment._id.toString(), req.user!.userId, session);
+        await createAuditLog({ userId: req.user!.userId, schoolId: tenant, action: "CREATE", entity: "Payment", entityId: payment._id.toString(), before, after: { paidAmount: fee.paidAmount, balance: fee.balance, status: fee.status }, session });
+        void enqueuePaymentNotification({ ...payment as any, amount: data.amount, receiptNo: payment.receiptNo, date: payment.date, feeId: payment.feeId, studentId: payment.studentId }).catch((error) => console.error("[Payment] Failed to enqueue payment notification:", { paymentId: payment._id.toString(), error }));
+        result = { payment };
+        responseSent = true;
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (responseSent) {
+      if (result.idempotentReplay) return res.status(200).json(result);
+      return res.json(result);
+    }
   } catch (error) {
     next(error);
-  } finally {
-    await session.endSession();
   }
 }
 export async function reversePayment(req: Request, res: Response, next: NextFunction) {

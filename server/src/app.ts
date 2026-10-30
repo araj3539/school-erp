@@ -19,7 +19,13 @@ app.use(requestContext);
 app.use((req, res, next) => { const startedAt = Date.now(); res.once("finish", () => logRequestCompletion(req, res, startedAt)); next(); });
 app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:", "https:"], connectSrc: ["'self'"], fontSrc: ["'self'"], objectSrc: ["'none'"], mediaSrc: ["'self'"], frameSrc: ["'none'"] } }, crossOriginEmbedderPolicy: false }));
 const allowedOrigins = env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
-const isAllowedOrigin = (origin: string): boolean => allowedOrigins.includes(origin) || (isDevelopment && /^https?:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin)) || /^https:\/\/school-[a-z0-9-]+-araj3539s-projects\.vercel\.app$/.test(origin);
+// In production, "*" must not act as a catch-all. Only explicit origins are allowed;
+// localhost/127.0.0.1 are permitted only in development.
+const isAllowedOrigin = (origin: string): boolean => {
+  if (allowedOrigins.includes(origin) && origin !== "*") return true;
+  if (isDevelopment && (origin === "*" || /^https?:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin))) return true;
+  return false;
+};
 app.use(cors({ origin: (origin, callback) => { if (!origin) return callback(null, true); if (isAllowedOrigin(origin)) return callback(null, true); return callback(new Error("CORS origin not allowed")); }, credentials: true }));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb", parameterLimit: 100 }));

@@ -29,7 +29,7 @@ export async function createAuditLog(data: {
     else await AuditLog.create(record);
   } catch (error) {
     console.error("Failed to create audit log:", error);
-    if (session) throw error;
+    throw error;
   }
 }
 

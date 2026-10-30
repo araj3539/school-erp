@@ -7,5 +7,6 @@ export interface IFeePolicyApproval extends Document {
 const schema = new Schema<IFeePolicyApproval>({
   schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true }, feeStructureId: { type: Schema.Types.ObjectId, ref: "FeeStructure", required: true }, proposedChanges: { type: Schema.Types.Mixed, required: true }, requestedBy: { type: Schema.Types.ObjectId, ref: "User", required: true }, reviewedBy: { type: Schema.Types.ObjectId, ref: "User" }, status: { type: String, enum: ["pending", "approved", "rejected", "cancelled"], default: "pending", index: true }, reviewReason: { type: String, trim: true, maxlength: 500 }, requestedAt: { type: Date, default: Date.now }, reviewedAt: { type: Date },
 });
-schema.index({ schoolId: 1, status: 1, requestedAt: -1 }); schema.index({ schoolId: 1, feeStructureId: 1, status: 1 });
+schema.index({ schoolId: 1, status: 1, requestedAt: -1 });
+schema.index({ schoolId: 1, feeStructureId: 1, status: 1 }, { unique: true, partialFilterExpression: { status: "pending" } });
 export const FeePolicyApproval = mongoose.model<IFeePolicyApproval>("FeePolicyApproval", schema);

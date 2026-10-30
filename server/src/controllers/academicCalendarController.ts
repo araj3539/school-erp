@@ -41,9 +41,12 @@ export async function createCalendarEvent(req: Request, res: Response, next: Nex
   try {
     const schoolId = tenant(req); const userId = actor(req);
     const { academicYearId, classId, sectionId, appliesTo = "school" } = req.body;
+    const allowed = ["title", "type", "startDate", "endDate", "allDay", "description"];
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) { if (req.body[key] !== undefined) data[key] = req.body[key]; }
     if (!await AcademicYear.exists({ _id: academicYearId, schoolId })) throw AppError.notFound("Academic year not found");
     await assertTargetOwnership(schoolId, appliesTo, classId, sectionId);
-    const event = await AcademicCalendarEvent.create({ ...req.body, schoolId, createdBy: userId });
+    const event = await AcademicCalendarEvent.create({ ...data, schoolId, academicYearId, appliesTo, classId: appliesTo === "school" ? undefined : classId, sectionId: appliesTo === "section" ? sectionId : undefined, createdBy: userId });
     await createAuditLog({ schoolId: schoolId.toString(), userId, action: "calendar.create", entity: "AcademicCalendarEvent", entityId: event._id.toString(), after: snapshot(event) });
     res.status(201).json(event);
   } catch (e) { next(e); }
@@ -61,7 +64,14 @@ export async function updateCalendarEvent(req: Request, res: Response, next: Nex
     const sectionId = req.body.sectionId ?? event.sectionId?.toString();
     if (!await AcademicYear.exists({ _id: academicYearId, schoolId })) throw AppError.notFound("Academic year not found");
     await assertTargetOwnership(schoolId, appliesTo, classId, sectionId);
-    Object.assign(event, { ...req.body, academicYearId, appliesTo, classId: appliesTo === "school" ? undefined : classId, sectionId: appliesTo === "section" ? sectionId : undefined });
+    const update: Record<string, unknown> = {};
+    const allowed = ["title", "type", "startDate", "endDate", "allDay", "description"];
+    for (const key of allowed) { if (req.body[key] !== undefined) update[key] = req.body[key]; }
+    update.academicYearId = academicYearId;
+    update.appliesTo = appliesTo;
+    update.classId = appliesTo === "school" ? undefined : classId;
+    update.sectionId = appliesTo === "section" ? sectionId : undefined;
+    Object.assign(event, update);
     await event.save();
     await createAuditLog({ schoolId: schoolId.toString(), userId, action: "calendar.update", entity: "AcademicCalendarEvent", entityId: event._id.toString(), before, after: snapshot(event) });
     res.json(event);

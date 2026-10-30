@@ -29,8 +29,8 @@ describe("tenant usage metering", () => {
 
     expect(mocks.usageFindOneAndUpdate).toHaveBeenCalledWith(
       { schoolId: expect.anything(), "counters.students": { $lte: 4 } },
-      { $inc: { "counters.students": 1 } },
-      { new: true },
+      { $inc: { "counters.students": 1 }, $setOnInsert: { schoolId: expect.anything(), counters: expect.anything() } },
+      { new: true, upsert: true },
     );
   });
 
@@ -53,8 +53,8 @@ describe("tenant usage metering", () => {
 
     expect(mocks.usageFindOneAndUpdate).toHaveBeenCalledWith(
       { schoolId: expect.anything(), "counters.students": { $gte: 1 } },
-      { $inc: { "counters.students": -1 } },
-      { new: true },
+      { $inc: { "counters.students": -1 }, $setOnInsert: { schoolId: expect.anything(), counters: expect.anything() } },
+      { new: true, upsert: true },
     );
   });
 });

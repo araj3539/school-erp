@@ -46,13 +46,10 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     if (!schoolCode) {
       user = await User.findOne({ email: credentials.email, role: { $in: [UserRole.SUPER_ADMIN, UserRole.SUPPORT_ADMIN] }, schoolId: { $exists: false } }).select("+passwordHash") as (IUser & { passwordHash: string }) | null;
     } else {
-      let school = await School.findOne({ code: schoolCode }).select("_id code");
+      const school = await School.findOne({ code: schoolCode }).select("_id code");
       if (!school) {
-        const legacySchools = await School.find({ $or: [{ code: { $exists: false } }, { code: null }] }).select("_id code");
-        school = legacySchools.find((candidate) => schoolCodeFromId(candidate._id) === schoolCode) || null;
-        if (school) { school.code = schoolCode; await school.save(); }
+        res.status(401).json({ error: "Invalid credentials", code: "UNAUTHORIZED" }); return;
       }
-      if (!school) { res.status(401).json({ error: "Invalid credentials", code: "UNAUTHORIZED" }); return; }
       user = await User.findOne({ email: credentials.email, schoolId: school._id, role: { $ne: UserRole.SUPER_ADMIN } }).select("+passwordHash") as (IUser & { passwordHash: string }) | null;
     }
 

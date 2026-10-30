@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
-import { Payment } from "./Payment.js";
+import { Payment, PaymentAllocation } from "../models/index.js";
 
 export type PaymentReversalType = "reversal" | "refund";
 
@@ -27,7 +27,12 @@ const PaymentReversalSchema = new Schema<IPaymentReversal>({
 PaymentReversalSchema.pre("validate", async function () {
   const payment = await Payment.findOne({ _id: this.paymentId, schoolId: this.schoolId }).select("_id amount").lean();
   if (!payment) throw new Error("Payment reversal must belong to the same school as the payment");
-  if (this.amount > payment.amount) throw new Error("Payment reversal amount cannot exceed the payment amount");
+  const alreadyReversed = await PaymentAllocation.aggregate([
+    { $match: { schoolId: new mongoose.Types.ObjectId(this.schoolId), paymentId: this.paymentId, type: "reversal" } },
+    { $group: { _id: null, total: { $sum: "$amount" } } }
+  ]).allowDiskUse(false);
+  const remaining = payment.amount - (alreadyReversed[0]?.total ?? 0);
+  if (this.amount > remaining + 0.01) throw new Error("Reversal amount exceeds remaining reversible amount");
 });
 
 PaymentReversalSchema.index({ schoolId: 1, paymentId: 1, createdAt: -1 });

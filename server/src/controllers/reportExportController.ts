@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 import { generateExcelFile } from "../services/excel.js";
 import { getTenantId } from "../utils/tenant.js";
 import { AppError } from "../utils/errors.js";
+import { parseCalendarDate, addCalendarDays } from "../utils/calendarDate.js";
 import { getFeeDefaulters, getFeeLedgerSummary, getPaymentReconciliationExceptions } from "../services/feeOperationsReportService.js";
 
 export async function exportManagementReport(req: Request, res: Response, next: NextFunction) {
@@ -28,7 +29,9 @@ export async function exportManagementReport(req: Request, res: Response, next: 
     } else if (type === "attendance") {
       const { startDate, endDate, classId, sectionId } = req.query as { startDate?: string; endDate?: string; classId?: string; sectionId?: string };
       if (!startDate || !endDate || !classId || !sectionId) throw AppError.badRequest("startDate, endDate, classId and sectionId are required for the attendance export");
-      const filter: any = { schoolId, classId, sectionId, date: { $gte: new Date(startDate), $lt: new Date(endDate) } };
+      const start = parseCalendarDate(startDate);
+      const endExclusive = addCalendarDays(parseCalendarDate(endDate), 1);
+      const filter: any = { schoolId, classId, sectionId, date: { $gte: start, $lt: endExclusive } };
       const data = await Attendance.find(filter).populate("classId sectionId").sort({ date: -1 }).lean();
       rows = data.map((a: any) => {
         const records = a.records ?? [];

@@ -296,7 +296,7 @@ export async function exportAttendanceSpreadsheet(req: Request, res: Response, n
       const record = recordMap.get(student._id.toString());
       return { date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: student.admissionNo, studentName: `${student.firstName} ${student.lastName}`, status: record?.status ?? null, remark: record?.remark ?? "" };
     });
-    const workbook = await generateExcelFile(data.length ? data : [{ date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: "", studentName: "", status: "present", remark: "" }], "Attendance");
+    const workbook = await generateExcelFile(data.length ? data : [{ date: String(query.date), classId: query.classId, sectionId: query.sectionId, admissionNo: "", studentName: "", status: null, remark: "" }], "Attendance");
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename=attendance-${query.date}.xlsx`);
     res.send(workbook);
