@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import { Types } from "mongoose";
 import { Fee, FeeItem, FeeStructure, Student } from "../models/index.js";
 import { calculateConcession } from "../services/feeStructureService.js";
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { FeeStatus } from "@school-erp/shared";
-
 const context = (req: Request) => {
   if (!req.user?.schoolId || !req.user.userId) throw AppError.forbidden("A school and authenticated user are required");
   return { schoolId: req.user.schoolId, userId: req.user.userId };
@@ -106,51 +106,57 @@ export async function generateItemizedFees(req: Request, res: Response, next: Ne
     let itemsCreated = 0;
     let paidAggregateBlocked = 0;
 
-    for (const op of p.operations) {
-      let fee = await Fee.findOne({ schoolId, studentId: op.student._id, feeStructureId: op.structure._id, academicYear });
-      if (!fee) {
-        const { discount, totalDue } = op.concession;
-        fee = await Fee.create({
-          schoolId,
-          studentId: op.student._id,
-          feeStructureId: op.structure._id,
-          amount: op.structure.amount,
-          discount,
-          fine: 0,
-          totalDue,
-          paidAmount: 0,
-          balance: totalDue,
-          status: totalDue === 0 ? FeeStatus.WAIVED : FeeStatus.PENDING,
-          academicYear,
-        });
-        feesCreated++;
-      }
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        for (const op of p.operations) {
+          let fee = await Fee.findOne({ schoolId, studentId: op.student._id, feeStructureId: op.structure._id, academicYear }).session(session);
+          if (!fee) {
+            const { discount, totalDue } = op.concession;
+            [fee] = await Fee.create([{
+              schoolId,
+              studentId: op.student._id,
+              feeStructureId: op.structure._id,
+              amount: op.structure.amount,
+              discount,
+              fine: 0,
+              totalDue,
+              paidAmount: 0,
+              balance: totalDue,
+              status: totalDue === 0 ? FeeStatus.WAIVED : FeeStatus.PENDING,
+              academicYear,
+            }], { session });
+            feesCreated++;
+          }
+          if (!fee) throw AppError.notFound("Fee could not be created");
 
-      if (op.feeHead && !op.itemExists) {
-        if ((fee.paidAmount ?? 0) > 0) {
-          paidAggregateBlocked++;
-          continue;
+          if (op.feeHead && !op.itemExists) {
+            if ((fee.paidAmount ?? 0) > 0) {
+              paidAggregateBlocked++;
+              continue;
+            }
+            await FeeItem.create({
+              schoolId,
+              studentId: op.student._id,
+              feeId: fee._id,
+              feeHeadId: op.feeHead._id,
+              academicYear,
+              label: op.feeHead.name,
+              amount: op.structure.amount,
+              discount: op.concession.discount,
+              fine: 0,
+              totalDue: op.concession.totalDue,
+              paidAmount: 0,
+              balance: op.concession.totalDue,
+              status: "pending",
+              dueDate: op.structure.dueDate,
+              adjustments: [],
+            }, { session });
+            itemsCreated++;
+          }
         }
-        await FeeItem.create({
-          schoolId,
-          studentId: op.student._id,
-          feeId: fee._id,
-          feeHeadId: op.feeHead._id,
-          academicYear,
-          label: op.feeHead.name,
-          amount: op.structure.amount,
-          discount: op.concession.discount,
-          fine: 0,
-          totalDue: op.concession.totalDue,
-          paidAmount: 0,
-          balance: op.concession.totalDue,
-          status: "pending",
-          dueDate: op.structure.dueDate,
-          adjustments: [],
-        });
-        itemsCreated++;
-      }
-    }
+      });
+    } finally { await session.endSession(); }
 
     await createAuditLog({
       userId,

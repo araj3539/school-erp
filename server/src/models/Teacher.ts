@@ -34,7 +34,7 @@ const TeacherDocumentSchema = new Schema<ITeacherDocument>({
 });
 
 const TeacherSchema = new Schema<ITeacher>({
-  employeeId: { type: String, required: true, unique: true, maxlength: 20 },
+  employeeId: { type: String, required: true, maxlength: 20 },
   userId: { type: Schema.Types.ObjectId, ref: "User" },
   schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
   firstName: { type: String, required: true, maxlength: 50 },
@@ -52,6 +52,7 @@ const TeacherSchema = new Schema<ITeacher>({
 }, { timestamps: true });
 
 TeacherSchema.index({ email: 1 }, { unique: true });
+TeacherSchema.index({ schoolId: 1, employeeId: 1 }, { unique: true });
 TeacherSchema.index({ schoolId: 1, status: 1 });
 
 TeacherSchema.virtual("fullName").get(function () {

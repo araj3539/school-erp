@@ -107,7 +107,7 @@ export async function deactivateStaff(req: Request, res: Response, next: NextFun
       { new: true }
     ).lean();
     if (!staff) throw AppError.notFound("Staff member not found");
-    await createAuditLog({ userId: req.user!.userId, action: "DELETE", entity: "Staff", entityId: id, after: { status: StaffStatus.INACTIVE } });
+    await createAuditLog({ userId: req.user!.userId, action: "DEACTIVATE", entity: "Staff", entityId: id, after: { status: StaffStatus.INACTIVE } });
     res.json({ message: "Staff member deactivated" });
   } catch (error) {
     next(error);

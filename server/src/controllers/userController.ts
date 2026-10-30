@@ -38,8 +38,8 @@ export async function createUser(req: Request, res: Response, next: NextFunction
   try {
     const schoolId = req.user!.schoolId;
     const data = CreateUserSchema.parse({ ...req.body, schoolId });
-    if (req.user!.role !== UserRole.SUPER_ADMIN && data.role === UserRole.PRINCIPAL) {
-      throw AppError.forbidden("Only super admin can create a principal");
+    if (req.user!.role !== UserRole.SUPER_ADMIN && (data.role === UserRole.PRINCIPAL || data.role === UserRole.SUPPORT_ADMIN || data.role === UserRole.SUPER_ADMIN)) {
+      throw AppError.forbidden("Only super admin can assign platform or principal roles");
     }
     const existingUser = await User.findOne({ email: data.email, schoolId });
     if (existingUser) throw AppError.conflict("Email already registered");

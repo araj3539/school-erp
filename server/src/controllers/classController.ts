@@ -4,6 +4,7 @@ import { CreateClassSchema, UpdateClassSchema, CreateSectionSchema, UpdateSectio
 import { createAuditLog } from "../services/auditLog.js";
 import { AppError } from "../utils/errors.js";
 import { getTenantId, withTenant } from "../utils/tenant.js";
+import { Student, Timetable, Homework, Exam } from "../models/index.js";
 
 export async function getClasses(req: Request, res: Response, next: NextFunction) {
   try {
@@ -91,6 +92,14 @@ export async function deleteClass(req: Request, res: Response, next: NextFunctio
     if (sections > 0) {
       throw AppError.badRequest("Cannot delete class with sections");
     }
+    const students = await Student.countDocuments({ classId: id, schoolId, status: "active" });
+    if (students > 0) {
+      throw AppError.badRequest("Cannot delete class with active students enrolled");
+    }
+    const timetable = await Timetable.countDocuments({ classId: id, schoolId });
+    if (timetable > 0) {
+      throw AppError.badRequest("Cannot delete class with timetable entries");
+    }
     const cls = await Class.findOneAndDelete({ _id: id, schoolId });
     if (!cls) {
       throw AppError.notFound("Class not found");
@@ -172,10 +181,19 @@ export async function deleteSection(req: Request, res: Response, next: NextFunct
   try {
     const { id } = req.validatedParams as any;
     const schoolId = getTenantId(req);
-    const section = await Section.findOneAndDelete({ _id: id, schoolId });
+    const section = await Section.findOne({ _id: id, schoolId });
     if (!section) {
       throw AppError.notFound("Section not found");
     }
+    const students = await Student.countDocuments({ sectionId: id, schoolId, status: "active" });
+    if (students > 0) {
+      throw AppError.badRequest("Cannot delete section with active students enrolled");
+    }
+    const timetable = await Timetable.countDocuments({ sectionId: id, schoolId });
+    if (timetable > 0) {
+      throw AppError.badRequest("Cannot delete section with timetable entries");
+    }
+    await Section.findOneAndDelete({ _id: id, schoolId });
     await Class.findOneAndUpdate({ _id: section.classId, schoolId }, { $pull: { sectionIds: id } });
     await createAuditLog({
       userId: req.user!.userId,
@@ -248,7 +266,20 @@ export async function updateSubject(req: Request, res: Response, next: NextFunct
 export async function deleteSubject(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.validatedParams as any;
-    const subject = await Subject.findOneAndDelete({ _id: id, schoolId: getTenantId(req) });
+    const schoolId = getTenantId(req);
+    const exams = await Exam.countDocuments({ subjects: { $elemMatch: { subjectId: id } }, schoolId });
+    if (exams > 0) {
+      throw AppError.badRequest("Cannot delete subject referenced by exams");
+    }
+    const homework = await Homework.countDocuments({ subjectId: id, schoolId });
+    if (homework > 0) {
+      throw AppError.badRequest("Cannot delete subject referenced by homework");
+    }
+    const timetable = await Timetable.countDocuments({ subjectId: id, schoolId });
+    if (timetable > 0) {
+      throw AppError.badRequest("Cannot delete subject referenced by timetable entries");
+    }
+    const subject = await Subject.findOneAndDelete({ _id: id, schoolId });
     if (!subject) {
       throw AppError.notFound("Subject not found");
     }
