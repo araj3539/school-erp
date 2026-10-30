@@ -20,7 +20,7 @@ export interface AttendanceListData {
 
 export const attendanceService = {
   async list(params?: AttendanceQueryParams) {
-    const queryString = buildQueryParams(params as Record<string, string | number | boolean | undefined>);
+    const queryString = buildQueryParams(params as Record<string, string | number | boolean | undefined> ?? {});
     const response = await api.get<ApiResponse<AttendanceListData[]>>(`/attendance?${queryString}`);
     return response.data;
   },

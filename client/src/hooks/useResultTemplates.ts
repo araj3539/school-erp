@@ -16,7 +16,7 @@ export function useResultTemplates(params?: ResultTemplateQueryParams) {
     queryKey: ["result-templates", "list", params],
     queryFn: async () => {
       const response = await resultTemplatesService.list(params);
-      return response.data;
+      return response;
     },
   });
 

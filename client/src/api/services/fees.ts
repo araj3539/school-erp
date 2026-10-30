@@ -21,7 +21,7 @@ export interface FeeQueryParams extends ListParams {
 
 export const feesService = {
   async list(params?: FeeQueryParams) {
-    const queryString = buildQueryParams(params as Record<string, string | number | boolean | undefined>);
+    const queryString = buildQueryParams(params as Record<string, string | number | boolean | undefined> ?? {});
     const response = await api.get<PaginatedResponse<Fee>>(`/fees?${queryString}`);
     return response.data;
   },

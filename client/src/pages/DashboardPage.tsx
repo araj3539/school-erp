@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { formatCurrency } from "../utils/index.js";
 import { useExams } from "../hooks/useExams.js";
 import { useStudents } from "../hooks/useStudents.js";
+import { useTeachers } from "../hooks/useTeachers.js";
 import { useFees } from "../hooks/useFees.js";
 import { PremiumCard, PremiumCardHeader, PremiumCardContent } from "../components/ui/PremiumCard.js";
 import { PremiumButton } from "../components/ui/PremiumButton.js";
@@ -70,19 +71,20 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const { exams: allExams, isLoading: examsLoading, isError: examsError } = useExams({});
+  const { exams: allExams, isLoading: examsLoading, isError: examsError } = useExams({ limit: 1000 });
   const { students: allStudents, isLoading: studentsLoading, isError: studentsError } = useStudents({ limit: 1000 });
+  const { teachers: allTeachers, isLoading: teachersLoading, isError: teachersError } = useTeachers({ limit: 1000 });
   const { fees: allFees, isLoading: feesLoading, isError: feesError } = useFees({ limit: 1000 });
 
   const totalStudents = allStudents.length;
-  const totalTeachers = 0;
+  const totalTeachers = allTeachers.length;
   const totalClasses = new Set(allExams.map((e) => e.classId)).size;
   const todayCollection = allFees.reduce((sum, f) => sum + (f.paidAmount || 0), 0);
   const attendanceRate = 95.5;
   const pendingFees = allFees.filter((f) => f.status !== "paid").length;
 
-  const isLoading = examsLoading || studentsLoading || feesLoading;
-  const hasError = examsError || studentsError || feesError;
+  const isLoading = examsLoading || studentsLoading || teachersLoading || feesLoading;
+  const hasError = examsError || studentsError || teachersError || feesError;
 
   const welcomeMessages = [
     "Good morning! Ready for a productive day?",

@@ -34,7 +34,7 @@ export interface ResultTemplateQueryParams extends ListParams {
 }
 
 export const resultTemplatesService = {
-  async list(params?: ResultTemplateQueryParams): Promise<ApiResponse<PaginatedResponse<ResultTemplate>>> {
+  async list(params?: ResultTemplateQueryParams): Promise<PaginatedResponse<ResultTemplate>> {
     const query = buildQueryParams({
       page: params?.page,
       limit: params?.limit,
@@ -44,7 +44,7 @@ export const resultTemplatesService = {
       sectionId: params?.sectionId,
       academicYear: params?.academicYear,
     });
-    const response = await api.get(`/result-templates?${query}`);
+    const response = await api.get<PaginatedResponse<ResultTemplate>>(`/result-templates?${query}`);
     return response.data;
   },
 
