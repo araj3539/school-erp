@@ -3,9 +3,14 @@ import mongoose from "mongoose";
 import { Fee, Payment, PaymentReversal } from "../models/index.js";
 import { DateRangeSchema } from "../validators/index.js";
 
+// Exclusive upper bound = start of the day after endDate, so $lt includes the
+// whole endDate calendar day and nothing beyond it.
 function buildInclusiveEnd(endDate?: string): Date | undefined {
   if (!endDate) return undefined;
-  return new Date(new Date(endDate).getTime() + 1);
+  const d = new Date(endDate);
+  d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
 }
 
 export async function getFinancialReconciliation(req: Request, res: Response, next: NextFunction) {
