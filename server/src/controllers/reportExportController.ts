@@ -1,4 +1,4 @@
-import { Attendance, Fee, Student } from "../models/index.js";
+import { Attendance, Fee, Student, ExamResult } from "../models/index.js";
 import { Request, Response, NextFunction } from "express";
 import { generateExcelFile } from "../services/excel.js";
 import { getTenantId } from "../utils/tenant.js";
@@ -37,6 +37,17 @@ export async function exportManagementReport(req: Request, res: Response, next: 
         const records = a.records ?? [];
         const statuses = records.reduce((acc: Record<string, number>, r: any) => { acc[r.status] = (acc[r.status] ?? 0) + 1; return acc; }, {});
         return { date: a.date, class: a.classId?.displayName ?? a.classId?.name ?? "", section: a.sectionId?.name ?? "", present: statuses.present ?? 0, absent: statuses.absent ?? 0, late: statuses.late ?? 0, halfDay: statuses.half_day ?? 0, onLeave: statuses.on_leave ?? 0, total: records.length, lifecycle: a.lifecycle ?? "" };
+      });
+    } else if (type === "results") {
+      const { examId, classId, sectionId } = req.query as { examId?: string; classId?: string; sectionId?: string };
+      if (!examId) throw AppError.badRequest("examId is required for the results export");
+      const filter: any = { schoolId, examId, status: "published" };
+      if (classId) filter.classId = classId;
+      if (sectionId) filter.sectionId = sectionId;
+      const results = await ExamResult.find(filter).populate("examId studentId classId sectionId marks.subjectId").sort({ createdAt: -1 }).lean();
+      rows = results.map((r: any) => {
+        const marks = (r.marks ?? []).map((m: any) => ({ subject: m.subjectId?.name ?? "", maxMarks: m.value !== undefined && !m.absent ? (r.examId?.subjects as any[])?.find((s: any) => s.subjectId?.toString() === m.subjectId?.toString())?.maxMarks ?? 0 : 0, obtained: m.absent ? "Absent" : m.value, grade: m.absent ? "Absent" : (r.examId?.subjects as any[])?.find((s: any) => s.subjectId?.toString() === m.subjectId?.toString())?.passMarks !== undefined && m.value < (r.examId?.subjects as any[])?.find((s: any) => s.subjectId?.toString() === m.subjectId?.toString())?.passMarks ? "Fail" : "Pass" }));
+        return { admissionNo: r.studentId?.admissionNo ?? "", student: [r.studentId?.firstName, r.studentId?.lastName].filter(Boolean).join(" "), class: r.classId?.displayName ?? r.classId?.name ?? "", section: r.sectionId?.name ?? "", exam: r.examId?.name ?? "", totalMarks: r.totalMarks, obtainedMarks: r.obtainedMarks, percentage: r.percentage, grade: r.grade, outcome: r.result, marks: JSON.stringify(marks) };
       });
     } else {
       return res.status(400).json({ error: "unsupported report type" });

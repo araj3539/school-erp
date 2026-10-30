@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticate, requirePermission, requireAnyPermission, validate } from "../middleware/index.js";
-import { getExams, getExamById, createExam, updateExam, publishExam, upsertMarks, correctResult, getResults, getResultById, downloadReportCard } from "../controllers/examController.js";
-import { CreateExamSchema, UpdateExamSchema, MarksEntrySchema, ResultCorrectionSchema, ExamQuerySchema, ResultQuerySchema, IdParamSchema } from "../validators/index.js";
+import { getExams, getExamById, createExam, updateExam, publishExam, upsertMarks, correctResult, getResults, getResultById, downloadReportCard, bulkPublishExams } from "../controllers/examController.js";
+import { CreateExamSchema, UpdateExamSchema, MarksEntrySchema, ResultCorrectionSchema, ExamQuerySchema, ResultQuerySchema, IdParamSchema, BulkPublishSchema } from "../validators/index.js";
 const router=Router();
 router.use(authenticate);
 router.get("/",requireAnyPermission("exams:read","results:read","results:read:own","results:read:child"),validate(ExamQuerySchema,"query"),getExams);
@@ -12,6 +12,7 @@ router.get("/:id",requireAnyPermission("exams:read","results:read","results:read
 router.post("/",requirePermission("exams:write"),validate(CreateExamSchema),createExam);
 router.patch("/:id",requirePermission("exams:write"),validate(IdParamSchema,"params"),validate(UpdateExamSchema),updateExam);
 router.post("/:id/publish",requirePermission("exams:publish"),validate(IdParamSchema,"params"),publishExam);
+router.post("/bulk-publish",requirePermission("exams:publish"),validate(BulkPublishSchema,"body"),bulkPublishExams);
 router.put("/:id/results",requirePermission("marks:write"),validate(IdParamSchema,"params"),validate(MarksEntrySchema),upsertMarks);
 router.patch("/:id/results/correct",requirePermission("marks:correct"),validate(IdParamSchema,"params"),validate(ResultCorrectionSchema),correctResult);
 export default router;
